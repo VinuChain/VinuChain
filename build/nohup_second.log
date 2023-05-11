@@ -1,0 +1,74 @@
+INFO [04-18|19:02:52.006] Maximum peer count                       total=50
+INFO [04-18|19:02:52.006] Smartcard socket not found, disabling    err="stat /run/pcscd/pcscd.comm: no such file or directory"
+INFO [04-18|19:02:52.344] Genesis is already written               name=v id=13337 genesis=0x1a1de83ea5dbc0ab2e0df3b0dabf418043a561f13fcf8ef8c8b15d23e0a24cf7
+INFO [04-18|19:02:53.177] Unlocked validator key                   pubkey=0xc0043b4060fe18b3ae3a639e7e7b65a1ad01fb236a0dcf4ff4c8d7dd7e3ed4c4ef7a8c52e690a864ca953802f6f5b8e2e37adcfe97e1b740111a6ca782fc54efef11
+INFO [04-18|19:02:53.178] Loaded local transaction journal         transactions=0 dropped=0
+INFO [04-18|19:02:53.178] Regenerated local transaction journal    transactions=0 accounts=0
+INFO [04-18|19:02:53.178] Starting peer-to-peer node               instance=go-opera/v1.1.2-rc.3-e529a4e7-1669028682/linux-amd64/go1.18.1
+INFO [04-18|19:02:53.253] Mapped network port                      proto=tcp extport=5051 intport=5051 interface=ExtIP(127.0.0.1)
+INFO [04-18|19:02:53.324] Mapped network port                      proto=udp extport=5051 intport=5051 interface=ExtIP(127.0.0.1)
+INFO [04-18|19:02:53.326] New local node record                    seq=20 id=5fa931be6026b096 ip=127.0.0.1 udp=5051 tcp=5051
+INFO [04-18|19:02:53.326] Started P2P networking                   self=enode://2cc15c09c2b9758a17387ca7c1af4cb3c5d2cb853b24caf57d412b01f1302c174e9a89264697df4cf43731ae6c6a4c227b8f8665cdd091e503d004b2082ef4e4@127.0.0.1:5051
+INFO [04-18|19:02:53.327] IPC endpoint opened                      url=/home/urick0s/projects/work/go-opera/build/datadir1/opera.ipc
+INFO [04-18|19:02:53.327] EVM snapshot                             module=gossip-store at=00893f..bbb7f1 generating=false
+INFO [04-18|19:02:53.327] Start/Switch to fullsync mode...         module=PM
+INFO [04-18|19:02:53.339] Emitting is paused                       reason="no connections"
+INFO [04-18|19:03:00.349] Emitting is paused                       reason="no connections"
+INFO [04-18|19:03:07.351] Emitting is paused                       reason="no connections"
+INFO [04-18|19:03:14.356] Emitting is paused                       reason="no connections"
+INFO [04-18|19:03:21.364] Emitting is paused                       reason="recently connected" wait=28m13.695801043s
+INFO [04-18|19:03:28.364] Emitting is paused                       reason="recently connected" wait=28m6.695557662s
+INFO [04-18|19:03:35.368] Emitting is paused                       reason="recently connected" wait=27m59.692193423s
+INFO [04-18|19:03:42.375] Emitting is paused                       reason="recently connected" wait=27m52.68550428s
+INFO [04-18|19:03:49.379] Emitting is paused                       reason="recently connected" wait=27m45.680951656s
+INFO [04-18|19:03:56.386] Emitting is paused                       reason="recently connected" wait=27m38.673791676s
+INFO [04-18|19:04:03.391] Emitting is paused                       reason="recently connected" wait=27m31.669123189s
+INFO [04-18|19:04:10.391] Emitting is paused                       reason="recently connected" wait=27m24.668918329s
+INFO [04-18|19:04:17.399] Emitting is paused                       reason="recently connected" wait=27m17.661236696s
+INFO [04-18|19:04:24.409] Emitting is paused                       reason="recently connected" wait=27m10.651095978s
+INFO [04-18|19:04:31.416] Emitting is paused                       reason="recently connected" wait=27m3.643980945s
+WARN [04-18|19:04:38.293] Served eth_sendTransaction               reqid=20 t=4.154702ms err="authentication needed: password or unlock"
+INFO [04-18|19:04:38.425] Emitting is paused                       reason="recently connected" wait=26m56.634746996s
+INFO [04-18|19:04:45.428] Emitting is paused                       reason="recently connected" wait=26m49.631911048s
+INFO [04-18|19:04:52.430] Emitting is paused                       reason="recently connected" wait=26m42.629964688s
+INFO [04-18|19:04:59.439] Emitting is paused                       reason="recently connected" wait=26m35.62074823s
+INFO [04-18|19:05:06.440] Emitting is paused                       reason="recently connected" wait=26m28.619972984s
+INFO [04-18|19:05:13.443] Emitting is paused                       reason="recently connected" wait=26m21.61667991s
+INFO [04-18|19:05:20.446] Emitting is paused                       reason="recently connected" wait=26m14.614486078s
+INFO [04-18|19:05:27.448] Emitting is paused                       reason="recently connected" wait=26m7.61198239s
+INFO [04-18|19:05:34.455] Emitting is paused                       reason="recently connected" wait=26m0.605453793s
+INFO [04-18|19:05:41.462] Emitting is paused                       reason="recently connected" wait=25m53.598355963s
+WARN [04-18|19:05:45.086] Served eth_protocolVersion               reqid=34 t="9.107µs"  err="the method eth_protocolVersion does not exist/is not available"
+WARN [04-18|19:05:45.089] Served eth_protocolVersion               reqid=44 t="10.08µs"  err="the method eth_protocolVersion does not exist/is not available"
+INFO [04-18|19:05:48.472] Emitting is paused                       reason="recently connected" wait=25m46.588268176s
+INFO [04-18|19:05:55.483] Emitting is paused                       reason="recently connected" wait=25m39.577344443s
+INFO [04-18|19:06:02.491] Emitting is paused                       reason="recently connected" wait=25m32.568560512s
+INFO [04-18|19:06:09.492] Emitting is paused                       reason="recently connected" wait=25m25.568441261s
+INFO [04-18|19:06:16.498] Emitting is paused                       reason="recently connected" wait=25m18.56227062s
+INFO [04-18|19:06:23.499] Emitting is paused                       reason="recently connected" wait=25m11.561145395s
+INFO [04-18|19:06:30.502] Emitting is paused                       reason="recently connected" wait=25m4.558023095s
+INFO [04-18|19:06:37.513] Emitting is paused                       reason="recently connected" wait=24m57.546844572s
+INFO [04-18|19:06:44.521] Emitting is paused                       reason="recently connected" wait=24m50.538724294s
+INFO [04-18|19:06:51.529] Emitting is paused                       reason="recently connected" wait=24m43.531126475s
+INFO [04-18|19:06:58.536] Emitting is paused                       reason="recently connected" wait=24m36.524486058s
+INFO [04-18|19:07:05.541] Emitting is paused                       reason="recently connected" wait=24m29.519085898s
+INFO [04-18|19:07:12.542] Emitting is paused                       reason="recently connected" wait=24m22.517903632s
+INFO [04-18|19:07:19.549] Emitting is paused                       reason="recently connected" wait=24m15.51077256s
+INFO [04-18|19:07:26.561] Emitting is paused                       reason="recently connected" wait=24m8.499211699s
+INFO [04-18|19:07:33.567] Emitting is paused                       reason="recently connected" wait=24m1.492977154s
+INFO [04-18|19:07:40.576] Emitting is paused                       reason="recently connected" wait=23m54.483564337s
+INFO [04-18|19:07:47.584] Emitting is paused                       reason="recently connected" wait=23m47.475542268s
+INFO [04-18|19:07:54.595] Emitting is paused                       reason="recently connected" wait=23m40.464647254s
+INFO [04-18|19:08:01.606] Emitting is paused                       reason="recently connected" wait=23m33.454496487s
+INFO [04-18|19:08:08.613] Emitting is paused                       reason="recently connected" wait=23m26.446708784s
+INFO [04-18|19:08:15.621] Emitting is paused                       reason="recently connected" wait=23m19.439227302s
+INFO [04-18|19:08:22.633] Emitting is paused                       reason="recently connected" wait=23m12.427477685s
+INFO [04-18|19:08:29.634] Emitting is paused                       reason="recently connected" wait=23m5.425551752s
+INFO [04-18|19:08:36.638] Emitting is paused                       reason="recently connected" wait=22m58.422470045s
+INFO [04-18|19:08:43.639] Emitting is paused                       reason="recently connected" wait=22m51.420827609s
+INFO [04-18|19:08:44.565] Got interrupt, shutting down... 
+INFO [04-18|19:08:44.565] IPC endpoint closed                      url=/home/urick0s/projects/work/go-opera/build/datadir1/opera.ipc
+INFO [04-18|19:08:44.565] Stopping Fantom protocol 
+INFO [04-18|19:08:44.566] Fantom protocol stopped 
+INFO [04-18|19:08:44.567] Looking for peers                        peercount=0 tried=1 static=1
+INFO [04-18|19:08:44.567] Fantom service stopped 

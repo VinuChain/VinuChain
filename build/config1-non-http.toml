@@ -1,0 +1,365 @@
+[Node]
+DataDir = "datadir1"
+IPCPath = "opera.ipc"
+HTTPModules = ["admin", "debug", "web3", "eth", "dag", "txpool", "personal", "abft", "ftm", "net"]
+WSModules = ["admin", "debug", "web3", "eth", "dag", "txpool", "personal", "abft", "ftm", "net"]
+
+[Node.P2P]
+MaxPeers = 50
+NoDiscovery = false
+DiscoveryV5 = true
+BootstrapNodes = ["enr:"]
+BootstrapNodesV5 = ["enr:"]
+StaticNodes = []
+TrustedNodes = []
+ListenAddr = ":5051"
+EnableMsgEvents = false
+
+[Node.HTTPTimeouts]
+ReadTimeout = 30000000000
+WriteTimeout = 30000000000
+IdleTimeout = 120000000000
+
+[Opera]
+OperaDiscoveryURLs = []
+SnapDiscoveryURLs = []
+AllowSnapsync = false
+TxIndex = true
+RPCGasCap = 50000000
+RPCTxFeeCap = 1e+02
+RPCTimeout = 5000000000
+AllowUnprotectedTxs = false
+RPCBlockExt = true
+
+[Opera.FilterAPI]
+IndexedLogsBlockRangeLimit = 999999999999999999
+UnindexedLogsBlockRangeLimit = 100
+
+[Opera.Protocol]
+LatencyImportance = 60
+ThroughputImportance = 40
+MsgsSemaphoreTimeout = 10000000000
+ProgressBroadcastPeriod = 10000000000
+MaxInitialTxHashesSend = 20000
+MaxRandomTxHashesSend = 128
+RandomTxHashesSendPeriod = 20000000000
+
+[Opera.Protocol.EventsSemaphoreLimit]
+Num = 10000
+Size = 31457280
+
+[Opera.Protocol.BVsSemaphoreLimit]
+Num = 5000
+Size = 15728640
+
+[Opera.Protocol.MsgsSemaphoreLimit]
+Num = 1000
+Size = 31457280
+
+[Opera.Protocol.DagProcessor]
+EventsSemaphoreTimeout = 10000000000
+MaxTasks = 128
+
+[Opera.Protocol.DagProcessor.EventsBufferLimit]
+Num = 3250
+Size = 11534336
+
+[Opera.Protocol.BvProcessor]
+SemaphoreTimeout = 10000000000
+MaxTasks = 512
+
+[Opera.Protocol.BvProcessor.BufferLimit]
+Num = 3000
+Size = 15728640
+
+[Opera.Protocol.BrProcessor]
+SemaphoreTimeout = 10000000000
+MaxTasks = 512
+
+[Opera.Protocol.BrProcessor.BufferLimit]
+Num = 10000
+Size = 15728640
+
+[Opera.Protocol.EpProcessor]
+SemaphoreTimeout = 10000000000
+MaxTasks = 512
+
+[Opera.Protocol.EpProcessor.BufferLimit]
+Num = 10000
+Size = 15728640
+
+[Opera.Protocol.DagFetcher]
+ForgetTimeout = 60000000000
+ArriveTimeout = 4000000000
+GatherSlack = 100000000
+HashLimit = 10000
+MaxBatch = 512
+MaxParallelRequests = 192
+MaxQueuedBatches = 32
+
+[Opera.Protocol.TxFetcher]
+ForgetTimeout = 60000000000
+ArriveTimeout = 1000000000
+GatherSlack = 100000000
+HashLimit = 10000
+MaxBatch = 512
+MaxParallelRequests = 64
+MaxQueuedBatches = 32
+
+[Opera.Protocol.DagStreamLeecher]
+RecheckInterval = 1000000000
+BaseProgressWatchdog = 5000000000
+BaseSessionWatchdog = 150000000000
+MinSessionRestart = 5000000000
+MaxSessionRestart = 240000000000
+
+[Opera.Protocol.DagStreamLeecher.Session]
+RecheckInterval = 10000000
+DefaultChunkItemsNum = 500
+DefaultChunkItemsSize = 524288
+ParallelChunksDownload = 6
+
+[Opera.Protocol.DagStreamSeeder]
+SenderThreads = 8
+MaxSenderTasks = 128
+MaxPendingResponsesSize = 67108864
+MaxResponsePayloadNum = 16384
+MaxResponsePayloadSize = 8388608
+MaxResponseChunks = 12
+
+[Opera.Protocol.BvStreamLeecher]
+RecheckInterval = 1000000000
+BaseProgressWatchdog = 5000000000
+BaseSessionWatchdog = 150000000000
+MinSessionRestart = 5000000000
+MaxSessionRestart = 300000000000
+
+[Opera.Protocol.BvStreamLeecher.Session]
+RecheckInterval = 10000000
+DefaultChunkItemsNum = 500
+DefaultChunkItemsSize = 524288
+ParallelChunksDownload = 6
+
+[Opera.Protocol.BvStreamSeeder]
+SenderThreads = 2
+MaxSenderTasks = 64
+MaxPendingResponsesSize = 33554432
+MaxResponsePayloadNum = 4096
+MaxResponsePayloadSize = 8388608
+MaxResponseChunks = 12
+
+[Opera.Protocol.BrStreamLeecher]
+RecheckInterval = 1000000000
+BaseProgressWatchdog = 5000000000
+BaseSessionWatchdog = 150000000000
+MinSessionRestart = 5000000000
+MaxSessionRestart = 300000000000
+
+[Opera.Protocol.BrStreamLeecher.Session]
+RecheckInterval = 10000000
+DefaultChunkItemsNum = 500
+DefaultChunkItemsSize = 524288
+ParallelChunksDownload = 6
+
+[Opera.Protocol.BrStreamSeeder]
+SenderThreads = 2
+MaxSenderTasks = 64
+MaxPendingResponsesSize = 33554432
+MaxResponsePayloadNum = 4096
+MaxResponsePayloadSize = 8388608
+MaxResponseChunks = 12
+
+[Opera.Protocol.EpStreamLeecher]
+RecheckInterval = 1000000000
+BaseProgressWatchdog = 5000000000
+BaseSessionWatchdog = 150000000000
+MinSessionRestart = 5000000000
+MaxSessionRestart = 300000000000
+
+[Opera.Protocol.EpStreamLeecher.Session]
+RecheckInterval = 10000000
+DefaultChunkItemsNum = 500
+DefaultChunkItemsSize = 524288
+ParallelChunksDownload = 6
+
+[Opera.Protocol.EpStreamSeeder]
+SenderThreads = 2
+MaxSenderTasks = 64
+MaxPendingResponsesSize = 33554432
+MaxResponsePayloadNum = 4096
+MaxResponsePayloadSize = 8388608
+MaxResponseChunks = 12
+
+[Opera.Protocol.PeerCache]
+MaxKnownTxs = 24576
+MaxKnownEvents = 24576
+MaxQueuedItems = 4096
+MaxQueuedSize = 10486784
+
+[Opera.HeavyCheck]
+MaxQueuedTasks = 1024
+Threads = 0
+
+[Opera.GPO]
+MaxGasPrice = 10000000000000000
+MinGasPrice = 0
+DefaultCertainty = 500000
+
+[Emitter]
+VersionToPublish = "1.1.2-rc.3"
+MaxTxsPerAddress = 32
+MaxParents = 0
+LimitedTpsThreshold = 3360000
+NoTxsThreshold = 840000
+EmergencyThreshold = 140000
+TxsCacheInvalidation = 200000000
+
+[Emitter.Validator]
+ID = 0
+
+[Emitter.Validator.PubKey]
+Type = 0
+Raw = []
+
+[Emitter.EmitIntervals]
+Min = 110000000
+Max = 600000000000
+Confirming = 120000000
+ParallelInstanceProtection = 60000000000
+DoublesignProtection = 1620000000000
+
+[Emitter.PrevEmittedEventFile]
+Path = ""
+SyncMode = false
+
+[Emitter.PrevBlockVotesFile]
+Path = ""
+SyncMode = false
+
+[Emitter.PrevEpochVoteFile]
+Path = ""
+SyncMode = false
+
+[TxPool]
+Locals = []
+NoLocals = false
+Journal = "transactions.rlp"
+Rejournal = 3600000000000
+PriceLimit = 1
+PriceBump = 10
+AccountSlots = 16
+GlobalSlots = 1280
+AccountQueue = 32
+GlobalQueue = 256
+Lifetime = 10800000000000
+
+[OperaStore]
+MaxNonFlushedSize = 24117248
+MaxNonFlushedPeriod = 1800000000000
+
+[OperaStore.Cache]
+EventsNum = 5000
+EventsSize = 6291456
+EventsIDsNum = 100000
+BlocksNum = 5000
+BlocksSize = 524288
+BlockEpochStateNum = 8
+LlrBlockVotesIndexes = 100
+LlrEpochVotesIndexes = 5
+
+[OperaStore.EVM]
+EnablePreimageRecording = true
+
+[OperaStore.EVM.Cache]
+ReceiptsSize = 4194304
+ReceiptsBlocks = 4000
+TxPositions = 20000
+EvmDatabase = 33554432
+EvmSnap = 33554432
+EvmBlocksNum = 5000
+EvmBlocksSize = 6291456
+TrieCleanJournal = ""
+TrieDirtyDisabled = true
+TrieDirtyLimit = 268435456
+GreedyGC = false
+
+[LachesisStore.Cache]
+RootsNum = 1000
+RootsFrames = 100
+
+[VectorClock.Fc.Caches]
+ForklessCausePairs = 20000
+HighestBeforeSeqSize = 163840
+LowestAfterSeqSize = 163840
+
+[VectorClock.Caches]
+HighestBeforeTimeSize = 163840
+
+[DBs]
+MigrationMode = ""
+
+[DBs.Routing.Table.""]
+Type = "leveldb-fsh"
+Name = ""
+Table = ""
+NoDrop = false
+
+[DBs.Routing.Table.evm]
+Type = "leveldb-fsh"
+Name = "main"
+Table = ""
+NoDrop = false
+
+[DBs.Routing.Table.evm-logs]
+Type = "leveldb-fsh"
+Name = "main"
+Table = "L"
+NoDrop = false
+
+[DBs.Routing.Table.gossip]
+Type = "leveldb-fsh"
+Name = "main"
+Table = ""
+NoDrop = false
+
+[DBs.Routing.Table."gossip-%d"]
+Type = "leveldb-fsh"
+Name = "epoch-%d"
+Table = "G"
+NoDrop = false
+
+[DBs.Routing.Table.lachesis]
+Type = "leveldb-fsh"
+Name = "main"
+Table = "C"
+NoDrop = false
+
+[DBs.Routing.Table."lachesis-%d"]
+Type = "leveldb-fsh"
+Name = "epoch-%d"
+Table = "L"
+NoDrop = true
+
+[DBs.RuntimeCache.Table.""]
+Cache = 67108864
+Fdlimit = 52
+
+[DBs.RuntimeCache.Table."epoch-%d"]
+Cache = 104857600
+Fdlimit = 513
+
+[DBs.RuntimeCache.Table.main]
+Cache = 943718400
+Fdlimit = 4609
+
+[DBs.GenesisCache.Table.""]
+Cache = 16777216
+Fdlimit = 52
+
+[DBs.GenesisCache.Table."epoch-%d"]
+Cache = 1048576
+Fdlimit = 2
+
+[DBs.GenesisCache.Table.main]
+Cache = 3145728000
+Fdlimit = 5120

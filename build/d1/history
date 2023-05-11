@@ -1,0 +1,14 @@
+admin
+ftm
+admin.addPeer("enode://895d0b946be44ed4087f86095271b662f7b7e2664b1cce34be04ad7b25de5cc6a9d5055f0e4dd8a2beb89af7e24446f111244736d2fc3e64c731eee2c0a899a6@10.42.124.92:5050")
+admin
+admin.addPeer("enode://895d0b946be44ed4087f86095271b662f7b7e2664b1cce34be04ad7b25de5cc6a9d5055f0e4dd8a2beb89af7e24446f111244736d2fc3e64c731eee2c0a899a6@10.42.124.92:5050")
+admin
+admin.addPeer("enode://895d0b946be44ed4087f86095271b662f7b7e2664b1cce34be04ad7b25de5cc6a9d5055f0e4dd8a2beb89af7e24446f111244736d2fc3e64c731eee2c0a899a6@127.0.0.1:5050")
+admin
+ftm.sendTransaction({from: "0x02aff1d0a9ed566e644f06fcfe7efe00a3261d03", to: "0x239fa7623354ec26520de878b52f13fe84b06971", value:  "1000000000"}, function(err, transactionHash) { if (!err)console.log(transactionHash + " success");});
+txpool
+ftm.getBalance("0x02aff1d0a9ed566e644f06fcfe7efe00a3261d03")
+ftm
+admin
+ftm
