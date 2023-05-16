@@ -23,7 +23,7 @@ do
 	--fakenet=${ACC}/$N \
 	--port=${PORT} \
 	--nat any \
-	--http --http.addr="192.168.3.8" --http.port=${RPCP} --http.corsdomain="*" --http.vhosts="*" --http.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" \
+	--http --http.addr="localhost" --http.port=${RPCP} --http.corsdomain="*" --http.vhosts="*" --http.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" \
 	--ws --ws.addr="127.0.0.1" --ws.port=${WSP} --ws.origins="*" --ws.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" \
 	--verbosity=3 --tracing >> opera$i.log 2>&1)&
 
