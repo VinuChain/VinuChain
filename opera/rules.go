@@ -18,6 +18,7 @@ const (
 	MainNetworkID   uint64 = 0xfa
 	TestNetworkID   uint64 = 0xfa2
 	FakeNetworkID   uint64 = 0xfa3
+	VinuNetworkID          = 0x1a
 	DefaultEventGas uint64 = 28000
 	berlinBit              = 1 << 0
 	londonBit              = 1 << 1
@@ -180,8 +181,8 @@ func TestNetRules() Rules {
 
 func FakeNetRules() Rules {
 	return Rules{
-		Name:      "fake",
-		NetworkID: FakeNetworkID,
+		Name:      "vinuchain",
+		NetworkID: VinuNetworkID,
 		Dag:       DefaultDagRules(),
 		Epochs:    FakeNetEpochsRules(),
 		Economy:   FakeEconomyRules(),
