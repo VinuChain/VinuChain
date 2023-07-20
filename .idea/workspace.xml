@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="591dadd8-e5e0-4558-bfd0-0b4edcf09541" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/CHANGELOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CODE_OF_CONDUCT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/COPYING.LESSER" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FUZZING.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PULL_REQUEST_TEMPLATE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/appveyor.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/demo_opera" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/opera" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/000104.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/epoch-2/MANIFEST-000156" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/000236.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/000237.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/000246.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/chaindata/leveldb-fsh/main/MANIFEST-000248" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/000005.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/000008.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/nodes/MANIFEST-000010" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/keystore/UTC--2023-07-05T16-01-56.153599378Z--626e9f7f9c101fb0dbf14e0f175bbffd757f5e2c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/keystore/keystore/UTC--2023-07-05T15-41-12.407796119Z--626e9f7f9c101fb0dbf14e0f175bbffd757f5e2c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/keystore/keystore/validator/c004bb50427033c4c5d4bfa551d03fe7ec7379401b783bcadf412d40f4952e56a2097e95661c35ee64106f6bd977d8592405a28c8d248ef827345e09edf40083fef0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/8opera.datadir/keystore/validator/c004bb50427033c4c5d4bfa551d03fe7ec7379401b783bcadf412d40f4952e56a2097e95661c35ee64106f6bd977d8592405a28c8d248ef827345e09edf40083fef0" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/epoch-2/MANIFEST-000056" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/000089.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/000096.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/chaindata/leveldb-fsh/main/MANIFEST-000098" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/nodes/MANIFEST-000004" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/keystore/UTC--2023-07-05T16-00-56.676833175Z--9b761aef8c0b5c751d20217634f8188dce866eba" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/9opera.datadir/keystore/validator/c004ae769288f41b520a1d04ee6f3e3ed4f26a73c49b81c3bdc25480b454437624c9b3ea0d4cbad36eab4d83f26dba45303a630bd8b150a3455d69fe21abd53693fc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/config.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/connect_node.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_node_start.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_node_start_yuri.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_node_start_yuri_no_unlock.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_node_start_yuri_without_http.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_node_start_yuri_without_http_and_unlock.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/epoch-549/MANIFEST-000008" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000012.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000022.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000023.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000024.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000025.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000026.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000027.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000028.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000029.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/000036.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/chaindata/leveldb-fsh/main/MANIFEST-000038" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/nodes/MANIFEST-000004" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/epoch-97/MANIFEST-000008" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/000026.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/000027.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/000034.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/chaindata/leveldb-fsh/main/MANIFEST-000036" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/000005.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/nodes/MANIFEST-000007" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/epoch-87/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/epoch-87/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/epoch-87/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/epoch-87/MANIFEST-000000" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/000022.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/000025.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/chaindata/leveldb-fsh/main/MANIFEST-000024" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/nodes/MANIFEST-000004" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb2.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/epoch-238/MANIFEST-000008" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000099.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000102.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000103.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000104.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000105.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000106.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000107.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/000108.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/chaindata/leveldb-fsh/main/MANIFEST-000101" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/000011.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/000014.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/nodes/MANIFEST-000013" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/keystore/UTC--2023-07-06T08-10-36.905050015Z--1f88115856cab5b32dc541893f462adfc63cfd8c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/keystore/UTC--2023-07-06T10-20-40.643398720Z--cb78df43288447367ddf1affbea329ba610f7a31" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_gleb3.datadir/keystore/validator/c00438d831b203937e96584fb6efccedacedaaca34bba690e88762ad5512e9787cd0dcd814db1def6fc41496a689afd1044c8a4689cb182311d2df981d6e2f3b74dd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_pass.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/000009.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/epoch-7/MANIFEST-000015" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000015.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000016.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000023.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000026.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000033.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/000036.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/chaindata/leveldb-fsh/main/MANIFEST-000035" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/000002.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/nodes/MANIFEST-000004" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/keystore/UTC--2023-07-04T17-33-11.588412294Z--9b761aef8c0b5c751d20217634f8188dce866eba" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/custom_validator_yuri.datadir/keystore/validator/c0040fd9c8ed979f54c8d45c0c3b75318b3aaad7dd7dd8c35e32766c98d8e1d7290d49f1a6076a966be81bebcad5a1571890ebf0ad2ebd43bbd1595143f0923aadd4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/genesis2.g" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/genesis3.g" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/genesis4.g" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/genesis5.g" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/genesis_sepparate.g" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/epoch-243/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/epoch-243/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/epoch-243/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/epoch-243/MANIFEST-000000" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/000012.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/000015.ldb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/CURRENT.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/chaindata/leveldb-fsh/main/MANIFEST-000014" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/nodekey" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/nodes/CURRENT" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/nodes/LOCK" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/nodes/LOG" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/nodes/MANIFEST-000000" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/go-opera/transactions.rlp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/history" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/keystore/UTC--2023-07-06T08-10-36.905050015Z--1f88115856cab5b32dc541893f462adfc63cfd8c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/keystore/UTC--2023-07-07T09-33-13.375185800Z--9b761aef8c0b5c751d20217634f8188dce866eba" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb4.datadir/keystore/validator/c0040b93f1a865377d48d7d4b034201dae4f4638fa7b007099d6e28e5e8215c901faddfe7f37e3d4f329dd6e233cb3651733f51f5038f78836c2b256c421425d14b1" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb_custom.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb_custom2.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb_custom3.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/gleb_restarted.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/glebgleb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/node_8.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/node_9.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/nodegleb4.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/pass.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/password.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/restart_with_node.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/show_demos.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/start_nodes.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/validator_config_commands.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/evmcore/apply_fake_genesis.go" beforeDir="false" afterPath="$PROJECT_DIR$/evmcore/apply_fake_genesis.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" url="file:///usr/lib/go-1.18" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2Pp6Re9y1fpDtAllbJ2Kc9yVGdh" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "go.import.settings.migrated": "true",
+    "go.sdk.automatically.set": "true",
+    "last_opened_file_path": "/home/urick0s/Downloads/vinuchain",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="vinu-blockchain" />
+      <working_directory value="$PROJECT_DIR$" />
+      <parameters value="--datadir $PROJECT_DIR$/demo/opera0.datadir attach" />
+      <kind value="FILE" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/cmd/opera/main.go" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Build.go build main.go" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="CUSTOM_BOOLEAN_PROPERTIES">
+                <map>
+                  <entry key="Show.Git.Branches" value="false" />
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VgoProject">
+    <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/eventcheck/gaspowercheck/gas_power_check.go</url>
+          <line>102</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/gossip/blockproc/sealmodule/sealer.go</url>
+          <line>76</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/gossip/checker_helpers.go</url>
+          <line>51</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/gossip/gpo_backend.go</url>
+          <line>61</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/inter/iblockproc/decided_state.go</url>
+          <line>131</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/gossip/blockproc/drivermodule/driver_txs.go</url>
+          <line>144</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/gossip/gpo_backend.go</url>
+          <line>76</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
