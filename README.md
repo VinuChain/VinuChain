@@ -8,7 +8,8 @@ Determinably Feeless, Lightning Fast, L1 EVM Network.
 ## Explorer 🔗
 - [VinuScan 🌐](https://vinuscan.com)
 
-## Dev Docs 🔗
+## Docs 🔗
+- [Whitepaper 🌐](https://vita-inu.gitbook.io/vinuchain/whitepaper/whitepaper)
 - [Dev Docs 🌐](https://vita-inu.gitbook.io/vinuchain/)
 
 ## Socials 🔗
