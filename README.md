@@ -2,14 +2,14 @@
 Determinably Feeless, Lightning Fast, L1 EVM Network.
 
 ## Website 🔗
-- [Website 🌐](https://vinuchain.org)
+- [Website (VinuChain) 🌐](https://vinuchain.org)
 - [Website (Ecosystem) 🌐](https://vinu.org)
 
 ## Explorer 🔗
-- [Explorer 🌐](https://vinuscan.com)
+- [VinuScan 🌐](https://vinuscan.com)
 
 ## Dev Docs 🔗
-- [Dev Docs 🌐]([https://vita-inu.gitbook.io/vinuchain/)
+- [Dev Docs 🌐](https://vita-inu.gitbook.io/vinuchain/)
 
 ## Socials 🔗
 Follow us!
