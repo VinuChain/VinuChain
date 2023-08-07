@@ -564,6 +564,21 @@
     },
     {
       "constant": true,
+      "inputs": [],
+      "name": "genesisValidator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
       "inputs": [
         {
           "internalType": "uint256",
@@ -2106,7 +2121,37 @@
     {
       "constant": true,
       "inputs": [],
+      "name": "withdrawalPeriodEpochsValidator",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
       "name": "withdrawalPeriodTime",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "withdrawalPeriodTimeValidator",
       "outputs": [
         {
           "internalType": "uint256",
