@@ -185,11 +185,11 @@ func FakeNetRules() Rules {
 		Name:      "vinuchain",
 		NetworkID: VinuNewNetworkId,
 		Dag:       DefaultDagRules(),
-		Epochs:    DefaultEpochsRules(),
+		Epochs:    VitainuNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
-			MaxEmptyBlockSkipPeriod: inter.Timestamp(1 * time.Minute),
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
 			Berlin: true,
@@ -263,6 +263,12 @@ func DefaultGasRules() GasRules {
 		EpochVoteGas:         1536,
 		MisbehaviourProofGas: 71536,
 	}
+}
+
+func VitainuNetEpochsRules() EpochsRules {
+	cfg := DefaultEpochsRules()
+	cfg.MaxEpochDuration = inter.Timestamp(10 * time.Minute)
+	return cfg
 }
 
 func FakeNetEpochsRules() EpochsRules {
