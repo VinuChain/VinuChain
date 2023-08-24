@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/abft"
 	"github.com/Fantom-foundation/lachesis-base/utils/cachescale"
@@ -419,6 +420,10 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		// "asDefault" means set network defaults
 		cfg.Node.P2P.BootstrapNodes = asDefault
 		cfg.Node.P2P.BootstrapNodesV5 = asDefault
+
+		//vinu fast emittion
+		cfg.Emitter.EmitIntervals.Max = 10 * time.Second // don't wait long in vinu net
+		cfg.Emitter.EmitIntervals.DoublesignProtection = cfg.Emitter.EmitIntervals.Max / 2
 	}
 
 	// Load config file (medium priority)
