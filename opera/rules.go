@@ -218,6 +218,26 @@ func LegacyFakeNetRules() Rules {
 	}
 }
 
+// VitainuTestNetRules returns testnet rules
+func VitainuTestNetRules() Rules {
+	return Rules{
+		Name:      "vinutest",
+		NetworkID: VinuNetworkID,
+		Dag:       DefaultDagRules(),
+		Epochs:    VitainuNetEpochsRules(),
+		Economy:   DefaultEconomyRules(),
+		Blocks: BlocksRules{
+			MaxBlockGas:             20500000,
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
+		},
+		Upgrades: Upgrades{
+			Berlin: true,
+			London: true,
+			Llr:    true,
+		},
+	}
+}
+
 // DefaultEconomyRules returns mainnet economy
 func DefaultEconomyRules() EconomyRules {
 	return EconomyRules{
