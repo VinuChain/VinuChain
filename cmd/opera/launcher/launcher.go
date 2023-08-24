@@ -225,6 +225,7 @@ func init() {
 		snapshotCommand,
 		// See dbcmd.go
 		dbCommand,
+		InitNetCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
