@@ -10,6 +10,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/validatorpk"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // GasPowerCheckReader is a helper to run gas power check
@@ -108,6 +109,8 @@ func readEpochPubKeys(s *Store, epoch idx.Epoch) *ValidatorsPubKeys {
 	if es == nil {
 		return nil
 	}
+	log.Debug("GetHistoryEpochState", "epoch", epoch, "len(es.ValidatorProfiles)", len(es.ValidatorProfiles))
+
 	var pubkeys = make(map[idx.ValidatorID]validatorpk.PubKey, len(es.ValidatorProfiles))
 	for id, profile := range es.ValidatorProfiles {
 		pubkeys[id] = profile.PubKey
