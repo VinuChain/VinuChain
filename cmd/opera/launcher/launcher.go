@@ -59,6 +59,7 @@ var (
 	legacyRpcFlags   []cli.Flag
 	rpcFlags         []cli.Flag
 	metricsFlags     []cli.Flag
+	networkFlags     []cli.Flag
 )
 
 func initFlags() {
@@ -178,6 +179,10 @@ func initFlags() {
 		tracing.EnableFlag,
 	}
 
+	networkFlags = []cli.Flag{
+		ValidatorsFileFlag,
+	}
+
 	nodeFlags = []cli.Flag{}
 	nodeFlags = append(nodeFlags, gpoFlags...)
 	nodeFlags = append(nodeFlags, accountFlags...)
@@ -235,6 +240,7 @@ func init() {
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, metricsFlags...)
+	app.Flags = append(app.Flags, networkFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		if err := debug.Setup(ctx); err != nil {
