@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"os"
 	"path"
 	"strconv"
 	"time"
@@ -34,11 +35,12 @@ var InitNetCommand = cli.Command{
 			Name:      "new",
 			Usage:     "Create a new network",
 			Action:    utils.MigrateFlags(newVinuNetwork),
-			ArgsUsage: "<val_num>",
+			ArgsUsage: "network new <val_num> [flags]",
 			Flags: []cli.Flag{
 				DataDirFlag,
 				utils.KeyStoreDirFlag,
 				utils.PasswordFileFlag,
+				ValidatorsFileFlag,
 			},
 			Description: `
 opera network new
@@ -110,10 +112,6 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 	fmt.Printf("Validator ID:                %d\n", valId)
 	fmt.Printf("Public key:                  %s\n", publicKey.String())
 	fmt.Printf("Path of the secret key file: %s\n\n", valKeystore.PathOf(publicKey))
-	fmt.Printf("- You can share your public key with anyone. Others need it to validate messages from you.\n")
-	fmt.Printf("- You must NEVER share the secret key with anyone! The key controls access to your validator!\n")
-	fmt.Printf("- You must BACKUP your key file! Without the key, it's impossible to operate the validator!\n")
-	fmt.Printf("- You must REMEMBER your password! Without the password, it's impossible to decrypt the key!\n\n")
 
 	return &gpos.Validator{
 		ID:               idx.ValidatorID(valId),
@@ -153,6 +151,14 @@ func newVinuNetwork(ctx *cli.Context) error {
 	// Create genesisStore
 	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(1000000000), futils.ToFtm(5000000), opera.VitainuTestNetRules(), epoch, block, validators)
 
+	// Save validators to file for future use
+	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {
+		err := saveValidators(ctx, validators)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, val := range validators {
 
 		ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, val.ID))
@@ -178,5 +184,28 @@ func newVinuNetwork(ctx *cli.Context) error {
 		time.Sleep(5 * time.Second)
 	}
 
+	return nil
+}
+
+func saveValidators(ctx *cli.Context, validators []gpos.Validator) error {
+	// Save validators to file for future use
+	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {
+		f, err := os.Create(ctx.GlobalString(ValidatorsFileFlag.Name))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		for i, val := range validators {
+			line := val.PubKey.String() + "\n"
+			if i == len(validators)-1 {
+				line = val.PubKey.String()
+			}
+
+			_, err := f.WriteString(line)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

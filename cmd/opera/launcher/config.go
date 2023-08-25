@@ -66,6 +66,11 @@ var (
 		Value: utils.DirectoryString(DefaultDataDir()),
 	}
 
+	ValidatorsFileFlag = cli.StringFlag{
+		Name:  "validatorsfile",
+		Usage: "Path to validators file",
+	}
+
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
 		Usage: "Megabytes of memory allocated to internal caching",
