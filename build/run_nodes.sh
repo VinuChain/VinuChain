@@ -1,39 +1,12 @@
 #!/usr/bin/env bash
 
-IFS=$'\n' read -d '' -r -a valPubKeys < ./pubkeys.txt
+IFS=$'\n' read -d '' -r -a valPubKeys < ./validators.txt
 
 N=${#valPubKeys[@]}
 
 echo "$N validators"
 
-# ececuting command on node function
-attach_and_exec() {
-    local PORT=$1
-    local CMD=$2
-
-    for attempt in $(seq 40)
-    do
-        if (( attempt > 5 ))
-        then
-            echo "  - attempt ${attempt}: " >&2
-        fi
-
-        res=$(./opera --exec "${CMD}" attach http://127.0.0.1:${PORT} 2> /dev/null)
-        if [ $? -eq 0 ]
-        then
-            #echo "success" >&2
-            echo $res
-            return 0
-        else
-            #echo "wait" >&2
-            sleep 1
-        fi
-    done
-    echo "failed RPC connection to ${NAME}" >&2
-    return 1
-}
-
-# create dir for logs if not exists
+# create  dir for logs if not exists
 mkdir -p logs
 
 # start nodes loop
@@ -46,7 +19,7 @@ do
     (./opera \
     --genesis.allowExperimental \
     --genesis ./genesis.g \
-    --datadir datadir_opera$ACC \
+    --datadir ./datadir/datadir_opera$ACC \
     --port $((4000+$ACC)) \
     --http --http.addr=127.0.0.1 \
     --http.port $((4100+$ACC)) --http.corsdomain=* --http.vhosts=* \
@@ -61,27 +34,55 @@ do
 
 done
 
-sleep 5
+# ececuting command on node function
+attach_and_exec() {
+    local NODE_DATADIR=$1
+    local CMD=$2
+
+    for attempt in $(seq 40)
+    do
+        if (( attempt > 5 ))
+        then
+            echo "  - attempt ${attempt}: " >&2
+        fi
+        res=$(./opera --datadir ${NODE_DATADIR} --exec "${CMD}" attach  2> /dev/null)
+        if [ $? -eq 0 ]
+        then
+            #echo "success" >&2
+            echo $res
+            return 0
+        else
+            #echo "wait" >&2
+            sleep 1
+        fi
+    done
+    echo "failed RPC connection to ${NAME}" >&2
+    return 1
+}
+
 
 echo -e "\nConnect nodes to ring:\n"
 
 for ((i = 0; i < $N; i++))
 do
-    PORT=$((4100+$i+1))
-    echo "PORT = $PORT"
-    for ((n=0;n<$N;n+=1))
+    ACCi=$(($i+1))
+    DATADIRi=./datadir/datadir_opera$ACCi
+    enode=$(attach_and_exec $DATADIRi 'admin.nodeInfo.enode')
+    echo "    p2p address = ${enode}"
+
+    for ((j=0;j<$N;j+=1))
     do
-        j=$(((i+n+1) % N))
+        if [[ "$i" == "$j" ]]; then
+                echo "Continue with next node"
+                continue
+        fi
 
-	    enode=$(attach_and_exec $PORT 'admin.nodeInfo.enode')
-        
-        echo "    p2p address = ${enode}"
-
-        echo " connecting node-$i to node-$j:"
+        ACCj=$(($j+1))
+        DATADIRj=./datadir/datadir_opera$ACCj
+        echo "  DATADIRj = $DATADIRj"
+        echo " connecting node-$ACCi to node-$ACCj:"
         cmd="admin.addPeer(${enode})"
-        echo "    cmd = ${cmd}"
-        res=$(attach_and_exec $PORT "${cmd}")
+        res=$(attach_and_exec $DATADIRj "${cmd}")
         echo "    result = ${res}"
     done
 done
-
