@@ -70,16 +70,18 @@ do
     enode=$(attach_and_exec $DATADIRi 'admin.nodeInfo.enode')
     echo "    p2p address = ${enode}"
 
-    for ((j=0;j<$N;j+=1))
+    # connect to next 3 nodes
+    for ((j=$(($i+1));j<$(($i+1+3));j+=1))
     do
-        if [[ "$i" == "$j" ]]; then
-                echo "Continue with next node"
-                continue
+        ACCj=$(($j+1))
+
+        # last nodes connect to first nodes
+        if [[ $ACCj -gt $N ]]; then
+                ACCj=$(($j+1-$N))
+                echo "ACCj = $ACCj"
         fi
 
-        ACCj=$(($j+1))
         DATADIRj=./datadir/datadir_opera$ACCj
-        echo "  DATADIRj = $DATADIRj"
         echo " connecting node-$ACCi to node-$ACCj:"
         cmd="admin.addPeer(${enode})"
         res=$(attach_and_exec $DATADIRj "${cmd}")
