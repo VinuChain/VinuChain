@@ -92,7 +92,7 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 	//
 	stack := makeConfigNode(ctx, &cfg.Node)
 	coinbase := integration.SetAccountKey(stack.AccountManager(), privateKeyECDSA, password)
-	fmt.Println("Unlocked fake validator account", "address", coinbase.Address.Hex())
+	fmt.Println("Unlocked validator account", "address", coinbase.Address.Hex())
 
 	//
 
@@ -149,7 +149,7 @@ func newVinuNetwork(ctx *cli.Context) error {
 	epoch := idx.Epoch(2)
 	block := idx.Block(1)
 	// Create genesisStore
-	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(1000000000), futils.ToFtm(5000000), opera.VitainuTestNetRules(), epoch, block, validators)
+	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(200000000), futils.ToFtm(1000000), opera.VitainuTestNetRules(), epoch, block, validators)
 
 	// Save validators to file for future use
 	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {

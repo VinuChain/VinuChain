@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	MainNetworkID    uint64 = 0xfa
-	TestNetworkID    uint64 = 0xfa2
-	FakeNetworkID    uint64 = 0xfa3
-	VinuNetworkID           = 0x1a
-	VinuNewNetworkId        = 0x1b
-	DefaultEventGas  uint64 = 28000
-	berlinBit               = 1 << 0
-	londonBit               = 1 << 1
-	llrBit                  = 1 << 2
+	MainNetworkID     uint64 = 0xfa
+	TestNetworkID     uint64 = 0xfa2
+	FakeNetworkID     uint64 = 0xfa3
+	VinuTestNetworkID        = 0xce // 206
+	VinuNewNetworkId         = 0x1b
+	DefaultEventGas   uint64 = 28000
+	berlinBit                = 1 << 0
+	londonBit                = 1 << 1
+	llrBit                   = 1 << 2
 )
 
 var DefaultVMConfig = vm.Config{
@@ -221,8 +221,8 @@ func LegacyFakeNetRules() Rules {
 // VitainuTestNetRules returns testnet rules
 func VitainuTestNetRules() Rules {
 	return Rules{
-		Name:      "vinutest",
-		NetworkID: VinuNetworkID,
+		Name:      "VinuChain Testnet",
+		NetworkID: VinuTestNetworkID,
 		Dag:       DefaultDagRules(),
 		Epochs:    VitainuNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
