@@ -228,7 +228,7 @@ func VitainuTestNetRules() Rules {
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
-			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
 			Berlin: true,
@@ -287,7 +287,7 @@ func DefaultGasRules() GasRules {
 
 func VitainuNetEpochsRules() EpochsRules {
 	cfg := DefaultEpochsRules()
-	cfg.MaxEpochDuration = inter.Timestamp(10 * time.Minute)
+	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
 	return cfg
 }
 

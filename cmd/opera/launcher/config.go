@@ -427,7 +427,7 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		cfg.Node.P2P.BootstrapNodesV5 = asDefault
 
 		//vinu fast emittion
-		cfg.Emitter.EmitIntervals.Max = 10 * time.Second // don't wait long in vinu net
+		cfg.Emitter.EmitIntervals.Max = 1 * time.Minute // don't wait long in vinu net
 		cfg.Emitter.EmitIntervals.DoublesignProtection = cfg.Emitter.EmitIntervals.Max / 2
 	}
 
