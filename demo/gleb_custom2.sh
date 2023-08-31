@@ -1,0 +1,1 @@
+../build/demo_opera --datadir custom_validator_gleb2.datadir/ --genesis genesis5.g --genesis.allowExperimental --syncmode snap --port 3008 --nat any --verbosity=3 --tracing >> opera_custom_gleb2.log &

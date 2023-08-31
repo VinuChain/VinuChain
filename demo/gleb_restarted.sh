@@ -1,0 +1,1 @@
+../build/demo_opera --datadir custom_validator_gleb3.datadir/ --genesis genesis5.g --genesis.allowExperimental --validator.id 4 --validator.pubkey "0x0438d831b203937e96584fb6efccedacedaaca34bba690e88762ad5512e9787cd0dcd814db1def6fc41496a689afd1044c8a4689cb182311d2df981d6e2f3b74dd" --validator.password ~/.opera/keystore/validator --verbosity=3 --tracing >> opera_custom_gleb3.log &
