@@ -11,19 +11,19 @@ package gossip
 
 // wrap LegacySfcWrapper with golang
 //go:generate mkdir -p ./contract/sfc100
-//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/LegacySfcWrapper.bin --abi=./contract/solc/LegacySfcWrapper.abi --pkg=sfc100 --type=Contract --out=contract/sfc100/contract.go
+//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/LegacySfcWrapper.bin --abi=./contract/solc/LegacySfcWrapper.abi --pkg=sfc100 --type=Contract --out=contract/sfc100/contract_legacy.go
 //go:generate bash -c "(echo -ne '\nvar ContractBinRuntime = \"'; cat contract/solc/LegacySfcWrapper.bin-runtime; echo '\"') >> contract/sfc100/contract.go"
 // wrap NetworkInitializer with golang
 //go:generate mkdir -p ./contract/netinit100
-//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NetworkInitializer.bin --abi=./contract/solc/NetworkInitializer.abi --pkg=netinit100 --type=Contract --out=contract/netinit100/contract.go
+//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NetworkInitializer.bin --abi=./contract/solc/NetworkInitializer.abi --pkg=netinit100 --type=Contract --out=contract/netinit100/contract_legacy.go
 //go:generate bash -c "(echo -ne '\nvar ContractBinRuntime = \"'; cat contract/solc/NetworkInitializer.bin-runtime; echo '\"') >> contract/netinit100/contract.go"
 // wrap NodeDriver with golang
 //go:generate mkdir -p ./contract/driver100
-//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NodeDriver.bin --abi=./contract/solc/NodeDriver.abi --pkg=driver100 --type=Contract --out=contract/driver100/contract.go
+//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NodeDriver.bin --abi=./contract/solc/NodeDriver.abi --pkg=driver100 --type=Contract --out=contract/driver100/contract_legacy.go
 //go:generate bash -c "(echo -ne '\nvar ContractBinRuntime = \"'; cat contract/solc/NodeDriver.bin-runtime; echo '\"') >> contract/driver100/contract.go"
 // wrap NodeDriverAuth with golang
 //go:generate mkdir -p ./contract/driverauth100
-//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NodeDriverAuth.bin --abi=./contract/solc/NodeDriverAuth.abi --pkg=driverauth100 --type=Contract --out=contract/driverauth100/contract.go
+//go:generate go run github.com/ethereum/go-ethereum/cmd/abigen --bin=./contract/solc/NodeDriverAuth.bin --abi=./contract/solc/NodeDriverAuth.abi --pkg=driverauth100 --type=Contract --out=contract/driverauth100/contract_legacy.go
 //go:generate bash -c "(echo -ne '\nvar ContractBinRuntime = \"'; cat contract/solc/NodeDriverAuth.bin-runtime; echo '\"') >> contract/driverauth100/contract.go"
 
 import (

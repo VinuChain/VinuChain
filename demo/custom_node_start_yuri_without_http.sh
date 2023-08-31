@@ -1,0 +1,1 @@
+../build/demo_opera --datadir custom_validator_yuri.datadir/ --genesis genesis2.g --genesis.allowExperimental --syncmode full --port 8137 --unlock "0x9b761aef8c0b5c751d20217634f8188dce866eba" --password "./custom_validator_pass.txt" --verbosity=3 --tracing >> opera_custom_yuri.log &

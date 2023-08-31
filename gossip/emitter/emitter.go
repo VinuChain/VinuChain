@@ -420,7 +420,7 @@ func (em *Emitter) createEvent(sortedTxs *types.TransactionsByPriceAndNonce) (*i
 
 	// check
 	if err := em.world.Check(event, parentHeaders); err != nil {
-		em.Periodic.Error(time.Second, "Emitted incorrect event", "err", err)
+		em.Periodic.Error(time.Second, "Emitted incorrect event", "err", err, "event", event.String())
 		return nil, err
 	}
 

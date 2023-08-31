@@ -15,13 +15,15 @@ import (
 )
 
 const (
-	MainNetworkID   uint64 = 0xfa
-	TestNetworkID   uint64 = 0xfa2
-	FakeNetworkID   uint64 = 0xfa3
-	DefaultEventGas uint64 = 28000
-	berlinBit              = 1 << 0
-	londonBit              = 1 << 1
-	llrBit                 = 1 << 2
+	MainNetworkID     uint64 = 0xfa
+	TestNetworkID     uint64 = 0xfa2
+	FakeNetworkID     uint64 = 0xfa3
+	VinuTestNetworkID        = 0xce // 206
+	VinuNewNetworkId         = 0x1b
+	DefaultEventGas   uint64 = 28000
+	berlinBit                = 1 << 0
+	londonBit                = 1 << 1
+	llrBit                   = 1 << 2
 )
 
 var DefaultVMConfig = vm.Config{
@@ -181,13 +183,52 @@ func TestNetRules() Rules {
 func FakeNetRules() Rules {
 	return Rules{
 		Name:      "vinuchain",
-		NetworkID: FakeNetworkID,
+		NetworkID: VinuNewNetworkId,
+		Dag:       DefaultDagRules(),
+		Epochs:    VitainuNetEpochsRules(),
+		Economy:   DefaultEconomyRules(),
+		Blocks: BlocksRules{
+			MaxBlockGas:             20500000,
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
+		},
+		Upgrades: Upgrades{
+			Berlin: true,
+			London: true,
+			Llr:    true,
+		},
+	}
+}
+
+func LegacyFakeNetRules() Rules {
+	return Rules{
+		Name:      "vinuchain",
+		NetworkID: VinuNewNetworkId,
 		Dag:       DefaultDagRules(),
 		Epochs:    FakeNetEpochsRules(),
 		Economy:   FakeEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
+		},
+		Upgrades: Upgrades{
+			Berlin: true,
+			London: true,
+			Llr:    true,
+		},
+	}
+}
+
+// VitainuTestNetRules returns testnet rules
+func VitainuTestNetRules() Rules {
+	return Rules{
+		Name:      "VinuChain Testnet",
+		NetworkID: VinuTestNetworkID,
+		Dag:       DefaultDagRules(),
+		Epochs:    VitainuNetEpochsRules(),
+		Economy:   DefaultEconomyRules(),
+		Blocks: BlocksRules{
+			MaxBlockGas:             20500000,
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
 			Berlin: true,
@@ -242,6 +283,12 @@ func DefaultGasRules() GasRules {
 		EpochVoteGas:         1536,
 		MisbehaviourProofGas: 71536,
 	}
+}
+
+func VitainuNetEpochsRules() EpochsRules {
+	cfg := DefaultEpochsRules()
+	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
+	return cfg
 }
 
 func FakeNetEpochsRules() EpochsRules {

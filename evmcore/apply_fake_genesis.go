@@ -107,16 +107,16 @@ func FakeKey(n int) *ecdsa.PrivateKey {
 	var key *ecdsa.PrivateKey
 
 	if n == 0 {
-		key, _ = crypto.HexToECDSA("") //
+		key, _ = crypto.HexToECDSA("d881dc14cdf9621a36ae939138ed90ea787a1adc87b0f320bd67febbd56e2e35") // 0x9b761aEf8C0B5c751D20217634f8188dCE866EbA
 	}
 	if n == 1 {
-		key, _ = crypto.HexToECDSA("") //
+		key, _ = crypto.HexToECDSA("7f947dbc55f9c12cf976ed5adaa62d1935a6659d659035efad789a98b19f94ee") // 0x5Bb0880ab787b348C48ee51D00e41e3cBc134272
 	}
 	if n == 2 {
-		key, _ = crypto.HexToECDSA("") //
+		key, _ = crypto.HexToECDSA("e1dc824daaf5757c6e8d1a65de22a88c63d6dfa02df0a09f98074a4ff23b08b5") // 0x626e9F7f9C101Fb0dBf14E0f175BbFFd757F5e2C
 	}
 	if n == 3 {
-		key, _ = crypto.HexToECDSA("") //
+		key, _ = crypto.HexToECDSA("82410b11d55de7d52e916888742365ea74489b6f7f52032162fc1423f60e26c8") // 0x7421Af93A2B5E8b63C7Cb2267903967784Bd9fd4
 	}
 
 	return key

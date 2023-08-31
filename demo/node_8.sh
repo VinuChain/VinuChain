@@ -1,0 +1,3 @@
+../build/demo_opera --datadir 8opera.datadir/ --genesis  genesis_sepparate.g --genesis.allowExperimental --syncmode full --allow-insecure-unlock --syncmode full --port 3005 --nousb --validator.id 2  --validator.pubkey "0x04bb50427033c4c5d4bfa551d03fe7ec7379401b783bcadf412d40f4952e56a2097e95661c35ee64106f6bd977d8592405a28c8d248ef827345e09edf40083fef0" --validator.password "password"  --nat any --http --http.addr="ec2-54-202-175-103.us-west-2.compute.amazonaws.com" --http.port=4005 --http.corsdomain="*" --http.vhosts="*" --http.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" --ws --ws.addr="127.0.0.1" --ws.port=4505 --ws.origins="*" --ws.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" --verbosity=3 --tracing >> node8.log &
+
+
