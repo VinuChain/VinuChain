@@ -209,9 +209,8 @@ func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
 		if err != nil {
 			log.Crit("Invalid flag", "flag", FakeNetFlag.Name, "err", err)
 		}
-<<<<<<< HEAD
-		return makefakegenesis.FakeGenesisStore(num, futils.ToFtm(333_366_666), futils.ToFtm(100_000))
-=======
+		return makefakegenesis.FakeGenesisStore(num, futils.ToFtm(333_333_333), futils.ToFtm(200_000))
+	case ctx.GlobalIsSet(GenesisFlag.Name):
 		genesisPath := ctx.GlobalString(GenesisFlag.Name)
 		f, err := os.Open(genesisPath)
 		if err != nil {
@@ -425,13 +424,10 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		// "asDefault" means set network defaults
 		cfg.Node.P2P.BootstrapNodes = asDefault
 		cfg.Node.P2P.BootstrapNodesV5 = asDefault
-<<<<<<< HEAD
-=======
 
 		//vinu fast emittion
 		cfg.Emitter.EmitIntervals.Max = 1 * time.Minute // don't wait long in vinu net
 		cfg.Emitter.EmitIntervals.DoublesignProtection = cfg.Emitter.EmitIntervals.Max / 2
->>>>>>> origin/init_new_network
 	}
 
 	// Load config file (medium priority)
