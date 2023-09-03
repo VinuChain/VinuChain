@@ -169,9 +169,6 @@ func newVinuNetwork(ctx *cli.Context) error {
 			ID:     val.ID,
 			PubKey: val.PubKey,
 		}
-		emitCfg := emitter.DefaultConfig()
-		emitCfg.EmitIntervals.Max = 1 * time.Minute // don't wait long in vinunet
-		emitCfg.EmitIntervals.DoublesignProtection = emitCfg.EmitIntervals.Max / 2
 
 		fmt.Println("make node with config: ", tmpCfg)
 		time.Sleep(5 * time.Second)
