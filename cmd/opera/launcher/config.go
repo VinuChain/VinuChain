@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/abft"
 	"github.com/Fantom-foundation/lachesis-base/utils/cachescale"
@@ -84,6 +83,11 @@ var (
 	ExperimentalGenesisFlag = cli.BoolFlag{
 		Name:  "genesis.allowExperimental",
 		Usage: "Allow to use experimental genesis file.",
+	}
+
+	FastEmitFlag = cli.BoolFlag{
+		Name:  "fastemit",
+		Usage: "Enable fast emit mode (1 block per 10 seconds)",
 	}
 
 	RPCGlobalGasCapFlag = cli.Uint64Flag{
@@ -425,10 +429,11 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		// "asDefault" means set network defaults
 		cfg.Node.P2P.BootstrapNodes = asDefault
 		cfg.Node.P2P.BootstrapNodesV5 = asDefault
+	}
 
-		//vinu fast emittion
-		cfg.Emitter.EmitIntervals.Max = 1 * time.Minute // don't wait long in vinu net
-		cfg.Emitter.EmitIntervals.DoublesignProtection = cfg.Emitter.EmitIntervals.Max / 2
+	if ctx.GlobalBool(FastEmitFlag.Name) {
+		log.Info("Fast emit mode enabled")
+		cfg.Emitter = emitter.FastEmitConfig()
 	}
 
 	// Load config file (medium priority)
