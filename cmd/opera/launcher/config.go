@@ -90,6 +90,11 @@ var (
 		Usage: "Enable fast emit mode (1 block per 10 seconds)",
 	}
 
+	NetworkMainnetFlag = cli.BoolFlag{
+		Name:  "network.mainnet",
+		Usage: "Use mainnet network configuration",
+	}
+
 	RPCGlobalGasCapFlag = cli.Uint64Flag{
 		Name:  "rpc.gascap",
 		Usage: "Sets a cap on gas that can be used in ftm_call/estimateGas (0=infinite)",
