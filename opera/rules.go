@@ -19,6 +19,7 @@ const (
 	TestNetworkID     uint64 = 0xfa2
 	FakeNetworkID     uint64 = 0xfa3
 	VinuTestNetworkID        = 0xce // 206
+	VinuMainNetworkID        = 0xcd // 205
 	VinuNewNetworkId         = 0x1b
 	DefaultEventGas   uint64 = 28000
 	berlinBit                = 1 << 0
@@ -223,6 +224,26 @@ func VitainuTestNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Testnet",
 		NetworkID: VinuTestNetworkID,
+		Dag:       DefaultDagRules(),
+		Epochs:    VitainuNetEpochsRules(),
+		Economy:   DefaultEconomyRules(),
+		Blocks: BlocksRules{
+			MaxBlockGas:             20500000,
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
+		},
+		Upgrades: Upgrades{
+			Berlin: true,
+			London: true,
+			Llr:    true,
+		},
+	}
+}
+
+// VitainuMainNetRules returns mainnet rules
+func VitainuMainNetRules() Rules {
+	return Rules{
+		Name:      "VinuChain Mainnet",
+		NetworkID: VinuMainNetworkID,
 		Dag:       DefaultDagRules(),
 		Epochs:    VitainuNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),

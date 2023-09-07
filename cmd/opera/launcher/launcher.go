@@ -182,6 +182,7 @@ func initFlags() {
 
 	networkFlags = []cli.Flag{
 		ValidatorsFileFlag,
+		NetworkMainnetFlag,
 	}
 
 	nodeFlags = []cli.Flag{}
