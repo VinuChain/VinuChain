@@ -6,4 +6,5 @@ validutorsNum=5
 network new $validutorsNum \
 --datadir ./datadir/datadir_opera \
 --password ./pass.txt \
---validatorsfile ./validators.txt
+--validatorsfile ./validators.txt \
+--network.mainnet
