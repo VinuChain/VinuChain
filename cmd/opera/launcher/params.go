@@ -43,6 +43,12 @@ var (
 		NetworkName: "VinuChain Testnet",
 	}
 
+	vinuTestMainnetHeader = genesis.Header{
+		GenesisID:   hash.HexToHash("0xb1b0e08cb0d53d0fb1067658c5af0b3d3ff334d574679f5f74eee2b3448394ce"),
+		NetworkID:   opera.VinuMainNetworkID,
+		NetworkName: "VinuChain Mainnet",
+	}
+
 	AllowedOperaGenesis = []GenesisTemplate{
 		{
 			Name:   "Mainnet-5577 with pruned MPT",
@@ -188,6 +194,17 @@ var (
 				genesisstore.EpochsSection(0): hash.HexToHash("0x7fd9fedfc70524fce22901ac367ab9a83d5d5ba33cd5780889bfd22d7e8cb76c"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0xccc3c1000767388b9de8e7e7050a2761994c862b579bd4e8d173205436efdf8a"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x837c2d89fe3135d4a6d10df535f55768aafadb118ce62f736cf0c84e82819510"),
+			},
+		},
+
+		// Vita Inu test mainnet
+		{
+			Name:   "VitaInu test mainnet without history",
+			Header: vinuTestMainnetHeader,
+			Hashes: genesis.Hashes{
+				genesisstore.EpochsSection(0): hash.HexToHash("0x4d9b7946e4c2afba6d015e4a4282dd8d2299c1494f13ad6908846e4f09ed11be"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0xf51e8759171b4109bbd5d592d62a93d9d882cc0d2846323d20df0ef7b7cd27db"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0xe5f319e1c7c064c3f8f2a8226e1481b0102447478089e0602d40eda08055f893"),
 			},
 		},
 	}

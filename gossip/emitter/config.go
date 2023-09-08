@@ -61,9 +61,9 @@ func DefaultConfig() Config {
 
 		EmitIntervals: EmitIntervals{
 			Min:                        110 * time.Millisecond,
-			Max:                        10 * time.Minute,
+			Max:                        1 * time.Minute, //10 * time.Minute,
 			Confirming:                 120 * time.Millisecond,
-			DoublesignProtection:       27 * time.Minute, // should be greater than MaxEmitInterval
+			DoublesignProtection:       5 * time.Minute, //27 * time.Minute, // should be greater than MaxEmitInterval
 			ParallelInstanceProtection: 1 * time.Minute,
 		},
 
@@ -102,5 +102,12 @@ func FakeConfig(num idx.Validator) Config {
 		// disable self-fork protection if fakenet 1/1
 		cfg.EmitIntervals.DoublesignProtection = 0
 	}
+	return cfg
+}
+
+func FastEmitConfig() Config {
+	cfg := DefaultConfig()
+	cfg.EmitIntervals.Max = 10 * time.Second
+	cfg.EmitIntervals.DoublesignProtection = 1 * time.Minute
 	return cfg
 }

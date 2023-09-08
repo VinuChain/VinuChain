@@ -126,6 +126,7 @@ func initFlags() {
 		GCModeFlag,
 		DBPresetFlag,
 		DBMigrationModeFlag,
+		FastEmitFlag,
 	}
 	legacyRpcFlags = []cli.Flag{
 		utils.NoUSBFlag,
@@ -181,6 +182,7 @@ func initFlags() {
 
 	networkFlags = []cli.Flag{
 		ValidatorsFileFlag,
+		NetworkMainnetFlag,
 	}
 
 	nodeFlags = []cli.Flag{}

@@ -41,6 +41,7 @@ var InitNetCommand = cli.Command{
 				utils.KeyStoreDirFlag,
 				utils.PasswordFileFlag,
 				ValidatorsFileFlag,
+				NetworkMainnetFlag,
 			},
 			Description: `
 opera network new
@@ -137,7 +138,6 @@ func newVinuNetwork(ctx *cli.Context) error {
 	origDatadir := ctx.GlobalString(DataDirFlag.Name)
 	for i := 1; i <= int(num); i++ {
 		ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, i))
-		fmt.Println("tmpCtx.DataDir: ", ctx.GlobalString(DataDirFlag.Name))
 		val, err := ValidatorCreate(ctx, i)
 		if err != nil {
 			return err
@@ -148,8 +148,15 @@ func newVinuNetwork(ctx *cli.Context) error {
 
 	epoch := idx.Epoch(2)
 	block := idx.Block(1)
+
+	netrules := opera.VitainuTestNetRules()
+	if ctx.GlobalBool(NetworkMainnetFlag.Name) {
+		netrules = opera.VitainuMainNetRules()
+		fmt.Println("Used mainnet rules")
+	}
+
 	// Create genesisStore
-	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(200000000), futils.ToFtm(1000000), opera.VitainuTestNetRules(), epoch, block, validators)
+	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(200000000), futils.ToFtm(1000000), netrules, epoch, block, validators)
 
 	// Save validators to file for future use
 	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {
@@ -169,9 +176,6 @@ func newVinuNetwork(ctx *cli.Context) error {
 			ID:     val.ID,
 			PubKey: val.PubKey,
 		}
-		emitCfg := emitter.DefaultConfig()
-		emitCfg.EmitIntervals.Max = 1 * time.Minute // don't wait long in vinunet
-		emitCfg.EmitIntervals.DoublesignProtection = emitCfg.EmitIntervals.Max / 2
 
 		fmt.Println("make node with config: ", tmpCfg)
 		time.Sleep(5 * time.Second)
