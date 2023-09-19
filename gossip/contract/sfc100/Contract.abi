@@ -142,31 +142,6 @@
         {
           "indexed": true,
           "internalType": "address",
-          "name": "receiver",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "justification",
-          "type": "string"
-        }
-      ],
-      "name": "InflatedFTM",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
           "name": "delegator",
           "type": "address"
         },
@@ -416,6 +391,36 @@
       ],
       "name": "Withdrawn",
       "type": "event"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "MIN_OFFLINE_PENALTY_THRESHOLD_BLOCKS_NUM",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "MIN_OFFLINE_PENALTY_THRESHOLD_TIME",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "constant": false,
@@ -1409,31 +1414,6 @@
       "type": "function"
     },
     {
-      "constant": false,
-      "inputs": [
-        {
-          "internalType": "address payable",
-          "name": "receiver",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "justification",
-          "type": "string"
-        }
-      ],
-      "name": "mintFTM",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "constant": true,
       "inputs": [],
       "name": "offlinePenaltyThreshold",
@@ -1741,52 +1721,6 @@
       "type": "function"
     },
     {
-      "constant": true,
-      "inputs": [],
-      "name": "stakeTokenizerAddress",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": true,
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "stakes",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "delegator",
-          "type": "address"
-        },
-        {
-          "internalType": "uint96",
-          "name": "timestamp",
-          "type": "uint96"
-        },
-        {
-          "internalType": "uint256",
-          "name": "validatorId",
-          "type": "uint256"
-        }
-      ],
-      "payable": false,
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "constant": false,
       "inputs": [
         {
@@ -1836,6 +1770,21 @@
       "constant": true,
       "inputs": [],
       "name": "totalActiveStake",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "totalPenalty",
       "outputs": [
         {
           "internalType": "uint256",
@@ -2018,36 +1967,6 @@
         }
       ],
       "name": "updateSlashingRefundRatio",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "addr",
-          "type": "address"
-        }
-      ],
-      "name": "updateStakeTokenizerAddress",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "internalType": "int256",
-          "name": "diff",
-          "type": "int256"
-        }
-      ],
-      "name": "updateTotalSupply",
       "outputs": [],
       "payable": false,
       "stateMutability": "nonpayable",

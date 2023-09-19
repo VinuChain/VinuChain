@@ -25,164 +25,34 @@ var (
 		},
 	}
 
-	mainnetHeader = genesis.Header{
-		GenesisID:   hash.HexToHash("0x4a53c5445584b3bfc20dbfb2ec18ae20037c716f3ba2d9e1da768a9deca17cb4"),
-		NetworkID:   opera.MainNetworkID,
-		NetworkName: "main",
-	}
-
-	testnetHeader = genesis.Header{
-		GenesisID:   hash.HexToHash("0xc4a5fc96e575a16a9a0c7349d44dc4d0f602a54e0a8543360c2fee4c3937b49e"),
-		NetworkID:   opera.TestNetworkID,
-		NetworkName: "test",
-	}
-
 	vinuTestnetHeader = genesis.Header{
-		GenesisID:   hash.HexToHash("0x17bd9454c097c82b6ffbda84239362aa715015623415d7257f5f29c4cef67b68"),
+		GenesisID:   hash.HexToHash("0xbf7a3d7f49cd99745acd2aa1c828c81576c41a84fddc9c6ffb9857bab02fe260"),
 		NetworkID:   opera.VinuTestNetworkID,
 		NetworkName: "VinuChain Testnet",
 	}
 
 	vinuTestMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xb1b0e08cb0d53d0fb1067658c5af0b3d3ff334d574679f5f74eee2b3448394ce"),
+		NetworkID:   205,
+		NetworkName: "VinuChain Mainnet",
+	}
+
+	vinuMainnetHeader = genesis.Header{
+		GenesisID:   hash.HexToHash("0xca7941e04fc93391af59a3a87e2ad386312d6b74922deeaa05068b1c08d9caa4"),
 		NetworkID:   opera.VinuMainNetworkID,
 		NetworkName: "VinuChain Mainnet",
 	}
 
 	AllowedOperaGenesis = []GenesisTemplate{
-		{
-			Name:   "Mainnet-5577 with pruned MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x945d8084b4e6e1e78cfe9472fefca3f6ecc7041765dfed24f64e9946252f569a"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xe3ec041f3cca79928aa4abef588b48e96ff3cfa3908b2268af3ac5496c722fec"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x12dd52ac21fee5d76b47a64386e73187d5260e448e8044f38c6c73eaa627e4b5"),
-			},
-		},
-		{
-			Name:   "Mainnet-5577 with full MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x945d8084b4e6e1e78cfe9472fefca3f6ecc7041765dfed24f64e9946252f569a"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xe3ec041f3cca79928aa4abef588b48e96ff3cfa3908b2268af3ac5496c722fec"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x54614c9475963ed706f3e654bee0faf9ca21e29c588ad4070fd5b5897c8e0b5d"),
-			},
-		},
-		{
-			Name:   "Mainnet-109331 without history",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0xf0bef59de85dde7772bf43c62267eb312b0dd2c412ec5f04d96b6ea55178e901"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x80fb348f77f65f0c357f69e29ca123a4c8f1ba60ff445510474be952a1e28d7a"),
-			},
-		},
-		{
-			Name:   "Mainnet-109331 without MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x71cdb819c2745a4853016bbb9690053b70fac679b168cd9a4999bf2a3dfb5578"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xb7394f84b73528423a5b634bfb3cec8ab0a015b387bf6cbe70b378b08e9253bd"),
-			},
-		},
-		{
-			Name:   "Mainnet-109331 with pruned MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x71cdb819c2745a4853016bbb9690053b70fac679b168cd9a4999bf2a3dfb5578"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xb7394f84b73528423a5b634bfb3cec8ab0a015b387bf6cbe70b378b08e9253bd"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x617b8c4d74d1598f7d3914ba4c7cd46b7c98d5e044987c6c8d023cc59e849df7"),
-			},
-		},
-		{
-			Name:   "Mainnet-109331 with full MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x71cdb819c2745a4853016bbb9690053b70fac679b168cd9a4999bf2a3dfb5578"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xb7394f84b73528423a5b634bfb3cec8ab0a015b387bf6cbe70b378b08e9253bd"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0xef0e1b833321a8de98aaaa1a3946378c78d66ab16b39eb0ad56636d5f7f9f2c5"),
-			},
-		},
 
+		// Mainnet
 		{
-			Name:   "Mainnet-171200 without history",
-			Header: mainnetHeader,
+			Name:   "VitaInu mainnet without history",
+			Header: vinuMainnetHeader,
 			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0xb1954a0ac01a35a9ff6026d239e0be659fb4c37c356a94318bbe9201b9b2f3bf"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x48ea3ccd2e2ff819386aa6d5ba86b12abb92f2f2e3b405e903f71e3f33f1d258"),
-			},
-		},
-		{
-			Name:   "Mainnet-171200 without MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x71cdb819c2745a4853016bbb9690053b70fac679b168cd9a4999bf2a3dfb5578"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xb7394f84b73528423a5b634bfb3cec8ab0a015b387bf6cbe70b378b08e9253bd"),
-				genesisstore.EpochsSection(1): hash.HexToHash("0xda430371772ee2fefd1caa342b6a5cb188041a01730f681099dd241bc57a3f77"),
-				genesisstore.BlocksSection(1): hash.HexToHash("0x14b8b9c3b47cc174ae5c36599cebdef551ad35032ed29c087abb814ac5559619"),
-			},
-		},
-		{
-			Name:   "Mainnet-171200 with pruned MPT",
-			Header: mainnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x71cdb819c2745a4853016bbb9690053b70fac679b168cd9a4999bf2a3dfb5578"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xb7394f84b73528423a5b634bfb3cec8ab0a015b387bf6cbe70b378b08e9253bd"),
-				genesisstore.EpochsSection(1): hash.HexToHash("0xda430371772ee2fefd1caa342b6a5cb188041a01730f681099dd241bc57a3f77"),
-				genesisstore.BlocksSection(1): hash.HexToHash("0x14b8b9c3b47cc174ae5c36599cebdef551ad35032ed29c087abb814ac5559619"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x2a685df416eeca50f4b725117ae88deb35f05e3c51f34e9555ff6ffc62e75d14"),
-			},
-		},
-
-		{
-			Name:   "Testnet-2458 with pruned MPT",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x4a5caf86d7f5a31dad91f2cbd44db052c602f515e5319f828adb585a7a6723d6"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x07eadb81c1e2a1b5c444c8c2430c6873380f447de64790b25abe9e7fa6874f65"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0xa96e006ae17d15e1244c3e7ff4d556e5a3849e70df7a81704787f3273f37c9b1"),
-			},
-		},
-		{
-			Name:   "Testnet-2458 with full MPT",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x4a5caf86d7f5a31dad91f2cbd44db052c602f515e5319f828adb585a7a6723d6"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x07eadb81c1e2a1b5c444c8c2430c6873380f447de64790b25abe9e7fa6874f65"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x3c635232f82cabdfc76405fd03c58134fb00ff9fc0ad080a8a8ae40a7a6fe604"),
-			},
-		},
-		{
-			Name:   "Testnet-6226 without history",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x5527a0c5e45b84c1350ccc77a9644eb797afd1e87887c35526d7622b12881b22"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xf209c98aa5d3473dd71164165152e8802fb95b71d9dbfe394a0addcf81808d5c"),
-			},
-		},
-		{
-			Name:   "Testnet-6226 without MPT",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x61040a80f16755b86d67f13880f55c1238d307e2e1c6fc87951eb3bdee0bdff2"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x12010621d8cf4dcd4ea357e98eac61edf9517a6df752cb2d929fca69e56bd8d1"),
-			},
-		},
-		{
-			Name:   "Testnet-6226 with pruned MPT",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x61040a80f16755b86d67f13880f55c1238d307e2e1c6fc87951eb3bdee0bdff2"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x12010621d8cf4dcd4ea357e98eac61edf9517a6df752cb2d929fca69e56bd8d1"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x86ec3c7938ab053fc84bbbc8f5259bc81885ec424df91272c553f371464840fc"),
-			},
-		},
-		{
-			Name:   "Testnet-6226 with full MPT",
-			Header: testnetHeader,
-			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x61040a80f16755b86d67f13880f55c1238d307e2e1c6fc87951eb3bdee0bdff2"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0x12010621d8cf4dcd4ea357e98eac61edf9517a6df752cb2d929fca69e56bd8d1"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x9227c80bf56e4af08dc32cb6043cc43672f2be8177d550ab34a7a9f57f4f104b"),
+				genesisstore.EpochsSection(0): hash.HexToHash("0xc6640c1b62156a63c3121fba3aaf755ee88b84935d2ebf1497611e4ee7f09144"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0x438be95bb65eee5e23d7f78d39773646f2f21a6b18266b4d73d1e723c55fb94e"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0x765b90e4674d426b37d05a0e4a35addb3deec44a0cc948391b738e0e815682be"),
 			},
 		},
 
@@ -191,9 +61,9 @@ var (
 			Name:   "VitaInu testnet without history",
 			Header: vinuTestnetHeader,
 			Hashes: genesis.Hashes{
-				genesisstore.EpochsSection(0): hash.HexToHash("0x7fd9fedfc70524fce22901ac367ab9a83d5d5ba33cd5780889bfd22d7e8cb76c"),
-				genesisstore.BlocksSection(0): hash.HexToHash("0xccc3c1000767388b9de8e7e7050a2761994c862b579bd4e8d173205436efdf8a"),
-				genesisstore.EvmSection(0):    hash.HexToHash("0x837c2d89fe3135d4a6d10df535f55768aafadb118ce62f736cf0c84e82819510"),
+				genesisstore.EpochsSection(0): hash.HexToHash("0x7a74f234769f2285be94ac48c4a97abf98de32b93a05ddfd6cc934027b6d2d4f"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0xbfe43b2d77e7d672c4b0130d0a43f0710704f53ebb2c39a379c93076a43bddce"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0x7c3476d667f7912172df77a5e5804428380541bf98282442689e6b442d16da34"),
 			},
 		},
 

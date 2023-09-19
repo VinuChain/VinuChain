@@ -221,6 +221,7 @@ func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
 		return makefakegenesis.FakeGenesisStore(num, futils.ToFtm(333_333_333), futils.ToFtm(200_000))
 	case ctx.GlobalIsSet(GenesisFlag.Name):
 		genesisPath := ctx.GlobalString(GenesisFlag.Name)
+
 		f, err := os.Open(genesisPath)
 		if err != nil {
 			utils.Fatalf("Failed to open genesis file: %v", err)
