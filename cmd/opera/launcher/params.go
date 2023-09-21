@@ -56,6 +56,17 @@ var (
 			},
 		},
 
+		// Mainnet with deployed contracts
+		{
+			Name:   "VitaInu mainnet with deployed contracts",
+			Header: vinuMainnetHeader,
+			Hashes: genesis.Hashes{
+				genesisstore.EpochsSection(0): hash.HexToHash("0x482f104dc843b2f86265a3494b1047c65a8568b0578ef1c43ea9aa8c961e6a6f"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0x9aab452d91d99fe26457feac40c2be7f2b31facf8edf66d815e2b0a184b871de"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0x53f30bbcc37b7ba4d705aad4e79b1e1007673d64b6a1ab703e2319776a62bb3d"),
+			},
+		},
+
 		// Vita Inu testnet
 		{
 			Name:   "VitaInu testnet without history",
