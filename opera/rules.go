@@ -229,7 +229,7 @@ func VitainuTestNetRules() Rules {
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
-			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(5 * time.Second),
 		},
 		Upgrades: Upgrades{
 			Berlin: true,
@@ -249,7 +249,7 @@ func VitainuMainNetRules() Rules {
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
-			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
+			MaxEmptyBlockSkipPeriod: inter.Timestamp(5 * time.Second),
 		},
 		Upgrades: Upgrades{
 			Berlin: true,
