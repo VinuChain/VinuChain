@@ -19,7 +19,8 @@ const (
 	TestNetworkID     uint64 = 0xfa2
 	FakeNetworkID     uint64 = 0xfa3
 	VinuTestNetworkID        = 0xce // 206
-	VinuMainNetworkID        = 0xcf // 207
+	//VinuMainNetworkID        = 0xcf // 207
+	VinuMainNetworkID        = 0x32967 // 207207
 	VinuNewNetworkId         = 0x1b
 	DefaultEventGas   uint64 = 28000
 	berlinBit                = 1 << 0
