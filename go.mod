@@ -12,7 +12,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/docker v1.13.1
 	github.com/dvyukov/go-fuzz v0.0.0-20201127111758-49e582c6c23d
-	github.com/ethereum/go-ethereum v1.10.8
+	github.com/ethereum/go-ethereum v1.13.8
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
@@ -47,6 +47,7 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.10.8-ftm-rc9.0.20230907093059-c420dd58019d
+//replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.10.8-ftm-rc9.0.20230907093059-c420dd58019d
+replace github.com/ethereum/go-ethereum => github.com/xdfdm/vinu-ethereum v0.1.3-refund
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f

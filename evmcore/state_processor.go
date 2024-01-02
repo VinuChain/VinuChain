@@ -158,6 +158,7 @@ func applyTransaction(
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+	receipt.FeeRefund = result.FeeRefund
 	return receipt, result.UsedGas, false, err
 }
 
