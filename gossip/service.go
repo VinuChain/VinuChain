@@ -154,6 +154,9 @@ type Service struct {
 
 	tflusher PeriodicFlusher
 
+	// quota cache
+	quotaCache *QuotaCache
+
 	logger.Instance
 }
 
@@ -176,6 +179,9 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	// Create the net API service
 	svc.netRPCService = ethapi.NewPublicNetAPI(svc.p2pServer, store.GetRules().NetworkID)
 	svc.haltCheck = haltCheck
+
+	// TODO: remove this log
+	log.Info("Quota cache initialized", "quota_cashe", svc.quotaCache.String())
 
 	return svc, nil
 }
@@ -276,6 +282,10 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 
 	svc.verWatcher = verwatcher.New(netVerStore)
 	svc.tflusher = svc.makePeriodicFlusher()
+
+	// create quota cache
+	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
+	svc.quotaCache = NewQuotaCache(svc.store, 75)
 
 	return svc, nil
 }
