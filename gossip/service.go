@@ -49,6 +49,7 @@ import (
 	snapsync "github.com/Fantom-foundation/go-opera/gossip/protocols/snap"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/logger"
+	"github.com/Fantom-foundation/go-opera/quota"
 	"github.com/Fantom-foundation/go-opera/utils/signers/gsignercache"
 	"github.com/Fantom-foundation/go-opera/utils/wgmutex"
 	"github.com/Fantom-foundation/go-opera/valkeystore"
@@ -155,7 +156,7 @@ type Service struct {
 	tflusher PeriodicFlusher
 
 	// quota cache
-	quotaCache *QuotaCache
+	quotaCache *quota.QuotaCache
 
 	logger.Instance
 }
@@ -284,8 +285,9 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.tflusher = svc.makePeriodicFlusher()
 
 	// create quota cache
+	quotaStore := NewQuotaStore(svc.store)
 	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.quotaCache = NewQuotaCache(svc.store, 75)
+	svc.quotaCache = quota.NewQuotaCache(quotaStore, 75)
 
 	return svc, nil
 }

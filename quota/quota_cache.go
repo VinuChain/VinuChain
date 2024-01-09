@@ -1,12 +1,11 @@
-package gossip
+package quota
 
 import (
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/Fantom-foundation/go-opera/gossip/contract/sfc100"
-	"github.com/Fantom-foundation/lachesis-base/inter/idx"
+	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -169,11 +168,7 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 		// add quota used to quota used map
 		// check if tx is delegate or undelegate
 		if tx.Data() != nil {
-			abi, err := abi.JSON(strings.NewReader(sfc100.ContractABI))
-			if err != nil {
-				panic(err)
-			}
-			if method, err := abi.MethodById(tx.Data()[:4]); err == nil {
+			if method, err := qc.ContractABI.MethodById(tx.Data()[:4]); err == nil {
 				if method.Name == "delegate" {
 					if _, ok := qc.StakesMap[tx.From()]; !ok {
 						qc.StakesMap[tx.From()] = big.NewInt(0)
@@ -240,7 +235,7 @@ func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
 	return nil
 }
 
-func NewQuotaCache(store *Store, window uint64) *QuotaCache {
+func NewQuotaCache(store Store, window uint64) *QuotaCache {
 	qc := QuotaCache{
 		BlockBuffer:  NewCircularBuffer(window),
 		TxCountMap:   make(map[common.Address]int64),
@@ -248,34 +243,24 @@ func NewQuotaCache(store *Store, window uint64) *QuotaCache {
 		StakesMap:    make(map[common.Address]*big.Int),
 	}
 
-	abi, err := abi.JSON(strings.NewReader(sfc100.ContractABI)) // TODO: switch to quota-contract ABI
+	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
 	if err != nil {
 		panic(err)
 	}
 	qc.ContractABI = &abi
 
 	lastBlockIndex := store.GetLatestBlockIndex()
-	windowIdx := idx.Block(window)
 
 	// if there are less blocks than window size
-	if lastBlockIndex < windowIdx {
-		windowIdx = lastBlockIndex
+	if lastBlockIndex < window {
+		window = lastBlockIndex
 	}
 
-	oldestBlockIndex := lastBlockIndex - windowIdx + 1
+	oldestBlockIndex := lastBlockIndex - window + 1
 	for i := oldestBlockIndex; i <= lastBlockIndex; i++ {
 		k := i - oldestBlockIndex
 
-		// store contains cached and persisted data
-		// if it is not in cache, it is in db
-		block := store.GetBlock(i)
-		txs := store.GetBlockTxs(i, block)
-		receipts := store.EvmStore().GetReceipts(
-			i,
-			types.LatestSignerForChainID(store.GetEvmChainConfig().ChainID),
-			common.Hash{},
-			txs,
-		)
+		txs, receipts := store.GetBlockTransactionsAndReceipts(i)
 
 		if len(txs) != len(receipts) {
 			panic("txs and receipts length mismatch")

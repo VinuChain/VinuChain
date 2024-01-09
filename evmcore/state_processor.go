@@ -91,6 +91,7 @@ func (p *StateProcessor) Process(
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
 	}
 	return
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/quota"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
 
@@ -57,6 +58,8 @@ type OperaEVMProcessor struct {
 	incomingTxs types.Transactions
 	skippedTxs  []uint32
 	receipts    types.Receipts
+
+	quotaCache *quota.QuotaCache
 }
 
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
