@@ -61,6 +61,7 @@ type StateTransition struct {
 	data       []byte
 	state      vm.StateDB
 	evm        *vm.EVM
+	quotaCache *quota.QuotaCache
 }
 
 // Message represents a message sent to a contract.
@@ -154,15 +155,16 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota.QuotaCache) *StateTransition {
 	return &StateTransition{
-		gp:       gp,
-		evm:      evm,
-		msg:      msg,
-		gasPrice: msg.GasPrice(),
-		value:    msg.Value(),
-		data:     msg.Data(),
-		state:    evm.StateDB,
+		gp:         gp,
+		evm:        evm,
+		msg:        msg,
+		gasPrice:   msg.GasPrice(),
+		value:      msg.Value(),
+		data:       msg.Data(),
+		state:      evm.StateDB,
+		quotaCache: quotaCache,
 	}
 }
 
@@ -174,7 +176,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota.QuotaCache) (*ExecutionResult, error) {
-	res, err := NewStateTransition(evm, msg, gp).TransitionDb(quotaCache)
+	res, err := NewStateTransition(evm, msg, gp, quotaCache).TransitionDb()
 	if err != nil {
 		log.Debug("Tx skipped", "err", err)
 	}
@@ -246,7 +248,7 @@ func (st *StateTransition) internal() bool {
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
-func (st *StateTransition) TransitionDb(quotaCache *quota.QuotaCache) (*ExecutionResult, error) {
+func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -308,8 +310,8 @@ func (st *StateTransition) TransitionDb(quotaCache *quota.QuotaCache) (*Executio
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	quotaUsed := quotaCache.GetQuotaUsed(st.msg.From())
-	feeRefund := quotaCache.CalculateFeeRefund(quotaUsed, st.gasPrice)
+	quotaUsed := st.quotaCache.GetQuotaUsed(st.msg.From())
+	feeRefund := st.quotaCache.CalculateFeeRefund(quotaUsed, st.gasPrice)
 
 	return &ExecutionResult{
 		FeeRefund:  feeRefund,
