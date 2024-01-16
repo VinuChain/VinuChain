@@ -92,7 +92,7 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 		// Note: l.Index is properly set before
 		l.TxIndex += txsOffset
 		p.onNewLog(l)
-	})
+	}, p.quotaCache)
 	if err != nil {
 		log.Crit("EVM internal error", "err", err)
 	}

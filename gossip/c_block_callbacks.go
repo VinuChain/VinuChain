@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/utils"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -25,7 +26,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
-	"github.com/Fantom-foundation/go-opera/utils"
+	"github.com/Fantom-foundation/go-opera/quota"
 )
 
 var (
@@ -93,6 +94,29 @@ func consensusCallbackBeginBlockFn(
 	return func(cBlock *lachesis.Block) lachesis.BlockCallbacks {
 		wg.Wait()
 		start := time.Now()
+
+		quotaStore := NewQuotaStore(store)
+		quotaCache := quota.NewQuotaCache(quotaStore, 75)
+
+		currentBlockIndex := store.GetLatestBlockIndex()
+
+		txs, receipts := quotaStore.GetBlockTransactionsAndReceipts(uint64(currentBlockIndex))
+		if len(txs) != len(receipts) {
+			log.Crit("Number of transactions and receipts is different")
+		}
+
+		for i, tx := range txs {
+			receipt := receipts[i]
+			if err := quotaCache.AddTransaction(tx, receipt); err != nil {
+				log.Crit("Failed to add transaction to quota cache", "err", err)
+			}
+		}
+
+		if len(txs) == 0 {
+			if err := quotaCache.AddEmptyBlock(uint64(currentBlockIndex)); err != nil {
+
+			}
+		}
 
 		// Note: take copies to avoid race conditions with API calls
 		bs := store.GetBlockState().Copy()

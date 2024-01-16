@@ -18,6 +18,7 @@ package evmcore
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/quota"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -56,7 +57,12 @@ func NewStateProcessor(config *params.ChainConfig, bc DummyChain) *StateProcesso
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(
-	block *EvmBlock, statedb *state.StateDB, cfg vm.Config, usedGas *uint64, onNewLog func(*types.Log, *state.StateDB),
+	block *EvmBlock,
+	statedb *state.StateDB,
+	cfg vm.Config,
+	usedGas *uint64,
+	onNewLog func(*types.Log, *state.StateDB),
+	quotaCache *quota.QuotaCache,
 ) (
 	receipts types.Receipts, allLogs []*types.Log, skipped []uint32, err error,
 ) {
@@ -72,15 +78,17 @@ func (p *StateProcessor) Process(
 		blockNumber  = block.Number
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
-		msg, err := TxAsMessage(tx, signer, header.BaseFee)
+		var msg types.Message
+		msg, err = TxAsMessage(tx, signer, header.BaseFee)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 
 		statedb.Prepare(tx.Hash(), i)
-		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog)
+		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, quotaCache)
 		if skip {
 			skipped = append(skipped, uint32(i))
 			err = nil
@@ -107,6 +115,7 @@ func applyTransaction(
 	usedGas *uint64,
 	evm *vm.EVM,
 	onNewLog func(*types.Log, *state.StateDB),
+	quotaCache *quota.QuotaCache,
 ) (
 	*types.Receipt,
 	uint64,
@@ -118,7 +127,7 @@ func applyTransaction(
 	evm.Reset(txContext, statedb)
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp)
+	result, err := ApplyMessage(evm, msg, gp, quotaCache)
 	if err != nil {
 		return nil, 0, result == nil, err
 	}

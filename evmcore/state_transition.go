@@ -18,6 +18,7 @@ package evmcore
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/quota"
 	"math"
 	"math/big"
 
@@ -172,8 +173,8 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
-	res, err := NewStateTransition(evm, msg, gp).TransitionDb()
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota.QuotaCache) (*ExecutionResult, error) {
+	res, err := NewStateTransition(evm, msg, gp).TransitionDb(quotaCache)
 	if err != nil {
 		log.Debug("Tx skipped", "err", err)
 	}
@@ -245,7 +246,7 @@ func (st *StateTransition) internal() bool {
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
-func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
+func (st *StateTransition) TransitionDb(quotaCache *quota.QuotaCache) (*ExecutionResult, error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -307,8 +308,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
+	quotaUsed := quotaCache.GetQuotaUsed(st.msg.From())
+	feeRefund := quotaCache.CalculateFeeRefund(quotaUsed, st.gasPrice)
+
 	return &ExecutionResult{
-		FeeRefund:  big.NewInt(0).SetUint64(st.gasUsed() + 1),
+		FeeRefund:  feeRefund,
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,
 		ReturnData: ret,

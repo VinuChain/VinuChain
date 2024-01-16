@@ -334,3 +334,7 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	}
 	return TxTypeNone
 }
+
+func (qc *QuotaCache) CalculateFeeRefund(quotaUsed, gasPrice *big.Int) *big.Int {
+	return new(big.Int).Mul(quotaUsed, gasPrice)
+}
