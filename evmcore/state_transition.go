@@ -310,8 +310,17 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	quotaUsed := st.quotaCache.GetQuotaUsed(st.msg.From())
-	feeRefund := st.quotaCache.CalculateFeeRefund(quotaUsed, st.gasPrice)
+	availableQuota := st.quotaCache.GetAvailableQuotaByAddress(st.msg.From())
+
+	log.Info("Quota", "availableQuota", availableQuota, "gasUsed", st.gasUsed(), "gasPrice", st.gasPrice)
+
+	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
+
+	log.Info("Quota", "feeRefund", feeRefund)
+
+	if feeRefund.Cmp(availableQuota) > 0 {
+		feeRefund = availableQuota
+	}
 
 	return &ExecutionResult{
 		FeeRefund:  feeRefund,

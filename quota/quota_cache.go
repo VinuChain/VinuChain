@@ -2,6 +2,7 @@ package quota
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"strings"
 
@@ -335,6 +336,24 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	return TxTypeNone
 }
 
-func (qc *QuotaCache) CalculateFeeRefund(quotaUsed, gasPrice *big.Int) *big.Int {
-	return new(big.Int).Mul(quotaUsed, gasPrice)
+func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
+	quota := big.NewInt(0)
+	quotaUsed := qc.GetQuotaUsed(address)
+
+	log.Info(fmt.Sprintf("quotaUsed: %v", quotaUsed))
+
+	lastStakes := qc.GetLastStakes(address)
+
+	log.Info(fmt.Sprintf("lastStakes: %v", lastStakes))
+
+	quota.Sub(lastStakes, quotaUsed)
+
+	//for i := (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size; i != qc.BlockBuffer.CurrentIndex; i = (i + 1) % qc.BlockBuffer.Size {
+	//	for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
+	//		if tx.Tx.From() == address {
+	//			quota.Add(quota, tx.Receipt.FeeRefund)
+	//		}
+	//	}
+	//}
+	return quota
 }
