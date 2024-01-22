@@ -101,25 +101,29 @@ func (p *StateProcessor) Process(
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 
-		if err = quotaCache.AddTransaction(tx, receipt); err != nil {
-			log.Info(
-				"Transaction not applied",
-				"hash", tx.Hash(),
-				"index", i,
-				"from", tx.From(),
-				"to", tx.To(),
-				"gas", tx.Gas(),
-				"gasPrice", tx.GasPrice(),
-				"gasFeeCap", tx.GasFeeCap(),
-				"gasTipCap", tx.GasTipCap(),
-				"value", tx.Value(),
-				"nonce", tx.Nonce(),
-				"data", tx.Data(),
-				"accessList", tx.AccessList(),
-				"type", tx.Type(),
-				"receipt", receipt,
-			)
-			return nil, nil, nil, fmt.Errorf("could not add transaction to quota cache: %w", err)
+		if quotaCache != nil {
+			if err = quotaCache.AddTransaction(tx, receipt); err != nil {
+				log.Info(
+					"Transaction not applied",
+					"hash", tx.Hash(),
+					"index", i,
+					"from", tx.From(),
+					"to", tx.To(),
+					"gas", tx.Gas(),
+					"gasPrice", tx.GasPrice(),
+					"gasFeeCap", tx.GasFeeCap(),
+					"gasTipCap", tx.GasTipCap(),
+					"value", tx.Value(),
+					"nonce", tx.Nonce(),
+					"data", tx.Data(),
+					"accessList", tx.AccessList(),
+					"type", tx.Type(),
+					"receipt", receipt,
+				)
+				return nil, nil, nil, fmt.Errorf("could not add transaction to quota cache: %w", err)
+			}
+		} else {
+			log.Info("Quota cache is nil")
 		}
 
 		log.Info(
