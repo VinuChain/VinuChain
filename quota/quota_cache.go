@@ -144,7 +144,7 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = receipt.BlockNumber.Uint64()
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = make([]TxInfo, 0, 1)
 		} else {
-			return fmt.Errorf("consistency error: receipt block number is not current or next")
+			return fmt.Errorf("consistency error: receipt block number is not current or next, receipt block number: %v, current block number: %v", receipt.BlockNumber, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
 		}
 
 		qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = append(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs, TxInfo{tx, receipt, TxTypeNone})
