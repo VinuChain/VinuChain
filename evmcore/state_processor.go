@@ -115,24 +115,6 @@ func (p *StateProcessor) Process(
 			log.Info("Quota cache is nil")
 		}
 
-		//log.Info(
-		//	"Transaction applied",
-		//	"hash", tx.Hash(),
-		//	"index", i,
-		//	"from", tx.From(),
-		//	"to", tx.To(),
-		//	"gas", tx.Gas(),
-		//	"gasPrice", tx.GasPrice(),
-		//	"gasFeeCap", tx.GasFeeCap(),
-		//	"gasTipCap", tx.GasTipCap(),
-		//	"value", tx.Value(),
-		//	"nonce", tx.Nonce(),
-		//	"data", tx.Data(),
-		//	"accessList", tx.AccessList(),
-		//	"type", tx.Type(),
-		//	"receipt", receipt,
-		//)
-
 	}
 	return
 }

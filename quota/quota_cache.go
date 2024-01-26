@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -153,11 +151,6 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			return fmt.Errorf("consistency error: receipt block number is not current or next, receipt block number: %v, current block number: %v", receipt.BlockNumber, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
 		}
 
-		fromAddr, err := qc.safelyGetFromAddress(tx)
-		if err != nil || fromAddr == (common.Address{}) {
-			return nil
-		}
-
 		qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = append(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs, TxInfo{tx, receipt, TxTypeNone})
 
 		if _, ok := qc.TxCountMap[tx.From()]; !ok {
@@ -212,18 +205,6 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 
 	}
 	return nil
-}
-
-func (qc *QuotaCache) safelyGetFromAddress(tx *types.Transaction) (addr common.Address, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			addr = common.Address{}
-			err = fmt.Errorf("panic: %v", r)
-		}
-	}()
-
-	addr = tx.From()
-	return addr, nil
 }
 
 func (qc *QuotaCache) GetQuotaUsed(address common.Address) *big.Int {
@@ -297,13 +278,6 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 			tx := txs[j]
 			receipt := receipts[j]
 			if receipt.Status == types.ReceiptStatusSuccessful {
-				var fromAddr common.Address
-
-				fromAddr, err = qc.safelyGetFromAddress(tx)
-				if err != nil || fromAddr == (common.Address{}) {
-					continue
-				}
-
 				txtype := getTxType(tx, abi)
 				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
 				if _, ok := qc.TxCountMap[tx.From()]; !ok {
@@ -369,15 +343,10 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
 	quotaUsed := qc.GetQuotaUsed(address)
-
-	log.Info(fmt.Sprintf("quotaUsed: %v", quotaUsed))
-
 	lastStakes := qc.GetLastStakes(address)
-
-	log.Info(fmt.Sprintf("lastStakes: %v", lastStakes))
-
 	quota.Sub(lastStakes, quotaUsed)
 
+	// TODO: calculate quota
 	//for i := (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size; i != qc.BlockBuffer.CurrentIndex; i = (i + 1) % qc.BlockBuffer.Size {
 	//	for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
 	//		if tx.Tx.From() == address {
