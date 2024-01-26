@@ -141,7 +141,6 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			if err := qc.deleteCurrentBlock(); err != nil {
 				return err
 			}
-
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = receipt.BlockNumber.Uint64()
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = make([]TxInfo, 0, 1)
 		} else {
@@ -186,10 +185,10 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 					}
 					qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
 					qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs[len(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs)-1].Type = TxTypeUnstake
-				}
 
-				if qc.StakesMap[tx.From()].Cmp(big.NewInt(0)) == 0 {
-					delete(qc.StakesMap, tx.From())
+					if qc.StakesMap[tx.From()].Cmp(big.NewInt(0)) == 0 {
+						delete(qc.StakesMap, tx.From())
+					}
 				}
 
 			}
