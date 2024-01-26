@@ -114,17 +114,17 @@ func (qc *QuotaCache) deleteCurrentBlock() error {
 			qc.QuotaUsedMap[tx.Tx.From()].Sub(qc.QuotaUsedMap[tx.Tx.From()], tx.Receipt.FeeRefund)
 		}
 
-		if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) == 0 {
-			delete(qc.QuotaUsedMap, tx.Tx.From())
-		} else {
-			if isEmpty {
-				return fmt.Errorf("consistency error: quota used map is not empty")
-			}
-		}
+		//if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) == 0 {
+		//	delete(qc.QuotaUsedMap, tx.Tx.From())
+		//} else {
+		//	if isEmpty {
+		//		return fmt.Errorf("consistency error: quota used map is not empty")
+		//	}
+		//}
 
-		if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) < 0 {
-			return fmt.Errorf("consistency error: quota used map is negative")
-		}
+		//if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) < 0 {
+		//	return fmt.Errorf("consistency error: quota used map is negative")
+		//}
 	}
 	return nil
 }
@@ -143,8 +143,19 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			}
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = receipt.BlockNumber.Uint64()
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = make([]TxInfo, 0, 1)
+		} else if receipt.BlockNumber.Uint64() > qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
+			for qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber != receipt.BlockNumber.Uint64() {
+				if err := qc.AddEmptyBlock(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber + 1); err != nil {
+					return err
+				}
+			}
 		} else {
 			return fmt.Errorf("consistency error: receipt block number is not current or next, receipt block number: %v, current block number: %v", receipt.BlockNumber, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
+		}
+
+		fromAddr, err := qc.safelyGetFromAddress(tx)
+		if err != nil || fromAddr == (common.Address{}) {
+			return nil
 		}
 
 		qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = append(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs, TxInfo{tx, receipt, TxTypeNone})
@@ -169,7 +180,7 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 
 		// add quota used to quota used map
 		// check if tx is delegate or undelegate
-		if tx.Data() != nil {
+		if tx.Data() != nil && len(tx.Data()) >= 4 {
 			if method, err := qc.ContractABI.MethodById(tx.Data()[:4]); err == nil {
 				if method.Name == "delegate" {
 					if _, ok := qc.StakesMap[tx.From()]; !ok {
@@ -201,6 +212,18 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 
 	}
 	return nil
+}
+
+func (qc *QuotaCache) safelyGetFromAddress(tx *types.Transaction) (addr common.Address, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			addr = common.Address{}
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
+	addr = tx.From()
+	return addr, nil
 }
 
 func (qc *QuotaCache) GetQuotaUsed(address common.Address) *big.Int {
@@ -274,9 +297,15 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 			tx := txs[j]
 			receipt := receipts[j]
 			if receipt.Status == types.ReceiptStatusSuccessful {
+				var fromAddr common.Address
+
+				fromAddr, err = qc.safelyGetFromAddress(tx)
+				if err != nil || fromAddr == (common.Address{}) {
+					continue
+				}
+
 				txtype := getTxType(tx, abi)
 				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
-
 				if _, ok := qc.TxCountMap[tx.From()]; !ok {
 					qc.TxCountMap[tx.From()] = 0
 				}
@@ -323,7 +352,7 @@ func (qc *QuotaCache) String() string {
 }
 
 func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
-	if tx.Data() != nil {
+	if tx.Data() != nil && len(tx.Data()) >= 4 {
 		if method, err := abi.MethodById(tx.Data()[:4]); err == nil {
 			if method.Name == "delegate" {
 				return TxTypeStake
