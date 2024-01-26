@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/quota"
 	"github.com/Fantom-foundation/go-opera/utils"
 	"sort"
 	"sync"
@@ -250,7 +251,10 @@ func consensusCallbackBeginBlockFn(
 					})
 				}
 
-				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()))
+				quotaStore := NewQuotaStore(store)
+				quotaCache := quota.NewQuotaCache(quotaStore, 75)
+
+				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()), quotaCache)
 				executionStart := time.Now()
 
 				// Execute pre-internal transactions
@@ -473,7 +477,11 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 			log.Crit("Failue to re-execute blocks", "err", err)
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights))
+
+		quotaStore := NewQuotaStore(s.store)
+		quotaCache := quota.NewQuotaCache(quotaStore, 75)
+
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), quotaCache)
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()

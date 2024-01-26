@@ -456,7 +456,7 @@ func (env *testEnv) callContract(
 	context := evmcore.NewEVMBlockContext(block.Header(), env.GetEvmStateReader(), nil)
 	vmenv := vm.NewEVM(context, txContext, state, env.store.GetEvmChainConfig(), opera.DefaultVMConfig)
 	gaspool := new(evmcore.GasPool).AddGas(math.MaxUint64)
-	res, err := evmcore.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
+	res, err := evmcore.NewStateTransition(vmenv, msg, gaspool, nil).TransitionDb()
 
 	ret, usedGas, failed = res.Return(), res.UsedGas, res.Failed()
 	return
