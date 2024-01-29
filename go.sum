@@ -51,6 +51,8 @@ github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIO
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
 github.com/VictoriaMetrics/fastcache v1.6.0/go.mod h1:0qHz5QP0GMX4pfmMA/zt5RgfNuXJrTP0zS7DqpHGGTw=
+github.com/VinuChain/go-vinu v1.9.6 h1:0PTRxQWlJCa3IfmQVfKW+bdRkUOeroSnQbUPNuBtuK4=
+github.com/VinuChain/go-vinu v1.9.6/go.mod h1:PPVgFAABCGkSTWpd1sK0pHYCfUmfHERGmHejTrq0vzE=
 github.com/VinuChain/go-vinu v1.10.8-ftm-rc9.0.20230907093059-c420dd58019d h1:2yUkJokk77oHvTReAuo6OVmQvVyrcBBQ4aLspvfdVvY=
 github.com/VinuChain/go-vinu v1.10.8-ftm-rc9.0.20230907093059-c420dd58019d/go.mod h1:IeQDjWCNBj/QiWIPosfF6/kRC6pHPNs7W7LfBzjj+P4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=

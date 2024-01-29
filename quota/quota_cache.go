@@ -2,6 +2,8 @@ package quota
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"strings"
 
@@ -342,17 +344,79 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
-	quotaUsed := qc.GetQuotaUsed(address)
-	lastStakes := qc.GetLastStakes(address)
-	quota.Sub(lastStakes, quotaUsed)
 
-	// TODO: calculate quota
-	//for i := (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size; i != qc.BlockBuffer.CurrentIndex; i = (i + 1) % qc.BlockBuffer.Size {
-	//	for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
-	//		if tx.Tx.From() == address {
-	//			quota.Add(quota, tx.Receipt.FeeRefund)
-	//		}
-	//	}
-	//}
+	addressTotalStake, err := qc.getAddressTotalStake(address)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("address total stake", "address", address, "total stake", addressTotalStake)
+
+	minStake, err := qc.getMinStake()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("min stake", "min stake", minStake)
+
+	baseFeePerGas, err := qc.getBaseFeePerGas(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("base fee per gas", "base fee per gas", baseFeePerGas)
+
+	quota = addressTotalStake.Div(addressTotalStake, minStake)
+	quota = quota.Mul(quota, baseFeePerGas)
+
+	oneBlockQuota := big.NewInt(0).Div(big.NewInt(1), big.NewInt(75))
+	quota = quota.Mul(quota, oneBlockQuota)
+	quota = quota.Mul(quota, big.NewInt(21000))
+
+	quota = quota.Sub(quota, qc.GetQuotaUsed(address))
+	quota = quota.Sub(quota, qc.GetQuotaUsedCurrentBlock(address))
+
 	return quota
+}
+
+func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, error) {
+	ethCli, err := ethclient.Dial("https://rpc.ankr.com/fantom")
+	if err != nil {
+		return nil, err
+	}
+
+	sfcAddr := common.HexToAddress("0xfc00face00000000000000000000000000000000")
+	sfcInstance, err := sfc.NewContractCaller(sfcAddr, ethCli)
+	if err != nil {
+		return nil, err
+	}
+
+	totalStakes, err := sfcInstance.TotalStake(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return totalStakes, nil
+}
+
+func (qc *QuotaCache) getMinStake() (*big.Int, error) {
+	return big.NewInt(137), nil
+}
+
+func (qc *QuotaCache) getBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
+	//header, err := qc.EthAPI.HeaderByNumber(nil, rpc.BlockNumber(blockNumber))
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//baseFee := header.BaseFee
+
+	baseFee := big.NewInt(1)
+
+	return baseFee, nil
+}
+
+func (qc *QuotaCache) GetQuotaUsedCurrentBlock(address common.Address) *big.Int {
+	quotaUsedCurrentBlock := big.NewInt(0)
+	return quotaUsedCurrentBlock
 }
