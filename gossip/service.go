@@ -161,6 +161,10 @@ type Service struct {
 	logger.Instance
 }
 
+type EthAPIBaseFeeGetter struct {
+	EthAPI *EthAPIBackend
+}
+
 func NewService(stack *node.Node, config Config, store *Store, blockProc BlockProc,
 	engine lachesis.Consensus, dagIndexer *vecmt.Index, newTxPool func(evmcore.StateReader) TxPool,
 	haltCheck func(oldEpoch, newEpoch idx.Epoch, age time.Time) bool) (*Service, error) {
@@ -286,10 +290,21 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 
 	// create quota cache
 	quotaStore := NewQuotaStore(svc.store)
+
+	baseFeeGetter := &EthAPIBaseFeeGetter{svc.EthAPI}
 	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.quotaCache = quota.NewQuotaCache(quotaStore, 75)
+	svc.quotaCache = quota.NewQuotaCache(quotaStore, 75, baseFeeGetter)
 
 	return svc, nil
+}
+
+func (g *EthAPIBaseFeeGetter) GetBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
+	header, err := g.EthAPI.HeaderByNumber(nil, rpc.BlockNumber(blockNumber))
+	if err != nil {
+		return nil, err
+	}
+
+	return header.BaseFee, nil
 }
 
 // makeCheckers builds event checkers

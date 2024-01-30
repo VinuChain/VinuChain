@@ -65,6 +65,12 @@ type QuotaCache struct {
 
 	// ABI to get nemes of called methods
 	ContractABI *abi.ABI
+
+	baseFeeGetter BaseFeeGetter
+}
+
+type BaseFeeGetter interface {
+	GetBaseFeePerGas(blockNumber uint64) (*big.Int, error)
 }
 
 func (qc *QuotaCache) deleteCurrentBlock() error {
@@ -243,12 +249,13 @@ func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
 	return nil
 }
 
-func NewQuotaCache(store Store, window uint64) *QuotaCache {
+func NewQuotaCache(store Store, window uint64, baseFeeGetter BaseFeeGetter) *QuotaCache {
 	qc := QuotaCache{
-		BlockBuffer:  NewCircularBuffer(window),
-		TxCountMap:   make(map[common.Address]int64),
-		QuotaUsedMap: make(map[common.Address]*big.Int),
-		StakesMap:    make(map[common.Address]*big.Int),
+		BlockBuffer:   NewCircularBuffer(window),
+		TxCountMap:    make(map[common.Address]int64),
+		QuotaUsedMap:  make(map[common.Address]*big.Int),
+		StakesMap:     make(map[common.Address]*big.Int),
+		baseFeeGetter: baseFeeGetter,
 	}
 
 	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
@@ -404,16 +411,22 @@ func (qc *QuotaCache) getMinStake() (*big.Int, error) {
 }
 
 func (qc *QuotaCache) getBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
-	//header, err := qc.EthAPI.HeaderByNumber(nil, rpc.BlockNumber(blockNumber))
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//baseFee := header.BaseFee
+	baseFeeGas := big.NewInt(0)
 
-	baseFee := big.NewInt(1)
+	if qc.baseFeeGetter != nil {
+		baseFeeGasFromAPI, err := qc.baseFeeGetter.GetBaseFeePerGas(blockNumber)
+		if err != nil {
+			return nil, err
+		}
 
-	return baseFee, nil
+		baseFeeGas = baseFeeGasFromAPI
+
+		log.Info("base fee per gas from API", "base fee per gas", baseFeeGas)
+	} else {
+		return big.NewInt(1), nil
+	}
+
+	return baseFeeGas, nil
 }
 
 func (qc *QuotaCache) GetQuotaUsedCurrentBlock(address common.Address) *big.Int {
