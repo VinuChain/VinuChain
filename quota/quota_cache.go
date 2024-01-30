@@ -412,15 +412,25 @@ func (qc *QuotaCache) getMinStake() (*big.Int, error) {
 }
 
 func (qc *QuotaCache) getBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
+	minGasPrice := big.NewInt(0)
 
 	blockIdx := idx.Block(blockNumber)
-	epochIdx := qc.store.FindBlockEpoch(blockIdx)
-	minGasPrice := qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+	if blockNumber != 1 {
+		epochIdx := qc.store.FindBlockEpoch(blockIdx)
+		minGasPrice = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+	}
 
 	return minGasPrice, nil
 }
 
 func (qc *QuotaCache) GetQuotaUsedCurrentBlock(address common.Address) *big.Int {
 	quotaUsedCurrentBlock := big.NewInt(0)
+
+	for _, tx := range qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs {
+		if tx.Tx.From() == address {
+			quotaUsedCurrentBlock.Add(quotaUsedCurrentBlock, tx.Receipt.FeeRefund)
+		}
+	}
+
 	return quotaUsedCurrentBlock
 }
