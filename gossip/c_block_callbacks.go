@@ -252,7 +252,7 @@ func consensusCallbackBeginBlockFn(
 				}
 
 				quotaStore := NewQuotaStore(store)
-				quotaCache := quota.NewQuotaCache(quotaStore, 75, nil)
+				quotaCache := quota.NewQuotaCache(quotaStore, 75)
 
 				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()), quotaCache)
 				executionStart := time.Now()
@@ -479,7 +479,7 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
 
 		quotaStore := NewQuotaStore(s.store)
-		quotaCache := quota.NewQuotaCache(quotaStore, 75, nil)
+		quotaCache := quota.NewQuotaCache(quotaStore, 75)
 
 		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), quotaCache)
 		txs := s.store.GetBlockTxs(b, block)

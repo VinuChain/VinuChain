@@ -2,6 +2,7 @@ package quota
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
@@ -66,7 +67,7 @@ type QuotaCache struct {
 	// ABI to get nemes of called methods
 	ContractABI *abi.ABI
 
-	baseFeeGetter BaseFeeGetter
+	store Store
 }
 
 type BaseFeeGetter interface {
@@ -249,13 +250,13 @@ func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
 	return nil
 }
 
-func NewQuotaCache(store Store, window uint64, baseFeeGetter BaseFeeGetter) *QuotaCache {
+func NewQuotaCache(store Store, window uint64) *QuotaCache {
 	qc := QuotaCache{
-		BlockBuffer:   NewCircularBuffer(window),
-		TxCountMap:    make(map[common.Address]int64),
-		QuotaUsedMap:  make(map[common.Address]*big.Int),
-		StakesMap:     make(map[common.Address]*big.Int),
-		baseFeeGetter: baseFeeGetter,
+		BlockBuffer:  NewCircularBuffer(window),
+		TxCountMap:   make(map[common.Address]int64),
+		QuotaUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:    make(map[common.Address]*big.Int),
+		store:        store,
 	}
 
 	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
@@ -411,22 +412,12 @@ func (qc *QuotaCache) getMinStake() (*big.Int, error) {
 }
 
 func (qc *QuotaCache) getBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
-	baseFeeGas := big.NewInt(0)
 
-	if qc.baseFeeGetter != nil {
-		baseFeeGasFromAPI, err := qc.baseFeeGetter.GetBaseFeePerGas(blockNumber)
-		if err != nil {
-			return nil, err
-		}
+	blockIdx := idx.Block(blockNumber)
+	epochIdx := qc.store.FindBlockEpoch(blockIdx)
+	minGasPrice := qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
 
-		baseFeeGas = baseFeeGasFromAPI
-
-		log.Info("base fee per gas from API", "base fee per gas", baseFeeGas)
-	} else {
-		return big.NewInt(1), nil
-	}
-
-	return baseFeeGas, nil
+	return minGasPrice, nil
 }
 
 func (qc *QuotaCache) GetQuotaUsedCurrentBlock(address common.Address) *big.Int {

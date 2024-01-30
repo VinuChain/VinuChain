@@ -1,6 +1,8 @@
 package quota
 
 import (
+	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -11,4 +13,6 @@ type Store interface {
 	GetLatestBlockIndex() uint64
 	// GetBlockTransactionsAndReceipts returns transactions and receipts for the block with index i
 	GetBlockTransactionsAndReceipts(n uint64) (types.Transactions, types.Receipts)
+	FindBlockEpoch(i idx.Block) idx.Epoch
+	GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState
 }

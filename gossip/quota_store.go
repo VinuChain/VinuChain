@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"math/big"
 
 	"github.com/Fantom-foundation/go-opera/inter"
@@ -46,4 +47,14 @@ func (qs *QuotaStore) getBlock(i idx.Block) *inter.Block {
 // GetChainId returns the chain id
 func (qs *QuotaStore) getChainId() *big.Int {
 	return qs.store.GetEvmChainConfig().ChainID
+}
+
+// FindBlockEpoch returns the epoch of the block with index i
+func (qs *QuotaStore) FindBlockEpoch(i idx.Block) idx.Epoch {
+	return qs.store.FindBlockEpoch(i)
+}
+
+// GetHistoryEpochState returns the state of the epoch with index i
+func (qs *QuotaStore) GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState {
+	return qs.store.GetHistoryEpochState(i)
 }
