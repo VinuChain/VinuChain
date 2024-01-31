@@ -80,6 +80,13 @@ func (p *StateProcessor) Process(
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
 
+	if len(block.Transactions) == 0 {
+		if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
+			log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
+			return
+		}
+	}
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
 		var msg types.Message

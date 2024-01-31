@@ -29,8 +29,9 @@ type TxInfo struct {
 }
 
 type BlockInfo struct {
-	BlockNumber uint64
-	Txs         []TxInfo
+	BlockNumber   uint64
+	Txs           []TxInfo
+	BaseFeePerGas *big.Int
 }
 
 type CircularBuffer struct {
@@ -68,10 +69,6 @@ type QuotaCache struct {
 	ContractABI *abi.ABI
 
 	store Store
-}
-
-type BaseFeeGetter interface {
-	GetBaseFeePerGas(blockNumber uint64) (*big.Int, error)
 }
 
 func (qc *QuotaCache) deleteCurrentBlock() error {
@@ -151,11 +148,13 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = receipt.BlockNumber.Uint64()
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = make([]TxInfo, 0, 1)
 		} else if receipt.BlockNumber.Uint64() > qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
-			for qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber != receipt.BlockNumber.Uint64() {
-				if err := qc.AddEmptyBlock(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber + 1); err != nil {
-					return err
-				}
-			}
+			return fmt.Errorf(
+				"consistency error: receipt block number is greater than current block number, "+
+					"receipt block number: %v, "+
+					"current block number: %v",
+				receipt.BlockNumber,
+				qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber,
+			)
 		} else {
 			return fmt.Errorf("consistency error: receipt block number is not current or next, receipt block number: %v, current block number: %v", receipt.BlockNumber, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
 		}
