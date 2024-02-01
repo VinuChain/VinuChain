@@ -326,10 +326,13 @@ func (qc *QuotaCache) String() string {
 		for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
 			sb.WriteString(fmt.Sprintf("Txs: hash: %v, from: %v, to: %v, value: %v, type: %v\n", tx.Tx.Hash().Hex(), tx.Tx.From().Hex(), tx.Tx.To().Hex(), tx.Tx.Value().String(), tx.Type))
 		}
+		sb.WriteString(fmt.Sprintf("BaseFeePerGas: %v\n", qc.BlockBuffer.Buffer[i].BaseFeePerGas))
 	}
 	sb.WriteString(fmt.Sprintf("TxCountMap: %v\n", qc.TxCountMap))
 	sb.WriteString(fmt.Sprintf("QuotaUsedMap: %v\n", qc.QuotaUsedMap))
 	sb.WriteString(fmt.Sprintf("StakesMap: %v\n", qc.StakesMap))
+	sb.WriteString(fmt.Sprintf("CountBlocksInBuffer: %v\n", len(qc.BlockBuffer.Buffer)))
+	sb.WriteString(fmt.Sprintf("CurrentLink: %v\n", &qc))
 	return sb.String()
 }
 
@@ -348,7 +351,7 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	return TxTypeNone
 }
 
-func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
+func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address, blockNumber *big.Int) *big.Int {
 	quota := big.NewInt(0)
 
 	addressTotalStake, err := qc.getAddressTotalStake(address)
@@ -370,7 +373,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	}
 
 	// addressTotalStake * baseFeePerGas
-	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BaseFeePerGas)
+	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[blockNumber.Uint64()].BaseFeePerGas)
 
 	// addressTotalStake * baseFeePerGas * 21000
 	quota = quota.Mul(quota, big.NewInt(21000))
@@ -420,7 +423,7 @@ func (qc *QuotaCache) GetStore() Store {
 }
 
 func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.Int) {
-	if blockNumber != 1 {
+	if blockNumber > 1 {
 		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = baseFeePerGas
 	}
 }

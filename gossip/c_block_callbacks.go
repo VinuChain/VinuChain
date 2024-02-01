@@ -74,6 +74,7 @@ func (s *Service) GetConsensusCallbacks() lachesis.ConsensusCallbacks {
 			&s.feed,
 			&s.emitters,
 			s.verWatcher,
+			s.quotaCache,
 		),
 	}
 }
@@ -90,6 +91,7 @@ func consensusCallbackBeginBlockFn(
 	feed *ServiceFeed,
 	emitters *[]*emitter.Emitter,
 	verWatcher *verwatcher.VerWarcher,
+	qc *quota.QuotaCache,
 ) lachesis.BeginBlockFn {
 	return func(cBlock *lachesis.Block) lachesis.BlockCallbacks {
 		wg.Wait()
@@ -251,10 +253,7 @@ func consensusCallbackBeginBlockFn(
 					})
 				}
 
-				quotaStore := NewQuotaStore(store)
-				quotaCache := quota.NewQuotaCache(quotaStore, 75)
-
-				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()), quotaCache)
+				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()), qc)
 				executionStart := time.Now()
 
 				// Execute pre-internal transactions
@@ -478,10 +477,7 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
 
-		quotaStore := NewQuotaStore(s.store)
-		quotaCache := quota.NewQuotaCache(quotaStore, 75)
-
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), quotaCache)
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), s.quotaCache)
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()

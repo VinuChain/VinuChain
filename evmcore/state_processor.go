@@ -81,12 +81,16 @@ func (p *StateProcessor) Process(
 	)
 
 	if len(block.Transactions) == 0 {
+		//if quotaCache.BlockBuffer.Buffer[block.NumberU64()] == nil {
 		if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
 			log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
 			return
 		}
+		//}
 	}
 	quotaCache.AddBaseFeePerGas(block.NumberU64(), header.BaseFee)
+
+	log.Info(quotaCache.String())
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
