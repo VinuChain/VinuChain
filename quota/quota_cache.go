@@ -2,7 +2,6 @@ package quota
 
 import (
 	"fmt"
-	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
@@ -366,22 +365,28 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 
 	log.Info("min stake", "min stake", minStake)
 
-	baseFeePerGas, err := qc.getBaseFeePerGas(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
-	if err != nil {
-		panic(err)
+	if addressTotalStake.Cmp(minStake) < 0 {
+		return big.NewInt(0)
 	}
 
-	log.Info("base fee per gas", "base fee per gas", baseFeePerGas)
+	// addressTotalStake * baseFeePerGas
+	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BaseFeePerGas)
 
-	quota = addressTotalStake.Div(addressTotalStake, minStake)
-	quota = quota.Mul(quota, baseFeePerGas)
-
-	oneBlockQuota := big.NewInt(0).Div(big.NewInt(1), big.NewInt(75))
-	quota = quota.Mul(quota, oneBlockQuota)
+	// addressTotalStake * baseFeePerGas * 21000
 	quota = quota.Mul(quota, big.NewInt(21000))
 
+	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow
+	quota = quota.Div(quota, qc.countBlocksInWindow())
+
+	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow / minStake
+	quota = quota.Div(quota, minStake)
+
+	// subtract already used quota
 	quota = quota.Sub(quota, qc.GetQuotaUsed(address))
-	quota = quota.Sub(quota, qc.GetQuotaUsedCurrentBlock(address))
+
+	if quota.Cmp(big.NewInt(0)) < 0 {
+		return big.NewInt(0)
+	}
 
 	return quota
 }
@@ -410,26 +415,16 @@ func (qc *QuotaCache) getMinStake() (*big.Int, error) {
 	return big.NewInt(137), nil
 }
 
-func (qc *QuotaCache) getBaseFeePerGas(blockNumber uint64) (*big.Int, error) {
-	minGasPrice := big.NewInt(0)
-
-	blockIdx := idx.Block(blockNumber)
-	if blockNumber != 1 {
-		epochIdx := qc.store.FindBlockEpoch(blockIdx)
-		minGasPrice = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-	}
-
-	return minGasPrice, nil
+func (qc *QuotaCache) GetStore() Store {
+	return qc.store
 }
 
-func (qc *QuotaCache) GetQuotaUsedCurrentBlock(address common.Address) *big.Int {
-	quotaUsedCurrentBlock := big.NewInt(0)
-
-	for _, tx := range qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs {
-		if tx.Tx.From() == address {
-			quotaUsedCurrentBlock.Add(quotaUsedCurrentBlock, tx.Receipt.FeeRefund)
-		}
+func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.Int) {
+	if blockNumber != 1 {
+		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = baseFeePerGas
 	}
+}
 
-	return quotaUsedCurrentBlock
+func (qc *QuotaCache) countBlocksInWindow() *big.Int {
+	return big.NewInt(75)
 }

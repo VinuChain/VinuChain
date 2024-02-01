@@ -86,6 +86,7 @@ func (p *StateProcessor) Process(
 			return
 		}
 	}
+	quotaCache.AddBaseFeePerGas(block.NumberU64(), header.BaseFee)
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
@@ -119,6 +120,7 @@ func (p *StateProcessor) Process(
 		}
 
 	}
+
 	return
 }
 

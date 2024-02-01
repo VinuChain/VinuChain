@@ -310,12 +310,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	var availableQuota *big.Int
-	if st.quotaCache != nil {
-		availableQuota = st.quotaCache.GetAvailableQuotaByAddress(st.msg.From())
-	} else {
-		availableQuota = new(big.Int).SetInt64(0)
-	}
+	availableQuota := st.quotaCache.GetAvailableQuotaByAddress(st.msg.From())
 
 	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 
