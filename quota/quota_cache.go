@@ -2,6 +2,7 @@ package quota
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
@@ -282,6 +283,15 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 
 		qc.BlockBuffer.Buffer[k].BlockNumber = uint64(i)
 
+		if k > 0 {
+			if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
+				blockIdx := idx.Block(k)
+				epochIdx := store.FindBlockEpoch(blockIdx)
+
+				qc.BlockBuffer.Buffer[k].BaseFeePerGas = store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+			}
+		}
+
 		for j := 0; j < len(txs); j++ {
 			tx := txs[j]
 			receipt := receipts[j]
@@ -331,8 +341,6 @@ func (qc *QuotaCache) String() string {
 	sb.WriteString(fmt.Sprintf("TxCountMap: %v\n", qc.TxCountMap))
 	sb.WriteString(fmt.Sprintf("QuotaUsedMap: %v\n", qc.QuotaUsedMap))
 	sb.WriteString(fmt.Sprintf("StakesMap: %v\n", qc.StakesMap))
-	sb.WriteString(fmt.Sprintf("CountBlocksInBuffer: %v\n", len(qc.BlockBuffer.Buffer)))
-	sb.WriteString(fmt.Sprintf("CurrentLink: %v\n", &qc))
 	return sb.String()
 }
 
@@ -351,7 +359,7 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	return TxTypeNone
 }
 
-func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address, blockNumber *big.Int) *big.Int {
+func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
 
 	addressTotalStake, err := qc.getAddressTotalStake(address)
@@ -373,7 +381,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address, blockNu
 	}
 
 	// addressTotalStake * baseFeePerGas
-	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[blockNumber.Uint64()].BaseFeePerGas)
+	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BaseFeePerGas)
 
 	// addressTotalStake * baseFeePerGas * 21000
 	quota = quota.Mul(quota, big.NewInt(21000))
@@ -423,7 +431,12 @@ func (qc *QuotaCache) GetStore() Store {
 }
 
 func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.Int) {
-	if blockNumber > 1 {
+	if baseFeePerGas == nil {
+		blockIdx := idx.Block(blockNumber)
+		epochIdx := qc.store.FindBlockEpoch(blockIdx)
+
+		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+	} else {
 		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = baseFeePerGas
 	}
 }

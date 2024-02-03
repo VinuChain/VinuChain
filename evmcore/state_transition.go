@@ -312,7 +312,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	var availableQuota *big.Int
 	if st.evm.Context.BlockNumber.Cmp(big.NewInt(1)) != 0 {
-		availableQuota = st.quotaCache.GetAvailableQuotaByAddress(st.msg.From(), st.evm.Context.BlockNumber)
+		availableQuota = st.quotaCache.GetAvailableQuotaByAddress(st.msg.From())
 	} else {
 		availableQuota = big.NewInt(0)
 	}

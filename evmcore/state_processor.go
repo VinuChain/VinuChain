@@ -80,17 +80,12 @@ func (p *StateProcessor) Process(
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
 
-	if len(block.Transactions) == 0 {
-		//if quotaCache.BlockBuffer.Buffer[block.NumberU64()] == nil {
-		if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
-			log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
-			return
-		}
-		//}
+	if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
+		log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
+		return
 	}
-	quotaCache.AddBaseFeePerGas(block.NumberU64(), header.BaseFee)
 
-	log.Info(quotaCache.String())
+	quotaCache.AddBaseFeePerGas(quotaCache.BlockBuffer.CurrentIndex, header.BaseFee)
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
@@ -101,6 +96,10 @@ func (p *StateProcessor) Process(
 		}
 
 		statedb.Prepare(tx.Hash(), i)
+
+		log.Info("block before error in block.Number", block.Number.String())
+		log.Info("block before error in Process()", vmenv.Context.BlockNumber.String())
+
 		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, quotaCache)
 		if skip {
 			skipped = append(skipped, uint32(i))
@@ -124,6 +123,8 @@ func (p *StateProcessor) Process(
 		}
 
 	}
+
+	log.Info(quotaCache.String())
 
 	return
 }
