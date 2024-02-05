@@ -151,8 +151,10 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
+	availableQuota := quotaCache.GetAvailableQuotaByAddress(msg.From())
+
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp, quotaCache)
+	result, err := ApplyMessage(evm, msg, gp, availableQuota)
 	if err != nil {
 		return nil, 0, result == nil, err
 	}

@@ -18,7 +18,6 @@ package evmcore
 
 import (
 	"fmt"
-	"github.com/Fantom-foundation/go-opera/quota"
 	"math"
 	"math/big"
 
@@ -52,16 +51,16 @@ The state transitioning model does all the necessary work to work out a valid ne
 6) Derive new state root
 */
 type StateTransition struct {
-	gp         *GasPool
-	msg        Message
-	gas        uint64
-	gasPrice   *big.Int
-	initialGas uint64
-	value      *big.Int
-	data       []byte
-	state      vm.StateDB
-	evm        *vm.EVM
-	quotaCache *quota.QuotaCache
+	gp             *GasPool
+	msg            Message
+	gas            uint64
+	gasPrice       *big.Int
+	initialGas     uint64
+	value          *big.Int
+	data           []byte
+	state          vm.StateDB
+	evm            *vm.EVM
+	availableQuota *big.Int
 }
 
 // Message represents a message sent to a contract.
@@ -155,16 +154,16 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota.QuotaCache) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) *StateTransition {
 	return &StateTransition{
-		gp:         gp,
-		evm:        evm,
-		msg:        msg,
-		gasPrice:   msg.GasPrice(),
-		value:      msg.Value(),
-		data:       msg.Data(),
-		state:      evm.StateDB,
-		quotaCache: quotaCache,
+		gp:             gp,
+		evm:            evm,
+		msg:            msg,
+		gasPrice:       msg.GasPrice(),
+		value:          msg.Value(),
+		data:           msg.Data(),
+		state:          evm.StateDB,
+		availableQuota: availableQuota,
 	}
 }
 
@@ -175,8 +174,8 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, quotaCache *quota.QuotaCache) (*ExecutionResult, error) {
-	res, err := NewStateTransition(evm, msg, gp, quotaCache).TransitionDb()
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) (*ExecutionResult, error) {
+	res, err := NewStateTransition(evm, msg, gp, availableQuota).TransitionDb()
 	if err != nil {
 		log.Debug("Tx skipped", "err", err)
 	}
@@ -310,19 +309,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	var availableQuota *big.Int
-	if st.evm.Context.BlockNumber.Cmp(big.NewInt(1)) != 0 {
-		availableQuota = st.quotaCache.GetAvailableQuotaByAddress(st.msg.From())
-	} else {
-		availableQuota = big.NewInt(0)
-	}
-
 	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 
-	log.Info("Quota", "feeRefund, address", feeRefund, st.msg.From(), "available", availableQuota)
+	log.Info("Quota", "feeRefund, address", feeRefund, st.msg.From(), "available", st.availableQuota)
 
-	if feeRefund.Cmp(availableQuota) > 0 {
-		feeRefund = availableQuota
+	if feeRefund.Cmp(st.availableQuota) > 0 {
+		feeRefund = st.availableQuota
 	}
 
 	return &ExecutionResult{
