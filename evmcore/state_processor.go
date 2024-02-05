@@ -97,9 +97,6 @@ func (p *StateProcessor) Process(
 
 		statedb.Prepare(tx.Hash(), i)
 
-		log.Info("block before error in block.Number", block.Number.String())
-		log.Info("block before error in Process()", vmenv.Context.BlockNumber.String())
-
 		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, quotaCache)
 		if skip {
 			skipped = append(skipped, uint32(i))
@@ -151,6 +148,7 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
+	quotaCache.SetEVM(evm)
 	availableQuota := quotaCache.GetAvailableQuotaByAddress(msg.From())
 
 	// Apply the transaction to the current state (included in the env).
