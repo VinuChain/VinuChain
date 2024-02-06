@@ -3,7 +3,6 @@ package quota
 import (
 	"fmt"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"strings"
@@ -12,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type TxType string
@@ -69,6 +70,8 @@ type QuotaCache struct {
 	ContractABI *abi.ABI
 
 	store Store
+
+	evm *vm.EVM
 }
 
 func (qc *QuotaCache) deleteCurrentBlock() error {
@@ -237,6 +240,10 @@ func (qc *QuotaCache) GetTxCount(address common.Address) int64 {
 }
 
 func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
+	if qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber == blockNumber {
+		return nil
+	}
+
 	qc.BlockBuffer.CurrentIndex = (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size
 
 	// change maps related to oldest block deliting from buffer
@@ -403,23 +410,34 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 }
 
 func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, error) {
-	ethCli, err := ethclient.Dial("https://rpc.ankr.com/fantom")
-	if err != nil {
-		return nil, err
-	}
+	var (
+		result []byte
+		vmerr  error
+	)
 
+	sender := vm.AccountRef(address)
 	sfcAddr := common.HexToAddress("0xfc00face00000000000000000000000000000000")
-	sfcInstance, err := sfc.NewContractCaller(sfcAddr, ethCli)
-	if err != nil {
-		return nil, err
+	functionSignature := []byte("totalStake()")
+	hash := crypto.Keccak256Hash(functionSignature)
+	methodID := hash[:4]
+
+	//gas, err := evmcore.IntrinsicGas(methodID, nil, false)
+	//if err != nil {
+	//	return big.NewInt(0), err
+	//}
+
+	result, _, vmerr = qc.evm.StaticCall(sender, sfcAddr, methodID, 21000)
+	if vmerr != nil {
+		return big.NewInt(0), vmerr
 	}
 
-	totalStakes, err := sfcInstance.TotalStake(nil)
-	if err != nil {
-		return nil, err
-	}
+	resultValue := big.NewInt(0)
+	resultValue.SetBytes(result)
 
-	return totalStakes, nil
+	log.Info("totalStake result", "result", result, "gas", 21000)
+	log.Info("totalStake resultValue", "result", resultValue.String(), "gas", 21000)
+
+	return resultValue, nil
 }
 
 func (qc *QuotaCache) getMinStake() (*big.Int, error) {
@@ -443,4 +461,8 @@ func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.In
 
 func (qc *QuotaCache) countBlocksInWindow() *big.Int {
 	return big.NewInt(75)
+}
+
+func (qc *QuotaCache) SetEVM(evm *vm.EVM) {
+	qc.evm = evm
 }
