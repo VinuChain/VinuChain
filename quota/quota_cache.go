@@ -437,7 +437,7 @@ func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, er
 	log.Info("totalStake result", "result", result, "gas", 21000)
 	log.Info("totalStake resultValue", "result", resultValue.String(), "gas", 21000)
 
-	return big.NewInt(0), nil
+	return resultValue, nil
 }
 
 func (qc *QuotaCache) getMinStake() (*big.Int, error) {
