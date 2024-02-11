@@ -2,12 +2,12 @@ package quota
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"strings"
 
-	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -72,6 +72,8 @@ type QuotaCache struct {
 	store Store
 
 	evm *vm.EVM
+
+	contractAddress common.Address
 }
 
 func (qc *QuotaCache) deleteCurrentBlock() error {
@@ -265,7 +267,9 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 		store:        store,
 	}
 
-	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
+	qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
+
+	abi, err := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyABI))
 	if err != nil {
 		panic(err)
 	}
@@ -376,12 +380,19 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 
 	log.Info("address total stake", "address", address, "total stake", addressTotalStake)
 
-	minStake, err := qc.getMinStake()
+	minStake, err := qc.getMinStake(address)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Info("min stake", "min stake", minStake)
+
+	countBlocksInWindow, err := qc.countBlocksInWindow(address)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("count blocks in window", "count blocks in window", countBlocksInWindow)
 
 	if addressTotalStake.Cmp(minStake) < 0 {
 		return big.NewInt(0)
@@ -394,7 +405,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	quota = quota.Mul(quota, big.NewInt(21000))
 
 	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow
-	quota = quota.Div(quota, qc.countBlocksInWindow())
+	quota = quota.Div(quota, countBlocksInWindow)
 
 	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow / minStake
 	quota = quota.Div(quota, minStake)
@@ -416,17 +427,24 @@ func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, er
 	)
 
 	sender := vm.AccountRef(address)
-	sfcAddr := common.HexToAddress("0xfc00face00000000000000000000000000000000")
-	functionSignature := []byte("totalStake()")
+	functionSignature := []byte("addressTotalStake(sender)")
 	hash := crypto.Keccak256Hash(functionSignature)
 	methodID := hash[:4]
+
+	//addressParam := common.LeftPadBytes(address.Bytes(), 32)
+	packedData, err := qc.ContractABI.Pack("addressTotalStake", address)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+
+	data := append(methodID, packedData...)
 
 	//gas, err := evmcore.IntrinsicGas(methodID, nil, false)
 	//if err != nil {
 	//	return big.NewInt(0), err
 	//}
 
-	result, _, vmerr = qc.evm.StaticCall(sender, sfcAddr, methodID, 21000)
+	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, data, 21000)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
@@ -434,14 +452,29 @@ func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, er
 	resultValue := big.NewInt(0)
 	resultValue.SetBytes(result)
 
-	log.Info("totalStake result", "result", result, "gas", 21000)
-	log.Info("totalStake resultValue", "result", resultValue.String(), "gas", 21000)
-
 	return resultValue, nil
 }
 
-func (qc *QuotaCache) getMinStake() (*big.Int, error) {
-	return big.NewInt(137), nil
+func (qc *QuotaCache) getMinStake(address common.Address) (*big.Int, error) {
+	var (
+		result []byte
+		vmerr  error
+	)
+
+	sender := vm.AccountRef(address)
+	functionSignature := []byte("getMinStake()")
+	hash := crypto.Keccak256Hash(functionSignature)
+	methodID := hash[:4]
+
+	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, methodID, 21000)
+	if vmerr != nil {
+		return big.NewInt(0), vmerr
+	}
+
+	resultValue := big.NewInt(0)
+	resultValue.SetBytes(result)
+
+	return resultValue, nil
 }
 
 func (qc *QuotaCache) GetStore() Store {
@@ -459,8 +492,26 @@ func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.In
 	}
 }
 
-func (qc *QuotaCache) countBlocksInWindow() *big.Int {
-	return big.NewInt(75)
+func (qc *QuotaCache) countBlocksInWindow(address common.Address) (*big.Int, error) {
+	var (
+		result []byte
+		vmerr  error
+	)
+
+	sender := vm.AccountRef(address)
+	functionSignature := []byte("getFeeRefundBlockCount()")
+	hash := crypto.Keccak256Hash(functionSignature)
+	methodID := hash[:4]
+
+	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, methodID, 21000)
+	if vmerr != nil {
+		return big.NewInt(0), vmerr
+	}
+
+	resultValue := big.NewInt(0)
+	resultValue.SetBytes(result)
+
+	return resultValue, nil
 }
 
 func (qc *QuotaCache) SetEVM(evm *vm.EVM) {

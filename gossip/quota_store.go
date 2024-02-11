@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
+	"github.com/Fantom-foundation/go-opera/opera"
 	"math/big"
 
 	"github.com/Fantom-foundation/go-opera/inter"
@@ -57,4 +58,9 @@ func (qs *QuotaStore) FindBlockEpoch(i idx.Block) idx.Epoch {
 // GetHistoryEpochState returns the state of the epoch with index i
 func (qs *QuotaStore) GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState {
 	return qs.store.GetHistoryEpochState(i)
+}
+
+// GetRules returns the rules
+func (qs *QuotaStore) GetRules() opera.Rules {
+	return qs.store.GetRules()
 }

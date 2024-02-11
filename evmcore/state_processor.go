@@ -121,8 +121,6 @@ func (p *StateProcessor) Process(
 
 	}
 
-	log.Info(quotaCache.String())
-
 	return
 }
 
