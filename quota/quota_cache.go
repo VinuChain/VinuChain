@@ -373,6 +373,10 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
 
+	if qc.contractAddress == (common.Address{}) {
+		return quota
+	}
+
 	addressTotalStake, err := qc.getAddressTotalStake(address)
 	if err != nil {
 		panic(err)
