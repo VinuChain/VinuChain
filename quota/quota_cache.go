@@ -3,7 +3,6 @@ package quota
 import (
 	"fmt"
 	"github.com/Fantom-foundation/go-opera/opera"
-	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
 	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
@@ -20,9 +19,10 @@ import (
 type TxType string
 
 const (
-	TxTypeStake   TxType = "stake"
-	TxTypeUnstake TxType = "unstake"
-	TxTypeNone    TxType = "none" // for all other transactions
+	TxTypeStake      TxType = "stake"
+	TxTypeUnstake    TxType = "unstake"
+	TxTypeNone       TxType = "none" // for all other transactions
+	abiQuotaContract        = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"addressTotalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 )
 
 type TxInfo struct {
@@ -272,7 +272,10 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 	qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
 	log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
 
-	abiQuotaProxy, _ := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyMetaData.ABI))
+	abiQuotaProxy, err := abi.JSON(strings.NewReader(abiQuotaContract))
+	if err != nil {
+		panic(err)
+	}
 	qc.ContractABI = &abiQuotaProxy
 
 	abiSFC, err := abi.JSON(strings.NewReader(sfc.ContractABI))
@@ -379,19 +382,17 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	quota := big.NewInt(0)
 
 	if qc.contractAddress == (common.Address{}) {
-		log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set")
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
-				log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set, but rules are set", "rules", qc.store.GetRules())
 				if qc.store.GetRules().Economy.QuotaCacheAddress != (common.Address{}) {
 					qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
-					log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+				} else {
+					return quota
 				}
 			} else {
 				return quota
 			}
 		} else {
-			log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set and store is not set")
 			return quota
 		}
 	}
@@ -450,24 +451,12 @@ func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, er
 	)
 
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("addressTotalStake(sender)")
-	hash := crypto.Keccak256Hash(functionSignature)
-	methodID := hash[:4]
-
-	//addressParam := common.LeftPadBytes(address.Bytes(), 32)
 	packedData, err := qc.ContractABI.Pack("addressTotalStake", address)
 	if err != nil {
 		return big.NewInt(0), err
 	}
 
-	data := append(methodID, packedData...)
-
-	//gas, err := evmcore.IntrinsicGas(methodID, nil, false)
-	//if err != nil {
-	//	return big.NewInt(0), err
-	//}
-
-	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, data, 21000)
+	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, packedData, 21000)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}

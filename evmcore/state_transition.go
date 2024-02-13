@@ -312,7 +312,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 
 	if st.msg.From() != (common.Address{}) {
-		log.Info("feeRefund, address", feeRefund, st.msg.From().String(), "available", st.availableQuota)
+		log.Info("QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
 	}
 
 	if feeRefund.Cmp(st.availableQuota) > 0 {
