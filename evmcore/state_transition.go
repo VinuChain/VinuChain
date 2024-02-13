@@ -311,7 +311,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 
-	log.Info("Quota", "feeRefund, address", feeRefund, st.msg.From(), "available", st.availableQuota)
+	if st.msg.From() != (common.Address{}) {
+		log.Info("feeRefund, address", feeRefund, st.msg.From().String(), "available", st.availableQuota)
+	}
 
 	if feeRefund.Cmp(st.availableQuota) > 0 {
 		feeRefund = st.availableQuota

@@ -2,7 +2,9 @@ package quota
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
+	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
@@ -268,12 +270,15 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 	}
 
 	qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
+	log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
 
-	abi, err := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyABI))
+	abiQuotaProxy, _ := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyMetaData.ABI))
+	qc.ContractABI = &abiQuotaProxy
+
+	abiSFC, err := abi.JSON(strings.NewReader(sfc.ContractABI))
 	if err != nil {
 		panic(err)
 	}
-	qc.ContractABI = &abi
 
 	lastBlockIndex := store.GetLatestBlockIndex()
 
@@ -307,7 +312,7 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 			tx := txs[j]
 			receipt := receipts[j]
 			if receipt.Status == types.ReceiptStatusSuccessful {
-				txtype := getTxType(tx, abi)
+				txtype := getTxType(tx, abiSFC)
 				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
 				if _, ok := qc.TxCountMap[tx.From()]; !ok {
 					qc.TxCountMap[tx.From()] = 0
@@ -374,7 +379,21 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	quota := big.NewInt(0)
 
 	if qc.contractAddress == (common.Address{}) {
-		return quota
+		log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set")
+		if qc.store != nil {
+			if qc.store.GetRules() != (opera.Rules{}) {
+				log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set, but rules are set", "rules", qc.store.GetRules())
+				if qc.store.GetRules().Economy.QuotaCacheAddress != (common.Address{}) {
+					qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
+					log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+				}
+			} else {
+				return quota
+			}
+		} else {
+			log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is not set and store is not set")
+			return quota
+		}
 	}
 
 	addressTotalStake, err := qc.getAddressTotalStake(address)
