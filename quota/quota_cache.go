@@ -3,6 +3,7 @@ package quota
 import (
 	"fmt"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
 	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
@@ -19,10 +20,9 @@ import (
 type TxType string
 
 const (
-	TxTypeStake      TxType = "stake"
-	TxTypeUnstake    TxType = "unstake"
-	TxTypeNone       TxType = "none" // for all other transactions
-	abiQuotaContract        = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"addressTotalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+	TxTypeStake   TxType = "stake"
+	TxTypeUnstake TxType = "unstake"
+	TxTypeNone    TxType = "none" // for all other transactions        = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"addressTotalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 )
 
 type TxInfo struct {
@@ -272,7 +272,7 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 	qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
 	log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
 
-	abiQuotaProxy, err := abi.JSON(strings.NewReader(abiQuotaContract))
+	abiQuotaProxy, err := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyABI))
 	if err != nil {
 		panic(err)
 	}
@@ -381,6 +381,12 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
 
+	if address == (common.Address{}) {
+		return quota
+	}
+
+	log.Info("GetAvailableQuotaByAddress:", "address", address.String())
+
 	if qc.contractAddress == (common.Address{}) {
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
@@ -402,21 +408,21 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		panic(err)
 	}
 
-	log.Info("address total stake", "address", address, "total stake", addressTotalStake)
+	log.Info("GetAvailableQuotaByAddress: address total stake", "address", address, "total stake", addressTotalStake)
 
 	minStake, err := qc.getMinStake(address)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Info("min stake", "min stake", minStake)
+	log.Info("GetAvailableQuotaByAddress: min stake", "min stake", minStake)
 
 	countBlocksInWindow, err := qc.countBlocksInWindow(address)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Info("count blocks in window", "count blocks in window", countBlocksInWindow)
+	log.Info("GetAvailableQuotaByAddress: count blocks in window", "count blocks in window", countBlocksInWindow)
 
 	if addressTotalStake.Cmp(minStake) < 0 {
 		return big.NewInt(0)
@@ -425,17 +431,27 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	// addressTotalStake * baseFeePerGas
 	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BaseFeePerGas)
 
+	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas", "address total stake * base fee per gas", quota)
+
 	// addressTotalStake * baseFeePerGas * 21000
 	quota = quota.Mul(quota, big.NewInt(21000))
+
+	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000", "address total stake * base fee per gas * 21000", quota)
 
 	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow
 	quota = quota.Div(quota, countBlocksInWindow)
 
+	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window", "address total stake * base fee per gas * 21000 / count blocks in window", quota)
+
 	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow / minStake
 	quota = quota.Div(quota, minStake)
 
+	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window / min stake", "address total stake * base fee per gas * 21000 / count blocks in window / min stake", quota)
+
 	// subtract already used quota
 	quota = quota.Sub(quota, qc.GetQuotaUsed(address))
+
+	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window / min stake - quota used", "address total stake * base fee per gas * 21000 / count blocks in window / min stake - quota used", quota)
 
 	if quota.Cmp(big.NewInt(0)) < 0 {
 		return big.NewInt(0)
