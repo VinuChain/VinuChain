@@ -352,9 +352,9 @@ func (qc *QuotaCache) String() string {
 	var sb strings.Builder
 	for i := (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size; i != qc.BlockBuffer.CurrentIndex; i = (i + 1) % qc.BlockBuffer.Size {
 		sb.WriteString(fmt.Sprintf("Block: %d\n", qc.BlockBuffer.Buffer[i].BlockNumber))
-		for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
-			sb.WriteString(fmt.Sprintf("Txs: hash: %v, from: %v, to: %v, value: %v, type: %v\n", tx.Tx.Hash().Hex(), tx.Tx.From().Hex(), tx.Tx.To().Hex(), tx.Tx.Value().String(), tx.Type))
-		}
+		//for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
+		//	sb.WriteString(fmt.Sprintf("Txs: hash: %v, from: %v, to: %v, value: %v, type: %v\n", tx.Tx.Hash().Hex(), tx.Tx.From().Hex(), tx.Tx.To().Hex(), tx.Tx.Value().String(), tx.Type))
+		//}
 		sb.WriteString(fmt.Sprintf("BaseFeePerGas: %v\n", qc.BlockBuffer.Buffer[i].BaseFeePerGas))
 	}
 	sb.WriteString(fmt.Sprintf("TxCountMap: %v\n", qc.TxCountMap))
@@ -385,8 +385,6 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		return quota
 	}
 
-	log.Info("GetAvailableQuotaByAddress:", "address", address.String())
-
 	if qc.contractAddress == (common.Address{}) {
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
@@ -401,63 +399,96 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		} else {
 			return quota
 		}
+	} else {
+		if qc.store.GetRules().Economy.QuotaCacheAddress != qc.contractAddress {
+			qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
+		}
 	}
+
+	log.Info("GetAvailableQuotaByAddress:", "address", address.String())
 
 	addressTotalStake, err := qc.getAddressTotalStake(address)
 	if err != nil {
-		panic(err)
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	log.Info("GetAvailableQuotaByAddress: address total stake", "address", address, "total stake", addressTotalStake)
+	log.Info("GetAvailableQuotaByAddress:", "address total stake", address, "total stake", addressTotalStake)
 
 	minStake, err := qc.getMinStake(address)
 	if err != nil {
-		panic(err)
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	log.Info("GetAvailableQuotaByAddress: min stake", "min stake", minStake)
+	log.Info("GetAvailableQuotaByAddress:", "min stake", minStake)
 
 	countBlocksInWindow, err := qc.countBlocksInWindow(address)
 	if err != nil {
-		panic(err)
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	log.Info("GetAvailableQuotaByAddress: count blocks in window", "count blocks in window", countBlocksInWindow)
+	log.Info("GetAvailableQuotaByAddress:", "count blocks in window", countBlocksInWindow)
+
+	quotaFactor, err := qc.getQuotaFactor(address)
+	if err != nil {
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
+	}
+
+	log.Info("GetAvailableQuotaByAddress:", "quota factor", quotaFactor)
 
 	if addressTotalStake.Cmp(minStake) < 0 {
 		return big.NewInt(0)
 	}
 
-	// addressTotalStake * baseFeePerGas
-	quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BaseFeePerGas)
+	log.Info(qc.String())
 
-	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas", "address total stake * base fee per gas", quota)
+	quotaSum := big.NewInt(0)
+	for i := qc.BlockBuffer.CurrentIndex; ; i = (i - 1 + qc.BlockBuffer.Size) % qc.BlockBuffer.Size {
+		if qc.BlockBuffer.Buffer[i].BlockNumber < 2 {
+			break
+		}
 
-	// addressTotalStake * baseFeePerGas * 21000
-	quota = quota.Mul(quota, big.NewInt(21000))
+		quota = big.NewInt(0)
+		log.Info("GetAvailableQuotaByAddress:", "block number", qc.BlockBuffer.Buffer[i].BlockNumber, "base fee per gas", qc.BlockBuffer.Buffer[i].BaseFeePerGas, "i", i)
 
-	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000", "address total stake * base fee per gas * 21000", quota)
+		if (qc.BlockBuffer.Buffer[i].BaseFeePerGas == nil || qc.BlockBuffer.Buffer[i].BaseFeePerGas.Cmp(big.NewInt(0)) == 0) && qc.BlockBuffer.Buffer[i].BlockNumber != 0 {
+			blockIdx := idx.Block(qc.BlockBuffer.Buffer[i].BlockNumber)
+			epochIdx := qc.store.FindBlockEpoch(blockIdx)
 
-	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow
-	quota = quota.Div(quota, countBlocksInWindow)
+			qc.BlockBuffer.Buffer[i].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+		}
 
-	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window", "address total stake * base fee per gas * 21000 / count blocks in window", quota)
+		// addressTotalStake * baseFeePerGas
+		quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[i].BaseFeePerGas)
 
-	// addressTotalStake * baseFeePerGas * 21000 / countBlocksInWindow / minStake
-	quota = quota.Div(quota, minStake)
+		// addressTotalStake * baseFeePerGas * quotaFactor
+		quota = quota.Mul(quota, quotaFactor)
 
-	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window / min stake", "address total stake * base fee per gas * 21000 / count blocks in window / min stake", quota)
+		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow
+		quota = quota.Div(quota, countBlocksInWindow)
+
+		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow / minStake
+		quota = quota.Div(quota, minStake)
+
+		log.Info("GetAvailableQuotaByAddress:", "quotaSum", quotaSum, "quota", quota)
+		quotaSum = quotaSum.Add(quotaSum, quota)
+
+		if i == 0 {
+			break
+		}
+	}
+
+	log.Info("GetAvailableQuotaByAddress:", "quotaSum before subtracting used quota", quotaSum)
 
 	// subtract already used quota
-	quota = quota.Sub(quota, qc.GetQuotaUsed(address))
+	quotaSum = quotaSum.Sub(quotaSum, qc.GetQuotaUsed(address))
 
-	log.Info("GetAvailableQuotaByAddress: address total stake * base fee per gas * 21000 / count blocks in window / min stake - quota used", "address total stake * base fee per gas * 21000 / count blocks in window / min stake - quota used", quota)
+	log.Info("GetAvailableQuotaByAddress:", "quotaSum after subtracting used quota", quotaSum)
 
-	if quota.Cmp(big.NewInt(0)) < 0 {
+	if quotaSum.Cmp(big.NewInt(0)) < 0 {
 		return big.NewInt(0)
 	}
 
-	return quota
+	return quotaSum
 }
 
 func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, error) {
@@ -544,4 +575,26 @@ func (qc *QuotaCache) countBlocksInWindow(address common.Address) (*big.Int, err
 
 func (qc *QuotaCache) SetEVM(evm *vm.EVM) {
 	qc.evm = evm
+}
+
+func (qc *QuotaCache) getQuotaFactor(address common.Address) (*big.Int, error) {
+	var (
+		result []byte
+		vmerr  error
+	)
+
+	sender := vm.AccountRef(address)
+	functionSignature := []byte("getQuotaFactor()")
+	hash := crypto.Keccak256Hash(functionSignature)
+	methodID := hash[:4]
+
+	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, methodID, 21000)
+	if vmerr != nil {
+		return big.NewInt(0), vmerr
+	}
+
+	resultValue := big.NewInt(0)
+	resultValue.SetBytes(result)
+
+	return resultValue, nil
 }

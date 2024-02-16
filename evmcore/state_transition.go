@@ -61,6 +61,7 @@ type StateTransition struct {
 	state          vm.StateDB
 	evm            *vm.EVM
 	availableQuota *big.Int
+	feeRefund      *big.Int
 }
 
 // Message represents a message sent to a contract.
@@ -164,6 +165,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *b
 		data:           msg.Data(),
 		state:          evm.StateDB,
 		availableQuota: availableQuota,
+		feeRefund:      big.NewInt(0),
 	}
 }
 
@@ -309,22 +311,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	feeRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
-
-	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) > 0 {
-		log.Info("TransitionDb: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
-	}
-
-	if feeRefund.Cmp(st.availableQuota) > 0 {
-		feeRefund = st.availableQuota
-	}
-
-	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) > 0 {
-		log.Info("TransitionDb: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
-	}
-
 	return &ExecutionResult{
-		FeeRefund:  feeRefund,
+		FeeRefund:  st.feeRefund,
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,
 		ReturnData: ret,
@@ -341,6 +329,30 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	// Return wei for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
+	feeRefund := big.NewInt(0)
+
+	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
+		log.Info("refundGas: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
+		log.Info("refundGas: Fee", "address", st.msg.From().String(), "fee", fee.String())
+	}
+
+	if fee.Cmp(st.availableQuota) > 0 {
+		feeRefund = st.availableQuota
+	} else {
+		feeRefund = fee
+	}
+
+	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
+		log.Info("refundGas: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
+	}
+
+	if feeRefund.Cmp(big.NewInt(0)) > 0 {
+		st.feeRefund = feeRefund
+		remaining = remaining.Add(remaining, feeRefund)
+	}
+
 	st.state.AddBalance(st.msg.From(), remaining)
 
 	// Also return remaining gas to the block gas counter so it is
