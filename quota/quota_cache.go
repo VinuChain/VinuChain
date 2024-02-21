@@ -405,41 +405,29 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		}
 	}
 
-	log.Info("GetAvailableQuotaByAddress:", "address", address.String())
-
 	addressTotalStake, err := qc.getAddressTotalStake(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
-
-	log.Info("GetAvailableQuotaByAddress:", "address total stake", address, "total stake", addressTotalStake)
 
 	minStake, err := qc.getMinStake(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	log.Info("GetAvailableQuotaByAddress:", "min stake", minStake)
-
 	countBlocksInWindow, err := qc.countBlocksInWindow(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
-
-	log.Info("GetAvailableQuotaByAddress:", "count blocks in window", countBlocksInWindow)
 
 	quotaFactor, err := qc.getQuotaFactor(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	log.Info("GetAvailableQuotaByAddress:", "quota factor", quotaFactor)
-
 	if addressTotalStake.Cmp(minStake) < 0 {
 		return big.NewInt(0)
 	}
-
-	log.Info(qc.String())
 
 	quotaSum := big.NewInt(0)
 	for i := qc.BlockBuffer.CurrentIndex; ; i = (i - 1 + qc.BlockBuffer.Size) % qc.BlockBuffer.Size {
@@ -469,7 +457,6 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 			// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow / minStake
 			quota = quota.Div(quota, minStake)
 
-			log.Info("GetAvailableQuotaByAddress:", "quotaSum", quotaSum, "quota", quota, "block number", qc.BlockBuffer.Buffer[i].BlockNumber, "i", i, "base fee per gas", qc.BlockBuffer.Buffer[i].BaseFeePerGas)
 			quotaSum = quotaSum.Add(quotaSum, quota)
 
 		} else {
@@ -477,9 +464,6 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		}
 	}
 
-	log.Info("GetAvailableQuotaByAddress:", "quotaSum before subtracting used quota", quotaSum)
-
-	// subtract already used quota
 	quotaSum = quotaSum.Sub(quotaSum, qc.GetQuotaUsed(address))
 
 	log.Info("GetAvailableQuotaByAddress:", "quotaSum after subtracting used quota", quotaSum)
