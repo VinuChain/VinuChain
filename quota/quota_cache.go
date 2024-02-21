@@ -430,38 +430,34 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	}
 
 	quotaSum := big.NewInt(0)
-	for i := qc.BlockBuffer.CurrentIndex; ; i = (i - 1 + qc.BlockBuffer.Size) % qc.BlockBuffer.Size {
+	for j := 0; j < int(qc.BlockBuffer.Size); j++ {
+		i := (qc.BlockBuffer.CurrentIndex - uint64(j) + qc.BlockBuffer.Size) % qc.BlockBuffer.Size
 		if qc.BlockBuffer.Buffer[i].BlockNumber < 2 {
 			break
 		}
 
-		if i != (qc.BlockBuffer.CurrentIndex)%qc.BlockBuffer.Size {
-			quota = big.NewInt(0)
+		quota = big.NewInt(0)
 
-			if (qc.BlockBuffer.Buffer[i].BaseFeePerGas == nil || qc.BlockBuffer.Buffer[i].BaseFeePerGas.Cmp(big.NewInt(0)) == 0) && qc.BlockBuffer.Buffer[i].BlockNumber != 0 {
-				blockIdx := idx.Block(qc.BlockBuffer.Buffer[i].BlockNumber)
-				epochIdx := qc.store.FindBlockEpoch(blockIdx)
+		if (qc.BlockBuffer.Buffer[i].BaseFeePerGas == nil || qc.BlockBuffer.Buffer[i].BaseFeePerGas.Cmp(big.NewInt(0)) == 0) && qc.BlockBuffer.Buffer[i].BlockNumber != 0 {
+			blockIdx := idx.Block(qc.BlockBuffer.Buffer[i].BlockNumber)
+			epochIdx := qc.store.FindBlockEpoch(blockIdx)
 
-				qc.BlockBuffer.Buffer[i].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-			}
-
-			// addressTotalStake * baseFeePerGas
-			quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[i].BaseFeePerGas)
-
-			// addressTotalStake * baseFeePerGas * quotaFactor
-			quota = quota.Mul(quota, quotaFactor)
-
-			// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow
-			quota = quota.Div(quota, countBlocksInWindow)
-
-			// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow / minStake
-			quota = quota.Div(quota, minStake)
-
-			quotaSum = quotaSum.Add(quotaSum, quota)
-
-		} else {
-			break
+			qc.BlockBuffer.Buffer[i].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
 		}
+
+		// addressTotalStake * baseFeePerGas
+		quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[i].BaseFeePerGas)
+
+		// addressTotalStake * baseFeePerGas * quotaFactor
+		quota = quota.Mul(quota, quotaFactor)
+
+		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow
+		quota = quota.Div(quota, countBlocksInWindow)
+
+		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow / minStake
+		quota = quota.Div(quota, minStake)
+
+		quotaSum = quotaSum.Add(quotaSum, quota)
 	}
 
 	quotaSum = quotaSum.Sub(quotaSum, qc.GetQuotaUsed(address))
