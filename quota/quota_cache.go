@@ -2,13 +2,14 @@ package quota
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
 	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
-	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -302,14 +303,13 @@ func NewQuotaCache(store Store, window uint64) *QuotaCache {
 
 		qc.BlockBuffer.Buffer[k].BlockNumber = uint64(i)
 
-		//if k > 0 {
-		//	if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
-		//		blockIdx := idx.Block(k)
-		//		epochIdx := store.FindBlockEpoch(blockIdx)
-		//
-		//		qc.BlockBuffer.Buffer[k].BaseFeePerGas = store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-		//	}
-		//}
+		if k > 0 {
+			if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
+				epochIdx := store.FindBlockEpoch(idx.Block(qc.BlockBuffer.Buffer[k].BlockNumber))
+
+				qc.BlockBuffer.Buffer[k].BaseFeePerGas = store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+			}
+		}
 
 		for j := 0; j < len(txs); j++ {
 			tx := txs[j]
