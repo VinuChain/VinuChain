@@ -108,7 +108,7 @@ type EconomyRules struct {
 	ShortGasPower GasPowerRules
 	LongGasPower  GasPowerRules
 
-	QuotaCacheAddress common.Address
+	QuotaCacheAddress common.Address `rlp:"optional"`
 }
 
 // BlocksRules contains blocks constants
