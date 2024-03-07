@@ -501,7 +501,7 @@ func (qc *QuotaCache) getMinStake(address common.Address) (*big.Int, error) {
 	)
 
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("getMinStake()")
+	functionSignature := []byte("minStake()")
 	hash := crypto.Keccak256Hash(functionSignature)
 	methodID := hash[:4]
 
@@ -538,7 +538,7 @@ func (qc *QuotaCache) countBlocksInWindow(address common.Address) (*big.Int, err
 	)
 
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("getFeeRefundBlockCount()")
+	functionSignature := []byte("feeRefundBlockCount()")
 	hash := crypto.Keccak256Hash(functionSignature)
 	methodID := hash[:4]
 
@@ -564,7 +564,7 @@ func (qc *QuotaCache) getQuotaFactor(address common.Address) (*big.Int, error) {
 	)
 
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("getQuotaFactor()")
+	functionSignature := []byte("quotaFactor()")
 	hash := crypto.Keccak256Hash(functionSignature)
 	methodID := hash[:4]
 
