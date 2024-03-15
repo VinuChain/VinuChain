@@ -478,7 +478,7 @@ func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, er
 	)
 
 	sender := vm.AccountRef(address)
-	packedData, err := qc.ContractABI.Pack("addressTotalStake", address)
+	packedData, err := qc.ContractABI.Pack("getStake", address)
 	if err != nil {
 		return big.NewInt(0), err
 	}
