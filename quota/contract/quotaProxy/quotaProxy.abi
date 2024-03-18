@@ -7,7 +7,7 @@
         "type": "address"
       }
     ],
-    "name": "addressTotalStake",
+    "name": "getStake",
     "outputs": [
       {
         "internalType": "uint256",
@@ -20,7 +20,7 @@
   },
   {
     "inputs": [],
-    "name": "getFeeRefundBlockCount",
+    "name": "feeRefundBlockCount",
     "outputs": [
       {
         "internalType": "uint16",
@@ -33,7 +33,7 @@
   },
   {
     "inputs": [],
-    "name": "getMinStake",
+    "name": "minStake",
     "outputs": [
       {
         "internalType": "uint256",
@@ -53,6 +53,19 @@
         "name": "",
         "type": "uint256"
       }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "quotaFactor",
+    "outputs": [
+     {
+       "internalType": "uint256",
+       "name": "",
+       "type": "uint256"
+     }
     ],
     "stateMutability": "view",
     "type": "function"

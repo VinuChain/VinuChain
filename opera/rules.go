@@ -118,9 +118,10 @@ type BlocksRules struct {
 }
 
 type Upgrades struct {
-	Berlin bool
-	London bool
-	Llr    bool
+	Berlin    bool
+	London    bool
+	Podgorica bool
+	Llr       bool
 }
 
 type UpgradeHeight struct {

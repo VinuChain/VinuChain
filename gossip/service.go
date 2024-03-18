@@ -287,7 +287,7 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	// create quota cache
 	quotaStore := NewQuotaStore(svc.store)
 	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.quotaCache = quota.NewQuotaCache(quotaStore, 75)
+	svc.quotaCache = quota.NewQuotaCache(quotaStore)
 
 	return svc, nil
 }

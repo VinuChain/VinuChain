@@ -261,17 +261,21 @@ func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
 	return nil
 }
 
-func NewQuotaCache(store Store, window uint64) *QuotaCache {
+func NewQuotaCache(store Store) *QuotaCache {
+	var window uint64
+
 	qc := QuotaCache{
-		BlockBuffer:  NewCircularBuffer(window),
+		BlockBuffer:  NewCircularBuffer(1),
 		TxCountMap:   make(map[common.Address]int64),
 		QuotaUsedMap: make(map[common.Address]*big.Int),
 		StakesMap:    make(map[common.Address]*big.Int),
 		store:        store,
 	}
 
-	qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
-	log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+	if store.GetRules().Upgrades.Podgorica {
+		qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
+		log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+	}
 
 	abiQuotaProxy, err := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyABI))
 	if err != nil {
@@ -388,8 +392,18 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	if qc.contractAddress == (common.Address{}) {
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
-				if qc.store.GetRules().Economy.QuotaCacheAddress != (common.Address{}) {
+				if qc.store.GetRules().Upgrades.Podgorica {
 					qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
+					log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+
+					window, err := qc.countBlocksInWindow(address)
+					if err != nil {
+						log.Warn("GetAvailableQuotaByAddress:", "error", err)
+					}
+
+					qc.InitializeBlockBuffer(window.Uint64())
+
+					log.Info("GetAvailableQuotaByAddress: BlockBuffer initialized", "window", window.Uint64())
 				} else {
 					return quota
 				}
@@ -402,6 +416,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	} else {
 		if qc.store.GetRules().Economy.QuotaCacheAddress != qc.contractAddress {
 			qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
+			log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress has been changed", "address", qc.contractAddress.String())
 		}
 	}
 
@@ -577,4 +592,76 @@ func (qc *QuotaCache) getQuotaFactor(address common.Address) (*big.Int, error) {
 	resultValue.SetBytes(result)
 
 	return resultValue, nil
+}
+
+func (qc *QuotaCache) InitializeBlockBuffer(window uint64) {
+	qc.BlockBuffer = NewCircularBuffer(window)
+
+	abiSFC, err := abi.JSON(strings.NewReader(sfc.ContractABI))
+	if err != nil {
+		panic(err)
+	}
+
+	lastBlockIndex := qc.store.GetLatestBlockIndex()
+
+	// if there are less blocks than window size
+	if lastBlockIndex < window {
+		window = lastBlockIndex
+	}
+
+	oldestBlockIndex := lastBlockIndex - window + 1
+	for i := oldestBlockIndex; i <= lastBlockIndex; i++ {
+		k := i - oldestBlockIndex
+
+		txs, receipts := qc.store.GetBlockTransactionsAndReceipts(i)
+
+		if len(txs) != len(receipts) {
+			panic("txs and receipts length mismatch")
+		}
+
+		qc.BlockBuffer.Buffer[k].BlockNumber = uint64(i)
+
+		if k > 0 {
+			if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
+				epochIdx := qc.store.FindBlockEpoch(idx.Block(qc.BlockBuffer.Buffer[k].BlockNumber))
+
+				qc.BlockBuffer.Buffer[k].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+			}
+		}
+
+		for j := 0; j < len(txs); j++ {
+			tx := txs[j]
+			receipt := receipts[j]
+			if receipt.Status == types.ReceiptStatusSuccessful {
+				txtype := getTxType(tx, abiSFC)
+				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
+				if _, ok := qc.TxCountMap[tx.From()]; !ok {
+					qc.TxCountMap[tx.From()] = 0
+				}
+				qc.TxCountMap[tx.From()]++
+
+				if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
+					qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
+				}
+				qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
+
+				if txtype == TxTypeStake || txtype == TxTypeUnstake {
+					if _, ok := qc.StakesMap[tx.From()]; !ok {
+						qc.StakesMap[tx.From()] = big.NewInt(0)
+					}
+					switch txtype {
+					case TxTypeStake:
+						qc.StakesMap[tx.From()].Add(qc.StakesMap[tx.From()], tx.Value())
+					case TxTypeUnstake:
+						qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
+					}
+				}
+			}
+
+		}
+
+	}
+
+	qc.BlockBuffer.CurrentIndex = window - 1
+
 }

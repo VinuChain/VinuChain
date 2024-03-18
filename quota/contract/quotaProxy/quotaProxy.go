@@ -31,7 +31,7 @@ var (
 
 // QuotaProxyMetaData contains all meta data concerning the QuotaProxy contract.
 var QuotaProxyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"addressTotalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"getStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"feeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quotaFactor\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // QuotaProxyABI is the input ABI used to generate the binding from.
@@ -180,43 +180,12 @@ func (_QuotaProxy *QuotaProxyTransactorRaw) Transact(opts *bind.TransactOpts, me
 	return _QuotaProxy.Contract.contract.Transact(opts, method, params...)
 }
 
-// AddressTotalStake is a free data retrieval call binding the contract method 0x65fdda5e.
+// FeeRefundBlockCount is a free data retrieval call binding the contract method 0x0fe34e68.
 //
-// Solidity: function addressTotalStake(address sender) view returns(uint256)
-func (_QuotaProxy *QuotaProxyCaller) AddressTotalStake(opts *bind.CallOpts, sender common.Address) (*big.Int, error) {
+// Solidity: function feeRefundBlockCount() view returns(uint16)
+func (_QuotaProxy *QuotaProxyCaller) FeeRefundBlockCount(opts *bind.CallOpts) (uint16, error) {
 	var out []interface{}
-	err := _QuotaProxy.contract.Call(opts, &out, "addressTotalStake", sender)
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// AddressTotalStake is a free data retrieval call binding the contract method 0x65fdda5e.
-//
-// Solidity: function addressTotalStake(address sender) view returns(uint256)
-func (_QuotaProxy *QuotaProxySession) AddressTotalStake(sender common.Address) (*big.Int, error) {
-	return _QuotaProxy.Contract.AddressTotalStake(&_QuotaProxy.CallOpts, sender)
-}
-
-// AddressTotalStake is a free data retrieval call binding the contract method 0x65fdda5e.
-//
-// Solidity: function addressTotalStake(address sender) view returns(uint256)
-func (_QuotaProxy *QuotaProxyCallerSession) AddressTotalStake(sender common.Address) (*big.Int, error) {
-	return _QuotaProxy.Contract.AddressTotalStake(&_QuotaProxy.CallOpts, sender)
-}
-
-// GetFeeRefundBlockCount is a free data retrieval call binding the contract method 0xe2e96253.
-//
-// Solidity: function getFeeRefundBlockCount() view returns(uint16)
-func (_QuotaProxy *QuotaProxyCaller) GetFeeRefundBlockCount(opts *bind.CallOpts) (uint16, error) {
-	var out []interface{}
-	err := _QuotaProxy.contract.Call(opts, &out, "getFeeRefundBlockCount")
+	err := _QuotaProxy.contract.Call(opts, &out, "feeRefundBlockCount")
 
 	if err != nil {
 		return *new(uint16), err
@@ -228,26 +197,26 @@ func (_QuotaProxy *QuotaProxyCaller) GetFeeRefundBlockCount(opts *bind.CallOpts)
 
 }
 
-// GetFeeRefundBlockCount is a free data retrieval call binding the contract method 0xe2e96253.
+// FeeRefundBlockCount is a free data retrieval call binding the contract method 0x0fe34e68.
 //
-// Solidity: function getFeeRefundBlockCount() view returns(uint16)
-func (_QuotaProxy *QuotaProxySession) GetFeeRefundBlockCount() (uint16, error) {
-	return _QuotaProxy.Contract.GetFeeRefundBlockCount(&_QuotaProxy.CallOpts)
+// Solidity: function feeRefundBlockCount() view returns(uint16)
+func (_QuotaProxy *QuotaProxySession) FeeRefundBlockCount() (uint16, error) {
+	return _QuotaProxy.Contract.FeeRefundBlockCount(&_QuotaProxy.CallOpts)
 }
 
-// GetFeeRefundBlockCount is a free data retrieval call binding the contract method 0xe2e96253.
+// FeeRefundBlockCount is a free data retrieval call binding the contract method 0x0fe34e68.
 //
-// Solidity: function getFeeRefundBlockCount() view returns(uint16)
-func (_QuotaProxy *QuotaProxyCallerSession) GetFeeRefundBlockCount() (uint16, error) {
-	return _QuotaProxy.Contract.GetFeeRefundBlockCount(&_QuotaProxy.CallOpts)
+// Solidity: function feeRefundBlockCount() view returns(uint16)
+func (_QuotaProxy *QuotaProxyCallerSession) FeeRefundBlockCount() (uint16, error) {
+	return _QuotaProxy.Contract.FeeRefundBlockCount(&_QuotaProxy.CallOpts)
 }
 
-// GetMinStake is a free data retrieval call binding the contract method 0x56a3b5fa.
+// GetStake is a free data retrieval call binding the contract method 0x7a766460.
 //
-// Solidity: function getMinStake() view returns(uint256)
-func (_QuotaProxy *QuotaProxyCaller) GetMinStake(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function getStake(address sender) view returns(uint256)
+func (_QuotaProxy *QuotaProxyCaller) GetStake(opts *bind.CallOpts, sender common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _QuotaProxy.contract.Call(opts, &out, "getMinStake")
+	err := _QuotaProxy.contract.Call(opts, &out, "getStake", sender)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -259,18 +228,80 @@ func (_QuotaProxy *QuotaProxyCaller) GetMinStake(opts *bind.CallOpts) (*big.Int,
 
 }
 
-// GetMinStake is a free data retrieval call binding the contract method 0x56a3b5fa.
+// GetStake is a free data retrieval call binding the contract method 0x7a766460.
 //
-// Solidity: function getMinStake() view returns(uint256)
-func (_QuotaProxy *QuotaProxySession) GetMinStake() (*big.Int, error) {
-	return _QuotaProxy.Contract.GetMinStake(&_QuotaProxy.CallOpts)
+// Solidity: function getStake(address sender) view returns(uint256)
+func (_QuotaProxy *QuotaProxySession) GetStake(sender common.Address) (*big.Int, error) {
+	return _QuotaProxy.Contract.GetStake(&_QuotaProxy.CallOpts, sender)
 }
 
-// GetMinStake is a free data retrieval call binding the contract method 0x56a3b5fa.
+// GetStake is a free data retrieval call binding the contract method 0x7a766460.
 //
-// Solidity: function getMinStake() view returns(uint256)
-func (_QuotaProxy *QuotaProxyCallerSession) GetMinStake() (*big.Int, error) {
-	return _QuotaProxy.Contract.GetMinStake(&_QuotaProxy.CallOpts)
+// Solidity: function getStake(address sender) view returns(uint256)
+func (_QuotaProxy *QuotaProxyCallerSession) GetStake(sender common.Address) (*big.Int, error) {
+	return _QuotaProxy.Contract.GetStake(&_QuotaProxy.CallOpts, sender)
+}
+
+// MinStake is a free data retrieval call binding the contract method 0x375b3c0a.
+//
+// Solidity: function minStake() view returns(uint256)
+func (_QuotaProxy *QuotaProxyCaller) MinStake(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _QuotaProxy.contract.Call(opts, &out, "minStake")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// MinStake is a free data retrieval call binding the contract method 0x375b3c0a.
+//
+// Solidity: function minStake() view returns(uint256)
+func (_QuotaProxy *QuotaProxySession) MinStake() (*big.Int, error) {
+	return _QuotaProxy.Contract.MinStake(&_QuotaProxy.CallOpts)
+}
+
+// MinStake is a free data retrieval call binding the contract method 0x375b3c0a.
+//
+// Solidity: function minStake() view returns(uint256)
+func (_QuotaProxy *QuotaProxyCallerSession) MinStake() (*big.Int, error) {
+	return _QuotaProxy.Contract.MinStake(&_QuotaProxy.CallOpts)
+}
+
+// QuotaFactor is a free data retrieval call binding the contract method 0x976dd021.
+//
+// Solidity: function quotaFactor() view returns(uint256)
+func (_QuotaProxy *QuotaProxyCaller) QuotaFactor(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _QuotaProxy.contract.Call(opts, &out, "quotaFactor")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// QuotaFactor is a free data retrieval call binding the contract method 0x976dd021.
+//
+// Solidity: function quotaFactor() view returns(uint256)
+func (_QuotaProxy *QuotaProxySession) QuotaFactor() (*big.Int, error) {
+	return _QuotaProxy.Contract.QuotaFactor(&_QuotaProxy.CallOpts)
+}
+
+// QuotaFactor is a free data retrieval call binding the contract method 0x976dd021.
+//
+// Solidity: function quotaFactor() view returns(uint256)
+func (_QuotaProxy *QuotaProxyCallerSession) QuotaFactor() (*big.Int, error) {
+	return _QuotaProxy.Contract.QuotaFactor(&_QuotaProxy.CallOpts)
 }
 
 // TotalStake is a free data retrieval call binding the contract method 0x8b0e9f3f.
