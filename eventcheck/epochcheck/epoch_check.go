@@ -126,6 +126,9 @@ func (v *Checker) Validate(e inter.EventPayloadI) error {
 	if rules.Upgrades.Llr {
 		version = 1
 	}
+	if rules.Upgrades.Podgorica {
+		version = 2
+	}
 	if e.Version() != version {
 		return ErrWrongVersion
 	}
