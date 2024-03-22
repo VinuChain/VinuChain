@@ -122,7 +122,7 @@ func (qc *QuotaCache) deleteCurrentBlock() error {
 			}
 		}
 
-		if _, ok := qc.QuotaUsedMap[tx.Tx.From()]; ok {
+		if _, ok := qc.QuotaUsedMap[tx.Tx.From()]; ok && tx.Receipt.FeeRefund != nil {
 			qc.QuotaUsedMap[tx.Tx.From()].Sub(qc.QuotaUsedMap[tx.Tx.From()], tx.Receipt.FeeRefund)
 		}
 
@@ -214,10 +214,12 @@ func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Recei
 			}
 		}
 
-		if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
-			qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
+		if receipt.FeeRefund != nil {
+			if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
+				qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
+			}
+			qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
 		}
-		qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
 
 	}
 	return nil
