@@ -26,6 +26,7 @@ const (
 	berlinBit                = 1 << 0
 	londonBit                = 1 << 1
 	llrBit                   = 1 << 2
+	podgoricaBit             = 1 << 3
 )
 
 var DefaultVMConfig = vm.Config{
@@ -120,8 +121,8 @@ type BlocksRules struct {
 type Upgrades struct {
 	Berlin    bool
 	London    bool
-	Podgorica bool
 	Llr       bool
+	Podgorica bool
 }
 
 type UpgradeHeight struct {

@@ -277,6 +277,9 @@ func NewQuotaCache(store Store) *QuotaCache {
 	if store.GetRules().Upgrades.Podgorica {
 		qc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
 		log.Info("NewQuotaCache: QuotaCacheAddress is set", "address", qc.contractAddress.String())
+	} else {
+		log.Info("HardFork Podgorica is not activated", "status", store.GetRules().Upgrades.Podgorica)
+		log.Info("NewQuotaCache:", "Rules", store.GetRules())
 	}
 
 	abiQuotaProxy, err := abi.JSON(strings.NewReader(quotaProxy.QuotaProxyABI))
@@ -387,11 +390,19 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
 	quota := big.NewInt(0)
 
+	if qc.contractAddress == (common.Address{}) {
+		if qc.store != nil {
+			if qc.store.GetRules() != (opera.Rules{}) {
+				log.Info("GetAvailableQuotaByAddress: HardFork Podgorica", "status", qc.store.GetRules().Upgrades.Podgorica)
+			}
+		}
+	}
+
 	if address == (common.Address{}) {
 		return quota
 	}
 
-	if qc.contractAddress == (common.Address{}) {
+	if qc.contractAddress == (common.Address{}) || qc.BlockBuffer.Size == 1 {
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
 				if qc.store.GetRules().Upgrades.Podgorica {
@@ -482,6 +493,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	log.Info("GetAvailableQuotaByAddress:", "quotaSum after subtracting used quota", quotaSum)
 
 	if quotaSum.Cmp(big.NewInt(0)) < 0 {
+		log.Warn("GetAvailableQuotaByAddress: quotaSum is negative", "quotaSum", quotaSum)
 		return big.NewInt(0)
 	}
 
@@ -642,21 +654,11 @@ func (qc *QuotaCache) InitializeBlockBuffer(window uint64) {
 				}
 				qc.TxCountMap[tx.From()]++
 
-				if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
-					qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
-				}
-				qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
-
-				if txtype == TxTypeStake || txtype == TxTypeUnstake {
-					if _, ok := qc.StakesMap[tx.From()]; !ok {
-						qc.StakesMap[tx.From()] = big.NewInt(0)
+				if receipt.FeeRefund != nil {
+					if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
+						qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
 					}
-					switch txtype {
-					case TxTypeStake:
-						qc.StakesMap[tx.From()].Add(qc.StakesMap[tx.From()], tx.Value())
-					case TxTypeUnstake:
-						qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
-					}
+					qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
 				}
 			}
 
