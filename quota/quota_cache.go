@@ -464,12 +464,12 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 				log.Warn("Reinitializing quota cache: current block number is not current or next", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
 			}
 		}
-		err := qc.AddEmptyBlock(currentBlockInfo.BlockNumber)
+		err = qc.AddEmptyBlock(currentBlockInfo.BlockNumber)
 		if err != nil {
 			log.Warn("GetAvailableQuotaByAddress AddEmptyBlock:", "error", err)
 		}
 		for _, tx := range currentBlockInfo.Txs {
-			err := qc.AddTransaction(tx.Tx, tx.Receipt)
+			err = qc.AddTransaction(tx.Tx, tx.Receipt)
 			if err != nil {
 				log.Warn("GetAvailableQuotaByAddress AddTransaction:", "error", err)
 			}
