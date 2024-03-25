@@ -455,7 +455,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 
 		currentBlockInfo := qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex]
 		qc.InitializeBlockBuffer(countBlocksInWindow.Uint64())
-		if currentBlockInfo.BlockNumber < qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber { // shoud be never true
+		if currentBlockInfo.BlockNumber < qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber { // sholud be never true
 			log.Warn("Reinitializing quota cache: current block number is less than current block number in buffer", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
 		} else if currentBlockInfo.BlockNumber == qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
 			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex] = currentBlockInfo
