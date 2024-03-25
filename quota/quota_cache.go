@@ -396,6 +396,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 				log.Info("GetAvailableQuotaByAddress: HardFork Podgorica", "status", qc.store.GetRules().Upgrades.Podgorica)
 			}
 		}
+		return quota
 	}
 
 	if address == (common.Address{}) {
