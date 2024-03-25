@@ -424,6 +424,7 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 				return quota
 			}
 		} else {
+			log.Warn("GetAvailableQuotaByAddress: store is nil")
 			return quota
 		}
 	} else {
@@ -446,6 +447,25 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 	countBlocksInWindow, err := qc.countBlocksInWindow(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
+	}
+
+	// reinitialize quota cache if countBlocksInWindow is not equal to BlockBuffer.Size
+	if countBlocksInWindow.Uint64() != qc.BlockBuffer.Size {
+		log.Info("GetAvailableQuotaByAddress: reinitializing quota cache", "countBlocksInWindow", countBlocksInWindow.Uint64(), "BlockBuffer.Size", qc.BlockBuffer.Size)
+
+		currentBlockInfo := qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex]
+		qc.InitializeBlockBuffer(countBlocksInWindow.Uint64())
+		if currentBlockInfo.BlockNumber < qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber { // shoud be never true
+			log.Warn("Reinitializing quota cache: current block number is less than current block number in buffer", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
+		} else if currentBlockInfo.BlockNumber == qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
+			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex] = currentBlockInfo
+		} else if currentBlockInfo.BlockNumber != qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber+1 {
+			log.Warn("Reinitializing quota cache: current block number is not current or next", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
+		}
+		qc.AddEmptyBlock(currentBlockInfo.BlockNumber)
+		for _, tx := range currentBlockInfo.Txs {
+			qc.AddTransaction(tx.Tx, tx.Receipt)
+		}
 	}
 
 	quotaFactor, err := qc.getQuotaFactor(address)
