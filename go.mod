@@ -3,9 +3,7 @@ module github.com/Fantom-foundation/go-opera
 go 1.14
 
 require (
-	github.com/Fantom-foundation/go-ethereum v1.9.6 // indirect
 	github.com/Fantom-foundation/lachesis-base v0.0.0-20221101131534-22299068014e
-	github.com/VinuChain/go-vinu v1.9.6 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/certifi/gocertifi v0.0.0-20191021191039-0944d244cd40 // indirect
 	github.com/cespare/cp v1.1.1
@@ -40,7 +38,6 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.2
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible
-	github.com/xdfdm/vinu-ethereum v0.1.0-quota // indirect
 	go.uber.org/atomic v1.5.1 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
@@ -49,6 +46,5 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.0-quota
-
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
