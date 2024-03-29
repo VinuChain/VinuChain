@@ -398,6 +398,10 @@ func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.In
 		}
 	}
 
+	if address == (common.Address{}) {
+		return quota
+	}
+
 	if qc.contractAddress == (common.Address{}) || qc.BlockBuffer.Size == 1 {
 		if qc.store != nil {
 			if qc.store.GetRules() != (opera.Rules{}) {
