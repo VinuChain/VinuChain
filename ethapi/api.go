@@ -1345,11 +1345,12 @@ type RPCTransaction struct {
 	V                *hexutil.Big      `json:"v"`
 	R                *hexutil.Big      `json:"r"`
 	S                *hexutil.Big      `json:"s"`
+	FeeRefund        *hexutil.Big      `json:"feeRefund,omitempty"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
-func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, baseFee *big.Int) *RPCTransaction {
+func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, baseFee *big.Int, feeRefund *hexutil.Big) *RPCTransaction {
 	// Determine the signer. For replay-protected transactions, use the most permissive
 	// signer, because we assume that signers are backwards-compatible with old
 	// transactions. For non-protected transactions, the homestead signer signer is used
@@ -1362,19 +1363,26 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 	from, _ := internaltx.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
+
+	feeRefundValue := new(hexutil.Big)
+	if feeRefund != nil {
+		feeRefundValue = feeRefund
+	}
+
 	result := &RPCTransaction{
-		Type:     hexutil.Uint64(tx.Type()),
-		From:     from,
-		Gas:      hexutil.Uint64(tx.Gas()),
-		GasPrice: (*hexutil.Big)(tx.GasPrice()),
-		Hash:     tx.Hash(),
-		Input:    hexutil.Bytes(tx.Data()),
-		Nonce:    hexutil.Uint64(tx.Nonce()),
-		To:       tx.To(),
-		Value:    (*hexutil.Big)(tx.Value()),
-		V:        (*hexutil.Big)(v),
-		R:        (*hexutil.Big)(r),
-		S:        (*hexutil.Big)(s),
+		Type:      hexutil.Uint64(tx.Type()),
+		From:      from,
+		Gas:       hexutil.Uint64(tx.Gas()),
+		GasPrice:  (*hexutil.Big)(tx.GasPrice()),
+		Hash:      tx.Hash(),
+		Input:     hexutil.Bytes(tx.Data()),
+		Nonce:     hexutil.Uint64(tx.Nonce()),
+		To:        tx.To(),
+		Value:     (*hexutil.Big)(tx.Value()),
+		V:         (*hexutil.Big)(v),
+		R:         (*hexutil.Big)(r),
+		S:         (*hexutil.Big)(s),
+		FeeRefund: feeRefundValue,
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = &blockHash
@@ -1406,7 +1414,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 
 // newRPCPendingTransaction returns a pending transaction that will serialize to the RPC representation
 func newRPCPendingTransaction(tx *types.Transaction, baseFee *big.Int) *RPCTransaction {
-	return newRPCTransaction(tx, common.Hash{}, 0, 0, baseFee)
+	return newRPCTransaction(tx, common.Hash{}, 0, 0, baseFee, nil)
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
@@ -1415,7 +1423,7 @@ func newRPCTransactionFromBlockIndex(b *evmcore.EvmBlock, index uint64) *RPCTran
 	if index >= uint64(len(txs)) {
 		return nil
 	}
-	return newRPCTransaction(txs[index], b.Hash, b.NumberU64(), index, b.BaseFee)
+	return newRPCTransaction(txs[index], b.Hash, b.NumberU64(), index, b.BaseFee, nil)
 }
 
 // newRPCRawTransactionFromBlockIndex returns the bytes of a transaction given a block and a transaction index.
@@ -1636,7 +1644,15 @@ func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, has
 		if header == nil || err != nil {
 			return nil, err
 		}
-		return newRPCTransaction(tx, header.Hash, blockNumber, index, header.BaseFee), nil
+
+		receipt, err := s.GetTransactionReceipt(ctx, hash)
+		if err != nil {
+			return nil, err
+		}
+
+		feeRefund := receipt["feeRefund"].(*hexutil.Big)
+
+		return newRPCTransaction(tx, header.Hash, blockNumber, index, header.BaseFee, feeRefund), nil
 	}
 	// No finalized transaction, try to retrieve it from the pool
 	if tx := s.b.GetPoolTransaction(hash); tx != nil {
