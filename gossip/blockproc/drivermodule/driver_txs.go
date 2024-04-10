@@ -141,7 +141,8 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	if r.FeeRefund.Cmp(common.Big0) == 0 {
 		originated.Add(originated, txFee)
 	} else {
-		log.Info("Zero fee refund", "tx", tx.Hash().Hex())
+		originated.Add(originated, new(big.Int).Sub(txFee, r.FeeRefund))
+		log.Info("Zero fee refund", "tx", tx.Hash().Hex(), "fee", txFee, "refund", r.FeeRefund)
 	}
 
 	// track gas power refunds
