@@ -64,3 +64,13 @@ func (qs *QuotaStore) GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState {
 func (qs *QuotaStore) GetRules() opera.Rules {
 	return qs.store.GetRules()
 }
+
+// GetCurrentEpoch returns the current epoch
+func (qs *QuotaStore) GetCurrentEpoch() idx.Epoch {
+	return qs.store.GetEpoch()
+}
+
+// GetBlock returns the block
+func (qc *QuotaStore) GetBlock(i idx.Block) *inter.Block {
+	return qc.store.GetBlock(i)
+}

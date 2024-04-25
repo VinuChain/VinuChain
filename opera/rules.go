@@ -294,7 +294,7 @@ func DefaultDagRules() DagRules {
 func DefaultEpochsRules() EpochsRules {
 	return EpochsRules{
 		MaxEpochGas:      1500000000,
-		MaxEpochDuration: inter.Timestamp(4 * time.Hour),
+		MaxEpochDuration: inter.Timestamp(4 * time.Minute),
 	}
 }
 
@@ -313,14 +313,14 @@ func DefaultGasRules() GasRules {
 
 func VitainuNetEpochsRules() EpochsRules {
 	cfg := DefaultEpochsRules()
-	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
+	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Minute)
 	return cfg
 }
 
 func FakeNetEpochsRules() EpochsRules {
 	cfg := DefaultEpochsRules()
 	cfg.MaxEpochGas /= 5
-	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
+	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Minute)
 	return cfg
 }
 

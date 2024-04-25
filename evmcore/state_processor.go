@@ -80,13 +80,6 @@ func (p *StateProcessor) Process(
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
 
-	if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
-		log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
-		return
-	}
-
-	quotaCache.AddBaseFeePerGas(quotaCache.BlockBuffer.CurrentIndex, header.BaseFee)
-
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
 		var msg types.Message
@@ -147,7 +140,7 @@ func applyTransaction(
 	evm.Reset(txContext, statedb)
 
 	quotaCache.SetEVM(evm)
-	availableQuota := quotaCache.GetAvailableQuotaByAddress(msg.From())
+	availableQuota := quotaCache.GetAvailableQuotaByAddress(msg.From(), tx)
 
 	// Apply the transaction to the current state (included in the env).
 	result, err := ApplyMessage(evm, msg, gp, availableQuota)
