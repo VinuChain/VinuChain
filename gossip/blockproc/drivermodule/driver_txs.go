@@ -137,7 +137,13 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	// track originated fee
 	txFee := new(big.Int).Mul(new(big.Int).SetUint64(r.GasUsed), tx.GasPrice())
 	originated := p.bs.ValidatorStates[originatorIdx].Originated
-	originated.Add(originated, txFee)
+
+	if r.FeeRefund.Cmp(common.Big0) == 0 {
+		originated.Add(originated, txFee)
+	} else {
+		originated.Add(originated, new(big.Int).Sub(txFee, r.FeeRefund))
+		log.Info("Zero fee refund", "tx", tx.Hash().Hex(), "fee", txFee, "refund", r.FeeRefund)
+	}
 
 	// track gas power refunds
 	notUsedGas := tx.Gas() - r.GasUsed

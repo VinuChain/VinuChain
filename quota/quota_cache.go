@@ -1,13 +1,15 @@
 package quota
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/Fantom-foundation/go-opera/opera"
+	sfcContract "github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 	"github.com/Fantom-foundation/go-opera/quota/contract/quotaProxy"
-	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -23,7 +25,7 @@ type TxType string
 const (
 	TxTypeStake   TxType = "stake"
 	TxTypeUnstake TxType = "unstake"
-	TxTypeNone    TxType = "none" // for all other transactions        = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"addressTotalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFeeRefundBlockCount\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+	TxTypeNone    TxType = "none"
 )
 
 type TxInfo struct {
@@ -38,38 +40,23 @@ type BlockInfo struct {
 	BaseFeePerGas *big.Int
 }
 
-type CircularBuffer struct {
-	Size         uint64
-	CurrentIndex uint64
-	Buffer       []BlockInfo
+type StakeInfo struct {
+	Amount    *big.Int
+	Timestamp time.Time
 }
 
-func NewCircularBuffer(size uint64) *CircularBuffer {
-	return &CircularBuffer{
-		Size:         size,
-		CurrentIndex: 0,
-		Buffer:       make([]BlockInfo, size),
-	}
+type EpochStakes struct {
+	StakesByAddress map[common.Address][]StakeInfo
 }
 
 type QuotaCache struct {
-	// BlockBuffer contains last window blocks
-	// Buffer[CurrentIndex] is the latest block
-	// Buffer[CurrentIndex-1] is the previous block
-	// Buffer[CurrentIndex+1] is the oldest block
-	BlockBuffer *CircularBuffer
-
-	// TxCountMap contains last tx count
-	TxCountMap map[common.Address]int64
-
 	// QuotaUsedMap contains last quota used
 	QuotaUsedMap map[common.Address]*big.Int
 
-	// StakesMap contains last stakes and unstakes
-	// TODO: add stake and unstake events to cache (not one number but []TxInfo)
-	StakesMap map[common.Address]*big.Int
+	// StakesMap contains stakes and unstakes
+	StakesMap map[idx.Epoch]*EpochStakes
 
-	// ABI to get nemes of called methods
+	// ABI to get names of called methods
 	ContractABI *abi.ABI
 
 	store Store
@@ -80,138 +67,21 @@ type QuotaCache struct {
 }
 
 func (qc *QuotaCache) deleteCurrentBlock() error {
-	for _, tx := range qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs {
-		isEmpty := false
-		if _, ok := qc.TxCountMap[tx.Tx.From()]; ok {
-			qc.TxCountMap[tx.Tx.From()]--
-		} else {
-			return fmt.Errorf("consistency error: tx count map does not contain tx")
-		}
-		if qc.TxCountMap[tx.Tx.From()] == 0 {
-			isEmpty = true
-			delete(qc.TxCountMap, tx.Tx.From())
-		}
-
-		if tx.Type == TxTypeStake {
-			if _, ok := qc.StakesMap[tx.Tx.From()]; ok {
-				qc.StakesMap[tx.Tx.From()].Sub(qc.StakesMap[tx.Tx.From()], tx.Tx.Value())
-			} else {
-				return fmt.Errorf("consistency error: stakes map does not contain tx")
-			}
-			if qc.StakesMap[tx.Tx.From()].Cmp(big.NewInt(0)) == 0 {
-				delete(qc.StakesMap, tx.Tx.From())
-			} else {
-				if isEmpty {
-					return fmt.Errorf("consistency error: stakes map is not empty")
-				}
-			}
-		}
-
-		if tx.Type == TxTypeUnstake {
-			if _, ok := qc.StakesMap[tx.Tx.From()]; ok {
-				qc.StakesMap[tx.Tx.From()].Add(qc.StakesMap[tx.Tx.From()], tx.Tx.Value())
-			} else {
-				return fmt.Errorf("consistency error: stakes map does not contain tx")
-			}
-			if qc.StakesMap[tx.Tx.From()].Cmp(big.NewInt(0)) == 0 {
-				delete(qc.StakesMap, tx.Tx.From())
-			} else {
-				if isEmpty {
-					return fmt.Errorf("consistency error: stakes map is not empty")
-				}
-			}
-		}
-
-		if _, ok := qc.QuotaUsedMap[tx.Tx.From()]; ok && tx.Receipt.FeeRefund != nil {
-			qc.QuotaUsedMap[tx.Tx.From()].Sub(qc.QuotaUsedMap[tx.Tx.From()], tx.Receipt.FeeRefund)
-		}
-
-		//if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) == 0 {
-		//	delete(qc.QuotaUsedMap, tx.Tx.From())
-		//} else {
-		//	if isEmpty {
-		//		return fmt.Errorf("consistency error: quota used map is not empty")
-		//	}
-		//}
-
-		//if qc.QuotaUsedMap[tx.Tx.From()].Cmp(big.NewInt(0)) < 0 {
-		//	return fmt.Errorf("consistency error: quota used map is negative")
-		//}
-	}
 	return nil
 }
 
 func (qc *QuotaCache) AddTransaction(tx *types.Transaction, receipt *types.Receipt) error {
 	if receipt.Status == types.ReceiptStatusSuccessful {
-		// add tx to block buffer
-		// check if this transaction for current block or next block
-		if receipt.BlockNumber.Uint64() == qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
-		} else if receipt.BlockNumber.Uint64() == qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber+1 {
-			qc.BlockBuffer.CurrentIndex = (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size
-
-			// change maps related to oldest block deliting from buffer
-			if err := qc.deleteCurrentBlock(); err != nil {
-				return err
-			}
-			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = receipt.BlockNumber.Uint64()
-			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = make([]TxInfo, 0, 1)
-		} else if receipt.BlockNumber.Uint64() > qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
-			return fmt.Errorf(
-				"consistency error: receipt block number is greater than current block number, "+
-					"receipt block number: %v, "+
-					"current block number: %v",
-				receipt.BlockNumber,
-				qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber,
-			)
-		} else {
-			return fmt.Errorf("consistency error: receipt block number is not current or next, receipt block number: %v, current block number: %v", receipt.BlockNumber, qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
-		}
-
-		qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = append(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs, TxInfo{tx, receipt, TxTypeNone})
-
-		if _, ok := qc.TxCountMap[tx.From()]; !ok {
-			qc.TxCountMap[tx.From()] = 0
-		}
-		qc.TxCountMap[tx.From()]++
-
+		epoch := qc.store.GetCurrentEpoch()
 		txtype := getTxType(tx, *qc.ContractABI)
-		if txtype == TxTypeStake || txtype == TxTypeUnstake {
-			if _, ok := qc.StakesMap[tx.From()]; !ok {
-				qc.StakesMap[tx.From()] = big.NewInt(0)
-			}
-			switch txtype {
-			case TxTypeStake:
-				qc.StakesMap[tx.From()].Add(qc.StakesMap[tx.From()], tx.Value())
-			case TxTypeUnstake:
-				qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
-			}
-		}
+		if txtype == TxTypeStake {
+			stakes := qc.StakesMap[epoch].StakesByAddress[tx.From()]
+			stakes = append(stakes, StakeInfo{
+				Amount:    tx.Value(),
+				Timestamp: qc.store.GetBlock(idx.Block(receipt.BlockNumber.Uint64())).Time.Time(),
+			})
 
-		// add quota used to quota used map
-		// check if tx is delegate or undelegate
-		if tx.Data() != nil && len(tx.Data()) >= 4 {
-			if method, err := qc.ContractABI.MethodById(tx.Data()[:4]); err == nil {
-				if method.Name == "delegate" {
-					if _, ok := qc.StakesMap[tx.From()]; !ok {
-						qc.StakesMap[tx.From()] = big.NewInt(0)
-					}
-					qc.StakesMap[tx.From()].Add(qc.StakesMap[tx.From()], tx.Value())
-					qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs[len(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs)-1].Type = TxTypeStake
-				}
-
-				if method.Name == "undelegate" {
-					if _, ok := qc.StakesMap[tx.From()]; !ok {
-						qc.StakesMap[tx.From()] = big.NewInt(0)
-					}
-					qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
-					qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs[len(qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs)-1].Type = TxTypeUnstake
-
-					if qc.StakesMap[tx.From()].Cmp(big.NewInt(0)) == 0 {
-						delete(qc.StakesMap, tx.From())
-					}
-				}
-
-			}
+			qc.StakesMap[epoch].StakesByAddress[tx.From()] = stakes
 		}
 
 		if receipt.FeeRefund != nil {
@@ -232,45 +102,10 @@ func (qc *QuotaCache) GetQuotaUsed(address common.Address) *big.Int {
 	return big.NewInt(0)
 }
 
-func (qc *QuotaCache) GetLastStakes(address common.Address) *big.Int {
-	if _, ok := qc.StakesMap[address]; ok {
-		return qc.StakesMap[address]
-	}
-	return big.NewInt(0)
-}
-
-func (qc *QuotaCache) GetTxCount(address common.Address) int64 {
-	if _, ok := qc.TxCountMap[address]; ok {
-		return qc.TxCountMap[address]
-	}
-	return 0
-}
-
-func (qc *QuotaCache) AddEmptyBlock(blockNumber uint64) error {
-	if qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber == blockNumber {
-		return nil
-	}
-
-	qc.BlockBuffer.CurrentIndex = (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size
-
-	// change maps related to oldest block deliting from buffer
-	if err := qc.deleteCurrentBlock(); err != nil {
-		return err
-	}
-
-	qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber = blockNumber
-	qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].Txs = []TxInfo{}
-	return nil
-}
-
 func NewQuotaCache(store Store) *QuotaCache {
-	var window uint64
-
 	qc := QuotaCache{
-		BlockBuffer:  NewCircularBuffer(1),
-		TxCountMap:   make(map[common.Address]int64),
 		QuotaUsedMap: make(map[common.Address]*big.Int),
-		StakesMap:    make(map[common.Address]*big.Int),
+		StakesMap:    make(map[idx.Epoch]*EpochStakes),
 		store:        store,
 	}
 
@@ -288,85 +123,12 @@ func NewQuotaCache(store Store) *QuotaCache {
 	}
 	qc.ContractABI = &abiQuotaProxy
 
-	abiSFC, err := abi.JSON(strings.NewReader(sfc.ContractABI))
-	if err != nil {
-		panic(err)
-	}
-
-	lastBlockIndex := store.GetLatestBlockIndex()
-
-	// if there are less blocks than window size
-	if lastBlockIndex < window {
-		window = lastBlockIndex
-	}
-
-	oldestBlockIndex := lastBlockIndex - window + 1
-	for i := oldestBlockIndex; i <= lastBlockIndex; i++ {
-		k := i - oldestBlockIndex
-
-		txs, receipts := store.GetBlockTransactionsAndReceipts(i)
-
-		if len(txs) != len(receipts) {
-			panic("txs and receipts length mismatch")
-		}
-
-		qc.BlockBuffer.Buffer[k].BlockNumber = uint64(i)
-
-		if k > 0 {
-			if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
-				epochIdx := store.FindBlockEpoch(idx.Block(qc.BlockBuffer.Buffer[k].BlockNumber))
-
-				qc.BlockBuffer.Buffer[k].BaseFeePerGas = store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-			}
-		}
-
-		for j := 0; j < len(txs); j++ {
-			tx := txs[j]
-			receipt := receipts[j]
-			if receipt.Status == types.ReceiptStatusSuccessful {
-				txtype := getTxType(tx, abiSFC)
-				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
-				if _, ok := qc.TxCountMap[tx.From()]; !ok {
-					qc.TxCountMap[tx.From()] = 0
-				}
-				qc.TxCountMap[tx.From()]++
-
-				if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
-					qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
-				}
-				qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
-
-				if txtype == TxTypeStake || txtype == TxTypeUnstake {
-					if _, ok := qc.StakesMap[tx.From()]; !ok {
-						qc.StakesMap[tx.From()] = big.NewInt(0)
-					}
-					switch txtype {
-					case TxTypeStake:
-						qc.StakesMap[tx.From()].Add(qc.StakesMap[tx.From()], tx.Value())
-					case TxTypeUnstake:
-						qc.StakesMap[tx.From()].Sub(qc.StakesMap[tx.From()], tx.Value())
-					}
-				}
-			}
-
-		}
-
-	}
-
 	return &qc
 }
 
 // String() prints all data in cache
 func (qc *QuotaCache) String() string {
 	var sb strings.Builder
-	for i := (qc.BlockBuffer.CurrentIndex + 1) % qc.BlockBuffer.Size; i != qc.BlockBuffer.CurrentIndex; i = (i + 1) % qc.BlockBuffer.Size {
-		sb.WriteString(fmt.Sprintf("Block: %d\n", qc.BlockBuffer.Buffer[i].BlockNumber))
-		//for _, tx := range qc.BlockBuffer.Buffer[i].Txs {
-		//	sb.WriteString(fmt.Sprintf("Txs: hash: %v, from: %v, to: %v, value: %v, type: %v\n", tx.Tx.Hash().Hex(), tx.Tx.From().Hex(), tx.Tx.To().Hex(), tx.Tx.Value().String(), tx.Type))
-		//}
-		sb.WriteString(fmt.Sprintf("BaseFeePerGas: %v\n", qc.BlockBuffer.Buffer[i].BaseFeePerGas))
-	}
-	sb.WriteString(fmt.Sprintf("TxCountMap: %v\n", qc.TxCountMap))
 	sb.WriteString(fmt.Sprintf("QuotaUsedMap: %v\n", qc.QuotaUsedMap))
 	sb.WriteString(fmt.Sprintf("StakesMap: %v\n", qc.StakesMap))
 	return sb.String()
@@ -375,11 +137,11 @@ func (qc *QuotaCache) String() string {
 func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	if tx.Data() != nil && len(tx.Data()) >= 4 {
 		if method, err := abi.MethodById(tx.Data()[:4]); err == nil {
-			if method.Name == "delegate" {
+			if method.Name == "stake" {
 				return TxTypeStake
 			}
 
-			if method.Name == "undelegate" {
+			if method.Name == "unstake" {
 				return TxTypeUnstake
 			}
 		}
@@ -387,146 +149,184 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 	return TxTypeNone
 }
 
+// GetAvailableQuotaByAddress calculates the available quota for a given address.
 func (qc *QuotaCache) GetAvailableQuotaByAddress(address common.Address) *big.Int {
+	// Initialize quota to zero.
 	quota := big.NewInt(0)
 
-	if qc.contractAddress == (common.Address{}) {
-		if qc.store != nil {
-			if qc.store.GetRules() != (opera.Rules{}) {
-				log.Info("GetAvailableQuotaByAddress: HardFork Podgorica", "status", qc.store.GetRules().Upgrades.Podgorica)
-			}
-		}
-		return quota
-	}
-
+	// Return zero quota if the address is empty.
 	if address == (common.Address{}) {
 		return quota
 	}
 
-	if qc.contractAddress == (common.Address{}) || qc.BlockBuffer.Size == 1 {
-		if qc.store != nil {
-			if qc.store.GetRules() != (opera.Rules{}) {
-				if qc.store.GetRules().Upgrades.Podgorica {
-					qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
-					log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress is set", "address", qc.contractAddress.String())
-
-					window, err := qc.countBlocksInWindow(address)
-					if err != nil {
-						log.Warn("GetAvailableQuotaByAddress:", "error", err)
-					}
-
-					qc.InitializeBlockBuffer(window.Uint64())
-
-					log.Info("GetAvailableQuotaByAddress: BlockBuffer initialized", "window", window.Uint64())
-				} else {
-					return quota
-				}
-			} else {
-				return quota
-			}
-		} else {
-			log.Warn("GetAvailableQuotaByAddress: store is nil")
-			return quota
-		}
-	} else {
-		if qc.store.GetRules().Economy.QuotaCacheAddress != qc.contractAddress {
-			qc.contractAddress = qc.store.GetRules().Economy.QuotaCacheAddress
-			log.Info("GetAvailableQuotaByAddress: QuotaCacheAddress has been changed", "address", qc.contractAddress.String())
-		}
+	// Check and update the contract address.
+	if err := qc.checkAndUpdateContractAddress(); err != nil {
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
+		return quota
 	}
 
+	// Retrieve total stake for the address and handle errors.
 	addressTotalStake, err := qc.getAddressTotalStake(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
+	// Get minimum stake required and handle errors.
 	minStake, err := qc.getMinStake(address)
 	if err != nil {
 		log.Warn("GetAvailableQuotaByAddress:", "error", err)
 	}
 
-	countBlocksInWindow, err := qc.countBlocksInWindow(address)
-	if err != nil {
-		log.Warn("GetAvailableQuotaByAddress:", "error", err)
-	}
-
-	// reinitialize quota cache if countBlocksInWindow is not equal to BlockBuffer.Size
-	if countBlocksInWindow.Uint64() != qc.BlockBuffer.Size {
-		log.Info("GetAvailableQuotaByAddress: reinitializing quota cache", "countBlocksInWindow", countBlocksInWindow.Uint64(), "BlockBuffer.Size", qc.BlockBuffer.Size)
-
-		currentBlockInfo := qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex]
-		qc.InitializeBlockBuffer(countBlocksInWindow.Uint64())
-		if currentBlockInfo.BlockNumber < qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber { // should be never true
-			log.Warn("Reinitializing quota cache: current block number is less than current block number in buffer", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
-		} else if currentBlockInfo.BlockNumber == qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber {
-			qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex] = currentBlockInfo
-		} else {
-			if currentBlockInfo.BlockNumber != qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber+1 {
-				log.Warn("Reinitializing quota cache: current block number is not current or next", "current block number", currentBlockInfo.BlockNumber, "current index", qc.BlockBuffer.CurrentIndex, "current block number in buffer", qc.BlockBuffer.Buffer[qc.BlockBuffer.CurrentIndex].BlockNumber)
-			}
-		}
-		err = qc.AddEmptyBlock(currentBlockInfo.BlockNumber)
-		if err != nil {
-			log.Warn("GetAvailableQuotaByAddress AddEmptyBlock:", "error", err)
-		}
-		for _, tx := range currentBlockInfo.Txs {
-			err = qc.AddTransaction(tx.Tx, tx.Receipt)
-			if err != nil {
-				log.Warn("GetAvailableQuotaByAddress AddTransaction:", "error", err)
-			}
-		}
-	}
-
-	quotaFactor, err := qc.getQuotaFactor(address)
-	if err != nil {
-		log.Warn("GetAvailableQuotaByAddress:", "error", err)
-	}
-
+	// Return zero quota if the address's total stake is below the minimum stake.
 	if addressTotalStake.Cmp(minStake) < 0 {
-		return big.NewInt(0)
+		return quota
 	}
 
-	quotaSum := big.NewInt(0)
-	for j := 0; j < int(qc.BlockBuffer.Size); j++ {
-		i := (qc.BlockBuffer.CurrentIndex - uint64(j) + qc.BlockBuffer.Size) % qc.BlockBuffer.Size
-		if qc.BlockBuffer.Buffer[i].BlockNumber < 2 {
-			break
+	// Retrieve the current and previous epochs.
+	currentEpoch := qc.store.GetCurrentEpoch()
+	prevEpoch := currentEpoch - 1
+
+	// Initialize stakes map for the current epoch if not already done.
+	if qc.StakesMap[currentEpoch] == nil {
+		qc.StakesMap[currentEpoch] = &EpochStakes{
+			StakesByAddress: make(map[common.Address][]StakeInfo),
 		}
 
-		quota = big.NewInt(0)
-
-		if (qc.BlockBuffer.Buffer[i].BaseFeePerGas == nil || qc.BlockBuffer.Buffer[i].BaseFeePerGas.Cmp(big.NewInt(0)) == 0) && qc.BlockBuffer.Buffer[i].BlockNumber != 0 {
-			blockIdx := idx.Block(qc.BlockBuffer.Buffer[i].BlockNumber)
-			epochIdx := qc.store.FindBlockEpoch(blockIdx)
-
-			qc.BlockBuffer.Buffer[i].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-		}
-
-		// addressTotalStake * baseFeePerGas
-		quota = quota.Mul(addressTotalStake, qc.BlockBuffer.Buffer[i].BaseFeePerGas)
-
-		// addressTotalStake * baseFeePerGas * quotaFactor
-		quota = quota.Mul(quota, quotaFactor)
-
-		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow
-		quota = quota.Div(quota, countBlocksInWindow)
-
-		// addressTotalStake * baseFeePerGas * quotaFactor / countBlocksInWindow / minStake
-		quota = quota.Div(quota, minStake)
-
-		quotaSum = quotaSum.Add(quotaSum, quota)
+		// Cleanup old epochs.
+		qc.cleanupOldEpochs()
 	}
 
+	// Calculate the base reward per second and the total stake from SFC contract and Quota contract.
+	baseRewardPerSecond, sumTotalStake, err := qc.calculateStakeDetails(address)
+	if err != nil {
+		log.Warn("GetAvailableQuotaByAddress:", "error", err)
+		return quota
+	}
+
+	log.Info("GetAvailableQuotaByAddress:", "baseRewardPerSecond", baseRewardPerSecond)
+	log.Info("GetAvailableQuotaByAddress:", "sumTotalStake", sumTotalStake)
+
+	// Apply a multiplier for calculation precision.
+	multiplier := big.NewInt(1e10)
+	addressTotalStakeMultiplied := new(big.Int).Mul(addressTotalStake, multiplier)
+	log.Info("GetAvailableQuotaByAddress:", "addressTotalStakeMultiplied", addressTotalStakeMultiplied)
+
+	// Calculate the slice of base reward per second based on the stake percentage.
+	sliceOfBaseRewardPerSecondPercent := new(big.Int).Div(addressTotalStakeMultiplied, sumTotalStake)
+	log.Info("GetAvailableQuotaByAddress:", "sliceOfBaseRewardPerSecondPercent * multiplier(1e10)", sliceOfBaseRewardPerSecondPercent)
+
+	// Calculate full duration for quota calculations
+	fullDuration := qc.calculateFullDuration(address, currentEpoch, prevEpoch)
+	log.Info("GetAvailableQuotaByAddress:", "fullDuration", fullDuration)
+
+	// Calculate total available quota based on base reward and duration.
+	quotaSum := qc.calculateQuota(multiplier, baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent, fullDuration)
+
+	// Subtract used quota from the total available quota.
 	quotaSum = quotaSum.Sub(quotaSum, qc.GetQuotaUsed(address))
-
 	log.Info("GetAvailableQuotaByAddress:", "quotaSum after subtracting used quota", quotaSum)
 
+	// Return zero if the total quota is negative after adjustments.
 	if quotaSum.Cmp(big.NewInt(0)) < 0 {
 		log.Warn("GetAvailableQuotaByAddress: quotaSum is negative", "quotaSum", quotaSum)
 		return big.NewInt(0)
 	}
 
+	// Return the calculated quota.
 	return quotaSum
+}
+
+// calculateQuota calculates the available quota based on the base reward per second, the percentage of total stake, and the full duration.
+func (qc *QuotaCache) calculateQuota(multiplier, baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent *big.Int, fullDuration int64) *big.Int {
+	// Calculate actual base reward per second value using the calculated percentage.
+	sliceOfBaseRewardPerSecondValueMultiplied := new(big.Int).Mul(baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent)
+	sliceOfBaseRewardPerSecondValue := new(big.Int).Div(sliceOfBaseRewardPerSecondValueMultiplied, multiplier)
+
+	// Calculate total available quota based on base reward and duration.
+	quotaSum := big.NewInt(0)
+	quotaSum = quotaSum.Mul(sliceOfBaseRewardPerSecondValue, big.NewInt(fullDuration))
+
+	return quotaSum
+}
+
+// checkAndUpdateContractAddress ensures the contract address is current and updates it if necessary.
+func (qc *QuotaCache) checkAndUpdateContractAddress() error {
+	if qc.store == nil {
+		return errors.New("store is nil")
+	}
+
+	if qc.store.GetRules() == (opera.Rules{}) {
+		return errors.New("rules are empty")
+	}
+
+	newContractAddress := qc.store.GetRules().Economy.QuotaCacheAddress
+	if qc.contractAddress == (common.Address{}) || qc.contractAddress != newContractAddress {
+		if qc.store.GetRules().Upgrades.Podgorica {
+			qc.contractAddress = newContractAddress
+			log.Info("checkAndUpdateContractAddress: QuotaCacheAddress is updated", "address", qc.contractAddress.String())
+		} else {
+			log.Info("checkAndUpdateContractAddress: HardFork Podgorica not activated", "status", qc.store.GetRules().Upgrades.Podgorica)
+			return errors.New("Podgorica upgrade  not activated")
+		}
+	}
+
+	return nil
+}
+
+// calculateStakeDetails computes the total stakes and base reward for an address.
+func (qc *QuotaCache) calculateStakeDetails(address common.Address) (*big.Int, *big.Int, error) {
+	baseRewardPerSecond, err := qc.getBaseRewardPerSecond(address)
+	if err != nil {
+		log.Warn("calculateStakeDetails:", "error", err)
+		return nil, nil, err
+	}
+
+	totalStakeSFC, err := qc.getTotalStake(address, sfcContract.ContractAddress)
+	if err != nil {
+		log.Warn("calculateStakeDetails:", "error", err)
+		return nil, nil, err
+	}
+
+	totalStakeQuota, err := qc.getTotalStake(address, qc.contractAddress)
+	if err != nil {
+		log.Warn("calculateStakeDetails:", "error", err)
+		return nil, nil, err
+	}
+
+	sumTotalStake := totalStakeSFC.Add(totalStakeSFC, totalStakeQuota)
+	if sumTotalStake.Cmp(big.NewInt(0)) == 0 {
+		log.Warn("calculateStakeDetails", "sumTotalStake", "is zero")
+		return nil, nil, errors.New("sum of total stakes is zero")
+	}
+
+	return baseRewardPerSecond, sumTotalStake, nil
+}
+
+// calculateFullDuration calculates the effective duration of stakes for quota calculations.
+func (qc *QuotaCache) calculateFullDuration(address common.Address, currentEpoch, prevEpoch idx.Epoch) int64 {
+	sumStakeByAddress := qc.getSumStakeByAddress(address, prevEpoch, currentEpoch)
+	var fullDuration int64
+
+	if sumStakeByAddress.Cmp(big.NewInt(0)) != 0 {
+		sumStakeByAddressCurrentEpoch := qc.getSumStakeByAddress(address, currentEpoch, currentEpoch)
+		sumStakeByAddressPrevEpoch := qc.getSumStakeByAddress(address, prevEpoch, prevEpoch)
+
+		// Calculate the duration if stakes exist in the current epoch but not in the previous.
+		if sumStakeByAddressCurrentEpoch.Cmp(big.NewInt(0)) > 0 && sumStakeByAddressPrevEpoch.Cmp(big.NewInt(0)) == 0 {
+			lastBlockTime := qc.store.GetBlock(idx.Block(qc.store.GetLatestBlockIndex())).Time.Time()
+			stakes := qc.getStakesForEpoch(currentEpoch, address)
+			lastTimeStake := stakes[len(stakes)-1].Timestamp
+			fullDuration = int64(lastBlockTime.Sub(lastTimeStake) / 1e9)
+		}
+	}
+
+	// Use previous epoch duration as full duration if no current stakes.
+	if fullDuration == 0 {
+		durationPrevEpochBySec := qc.store.GetHistoryEpochState(prevEpoch).Duration() / 1e9
+		fullDuration = int64(durationPrevEpochBySec)
+	}
+
+	return fullDuration
 }
 
 func (qc *QuotaCache) getAddressTotalStake(address common.Address) (*big.Int, error) {
@@ -578,55 +378,22 @@ func (qc *QuotaCache) GetStore() Store {
 	return qc.store
 }
 
-func (qc *QuotaCache) AddBaseFeePerGas(blockNumber uint64, baseFeePerGas *big.Int) {
-	if baseFeePerGas == nil {
-		blockIdx := idx.Block(blockNumber)
-		epochIdx := qc.store.FindBlockEpoch(blockIdx)
-
-		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
-	} else {
-		qc.BlockBuffer.Buffer[blockNumber].BaseFeePerGas = baseFeePerGas
-	}
-}
-
-func (qc *QuotaCache) countBlocksInWindow(address common.Address) (*big.Int, error) {
-	var (
-		result []byte
-		vmerr  error
-	)
-
-	sender := vm.AccountRef(address)
-	functionSignature := []byte("feeRefundBlockCount()")
-	hash := crypto.Keccak256Hash(functionSignature)
-	methodID := hash[:4]
-
-	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, methodID, 21000)
-	if vmerr != nil {
-		return big.NewInt(0), vmerr
-	}
-
-	resultValue := big.NewInt(0)
-	resultValue.SetBytes(result)
-
-	return resultValue, nil
-}
-
 func (qc *QuotaCache) SetEVM(evm *vm.EVM) {
 	qc.evm = evm
 }
 
-func (qc *QuotaCache) getQuotaFactor(address common.Address) (*big.Int, error) {
+func (qc *QuotaCache) getBaseRewardPerSecond(address common.Address) (*big.Int, error) {
 	var (
 		result []byte
 		vmerr  error
 	)
 
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("quotaFactor()")
+	functionSignature := []byte("baseRewardPerSecond()")
 	hash := crypto.Keccak256Hash(functionSignature)
 	methodID := hash[:4]
 
-	result, _, vmerr = qc.evm.StaticCall(sender, qc.contractAddress, methodID, 21000)
+	result, _, vmerr = qc.evm.StaticCall(sender, sfcContract.ContractAddress, methodID, 21000)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
@@ -637,64 +404,61 @@ func (qc *QuotaCache) getQuotaFactor(address common.Address) (*big.Int, error) {
 	return resultValue, nil
 }
 
-func (qc *QuotaCache) InitializeBlockBuffer(window uint64) {
-	qc.BlockBuffer = NewCircularBuffer(window)
+func (qc *QuotaCache) getTotalStake(address common.Address, contractAddress common.Address) (*big.Int, error) {
+	var (
+		result []byte
+		vmerr  error
+	)
 
-	abiSFC, err := abi.JSON(strings.NewReader(sfc.ContractABI))
-	if err != nil {
-		panic(err)
+	sender := vm.AccountRef(address)
+	functionSignature := []byte("totalStake()")
+	hash := crypto.Keccak256Hash(functionSignature)
+	methodID := hash[:4]
+
+	result, _, vmerr = qc.evm.StaticCall(sender, contractAddress, methodID, 21000)
+	if vmerr != nil {
+		return big.NewInt(0), vmerr
 	}
 
-	lastBlockIndex := qc.store.GetLatestBlockIndex()
+	resultValue := big.NewInt(0)
+	resultValue.SetBytes(result)
 
-	// if there are less blocks than window size
-	if lastBlockIndex < window {
-		window = lastBlockIndex
-	}
+	return resultValue, nil
+}
 
-	oldestBlockIndex := lastBlockIndex - window + 1
-	for i := oldestBlockIndex; i <= lastBlockIndex; i++ {
-		k := i - oldestBlockIndex
-
-		txs, receipts := qc.store.GetBlockTransactionsAndReceipts(i)
-
-		if len(txs) != len(receipts) {
-			panic("txs and receipts length mismatch")
+func (qc *QuotaCache) getStakesForEpoch(epoch idx.Epoch, address common.Address) []StakeInfo {
+	if epochStakes, ok := qc.StakesMap[epoch]; ok {
+		if stakes, ok := epochStakes.StakesByAddress[address]; ok {
+			return stakes
 		}
+	}
+	return nil
+}
 
-		qc.BlockBuffer.Buffer[k].BlockNumber = uint64(i)
+func (qc *QuotaCache) getSumStakeByAddress(address common.Address, prevEpoch idx.Epoch, currentEpoch idx.Epoch) *big.Int {
+	sum := big.NewInt(0)
 
-		if k > 0 {
-			if qc.BlockBuffer.Buffer[k].BaseFeePerGas == nil {
-				epochIdx := qc.store.FindBlockEpoch(idx.Block(qc.BlockBuffer.Buffer[k].BlockNumber))
-
-				qc.BlockBuffer.Buffer[k].BaseFeePerGas = qc.store.GetHistoryEpochState(epochIdx).Rules.Economy.MinGasPrice
+	for i := prevEpoch; i <= currentEpoch; i++ {
+		stakes := qc.getStakesForEpoch(i, address)
+		if stakes != nil {
+			for _, stake := range stakes {
+				sum.Add(sum, stake.Amount)
 			}
 		}
-
-		for j := 0; j < len(txs); j++ {
-			tx := txs[j]
-			receipt := receipts[j]
-			if receipt.Status == types.ReceiptStatusSuccessful {
-				txtype := getTxType(tx, abiSFC)
-				qc.BlockBuffer.Buffer[k].Txs = append(qc.BlockBuffer.Buffer[k].Txs, TxInfo{tx, receipt, txtype})
-				if _, ok := qc.TxCountMap[tx.From()]; !ok {
-					qc.TxCountMap[tx.From()] = 0
-				}
-				qc.TxCountMap[tx.From()]++
-
-				if receipt.FeeRefund != nil {
-					if _, ok := qc.QuotaUsedMap[tx.From()]; !ok {
-						qc.QuotaUsedMap[tx.From()] = big.NewInt(0)
-					}
-					qc.QuotaUsedMap[tx.From()].Add(qc.QuotaUsedMap[tx.From()], receipt.FeeRefund)
-				}
-			}
-
-		}
-
 	}
 
-	qc.BlockBuffer.CurrentIndex = window - 1
+	return sum
+}
 
+func (qc *QuotaCache) cleanupOldEpochs() {
+	currentEpoch := qc.store.GetCurrentEpoch()
+	cutoffEpoch := currentEpoch - 2
+
+	for epoch := range qc.StakesMap {
+		if epoch < cutoffEpoch {
+			delete(qc.StakesMap, epoch)
+		}
+	}
+
+	qc.QuotaUsedMap = make(map[common.Address]*big.Int)
 }

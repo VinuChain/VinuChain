@@ -3,6 +3,7 @@ package makegenesis
 import (
 	"bytes"
 	"errors"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"io"
 	"math/big"
 	"strings"
@@ -141,10 +142,8 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 	}
 
 	qc := quota.QuotaCache{
-		BlockBuffer:  quota.NewCircularBuffer(1), // no need to store more than one block
-		TxCountMap:   make(map[common.Address]int64),
 		QuotaUsedMap: make(map[common.Address]*big.Int),
-		StakesMap:    make(map[common.Address]*big.Int),
+		StakesMap:    make(map[idx.Epoch]*quota.EpochStakes),
 	}
 
 	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
@@ -152,7 +151,6 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 		panic(err)
 	}
 	qc.ContractABI = &abi
-	qc.BlockBuffer.Buffer[0].BlockNumber = uint64(blockCtx.Idx) // to set the initial block number
 
 	sealer := blockProc.SealerModule.Start(blockCtx, bs, es)
 	sealing := true
