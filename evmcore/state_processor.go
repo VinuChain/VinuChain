@@ -18,7 +18,7 @@ package evmcore
 
 import (
 	"fmt"
-	"github.com/Fantom-foundation/go-opera/quota"
+	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
@@ -63,7 +63,7 @@ func (p *StateProcessor) Process(
 	cfg vm.Config,
 	usedGas *uint64,
 	onNewLog func(*types.Log, *state.StateDB),
-	quotaCache *quota.QuotaCache,
+	paybackCache *payback.PaybackCache,
 ) (
 	receipts types.Receipts, allLogs []*types.Log, skipped []uint32, err error,
 ) {
@@ -80,13 +80,6 @@ func (p *StateProcessor) Process(
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
 
-	if err = quotaCache.AddEmptyBlock(block.NumberU64()); err != nil {
-		log.Warn("Empty block not applied", "hash", block.Hash, "number", block.Number, "err", err)
-		return
-	}
-
-	quotaCache.AddBaseFeePerGas(quotaCache.BlockBuffer.CurrentIndex, header.BaseFee)
-
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
 		var msg types.Message
@@ -97,7 +90,7 @@ func (p *StateProcessor) Process(
 
 		statedb.Prepare(tx.Hash(), i)
 
-		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, quotaCache)
+		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, paybackCache)
 		if skip {
 			skipped = append(skipped, uint32(i))
 			err = nil
@@ -109,7 +102,7 @@ func (p *StateProcessor) Process(
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 
-		if err = quotaCache.AddTransaction(tx, receipt); err != nil {
+		if err = paybackCache.AddTransaction(tx, receipt); err != nil {
 			log.Info(
 				"Transaction not applied",
 				"hash", tx.Hash(),
@@ -135,7 +128,7 @@ func applyTransaction(
 	usedGas *uint64,
 	evm *vm.EVM,
 	onNewLog func(*types.Log, *state.StateDB),
-	quotaCache *quota.QuotaCache,
+	paybackCache *payback.PaybackCache,
 ) (
 	*types.Receipt,
 	uint64,
@@ -146,11 +139,11 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
-	quotaCache.SetEVM(evm)
-	availableQuota := quotaCache.GetAvailableQuotaByAddress(msg.From())
+	paybackCache.SetEVM(evm)
+	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From())
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp, availableQuota)
+	result, err := ApplyMessage(evm, msg, gp, availablePayback)
 	if err != nil {
 		return nil, 0, result == nil, err
 	}

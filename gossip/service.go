@@ -49,7 +49,7 @@ import (
 	snapsync "github.com/Fantom-foundation/go-opera/gossip/protocols/snap"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/logger"
-	"github.com/Fantom-foundation/go-opera/quota"
+	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/Fantom-foundation/go-opera/utils/signers/gsignercache"
 	"github.com/Fantom-foundation/go-opera/utils/wgmutex"
 	"github.com/Fantom-foundation/go-opera/valkeystore"
@@ -155,8 +155,7 @@ type Service struct {
 
 	tflusher PeriodicFlusher
 
-	// quota cache
-	quotaCache *quota.QuotaCache
+	paybackCache *payback.PaybackCache
 
 	logger.Instance
 }
@@ -182,7 +181,7 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	svc.haltCheck = haltCheck
 
 	// TODO: remove this log
-	log.Info("Quota cache initialized", "quota_cashe", svc.quotaCache.String())
+	log.Info("Payback cache initialized", "payback_cache", svc.paybackCache.String())
 
 	return svc, nil
 }
@@ -285,9 +284,9 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.tflusher = svc.makePeriodicFlusher()
 
 	// create quota cache
-	quotaStore := NewQuotaStore(svc.store)
+	paybackStore := NewPaybackStore(svc.store)
 	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.quotaCache = quota.NewQuotaCache(quotaStore)
+	svc.paybackCache = payback.NewPaybackCache(paybackStore)
 
 	return svc, nil
 }

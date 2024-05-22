@@ -1,6 +1,7 @@
-package quota
+package payback
 
 import (
+	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
@@ -17,4 +18,6 @@ type Store interface {
 	FindBlockEpoch(i idx.Block) idx.Epoch
 	GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState
 	GetRules() opera.Rules
+	GetCurrentEpoch() idx.Epoch
+	GetBlock(i idx.Block) *inter.Block
 }

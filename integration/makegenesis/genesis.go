@@ -3,6 +3,7 @@ package makegenesis
 import (
 	"bytes"
 	"errors"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"io"
 	"math/big"
 	"strings"
@@ -29,8 +30,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
-	"github.com/Fantom-foundation/go-opera/quota"
-	"github.com/Fantom-foundation/go-opera/quota/contract/sfc"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/payback/contract/sfc"
 	"github.com/Fantom-foundation/go-opera/utils/iodb"
 )
 
@@ -140,19 +141,16 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 		Atropos: hash.Event{},
 	}
 
-	qc := quota.QuotaCache{
-		BlockBuffer:  quota.NewCircularBuffer(1), // no need to store more than one block
-		TxCountMap:   make(map[common.Address]int64),
-		QuotaUsedMap: make(map[common.Address]*big.Int),
-		StakesMap:    make(map[common.Address]*big.Int),
+	pc := payback.PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*payback.EpochStakes),
 	}
 
 	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
 	if err != nil {
 		panic(err)
 	}
-	qc.ContractABI = &abi
-	qc.BlockBuffer.Buffer[0].BlockNumber = uint64(blockCtx.Idx) // to set the initial block number
+	pc.ContractABI = &abi
 
 	sealer := blockProc.SealerModule.Start(blockCtx, bs, es)
 	sealing := true
@@ -164,7 +162,7 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 			Upgrades: es.Rules.Upgrades,
 			Height:   0,
 		},
-	}), &qc)
+	}), &pc)
 
 	// Execute genesis transactions
 	evmProcessor.Execute(genesisTxs)
