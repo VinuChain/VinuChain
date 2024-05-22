@@ -2,6 +2,8 @@ package gossip
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/utils"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -25,7 +27,6 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
-	"github.com/Fantom-foundation/go-opera/utils"
 )
 
 var (
@@ -73,6 +74,7 @@ func (s *Service) GetConsensusCallbacks() lachesis.ConsensusCallbacks {
 			&s.feed,
 			&s.emitters,
 			s.verWatcher,
+			s.paybackCache,
 		),
 	}
 }
@@ -89,6 +91,7 @@ func consensusCallbackBeginBlockFn(
 	feed *ServiceFeed,
 	emitters *[]*emitter.Emitter,
 	verWatcher *verwatcher.VerWarcher,
+	pc *payback.PaybackCache,
 ) lachesis.BeginBlockFn {
 	return func(cBlock *lachesis.Block) lachesis.BlockCallbacks {
 		wg.Wait()
@@ -250,7 +253,7 @@ func consensusCallbackBeginBlockFn(
 					})
 				}
 
-				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()))
+				evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, onNewLogAll, es.Rules, es.Rules.EvmChainConfig(store.GetUpgradeHeights()), pc)
 				executionStart := time.Now()
 
 				// Execute pre-internal transactions
@@ -473,7 +476,8 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 			log.Crit("Failue to re-execute blocks", "err", err)
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights))
+
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), s.paybackCache)
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()

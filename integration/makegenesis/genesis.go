@@ -3,11 +3,14 @@ package makegenesis
 import (
 	"bytes"
 	"errors"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"io"
 	"math/big"
+	"strings"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/kvdb"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,6 +30,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/payback/contract/sfc"
 	"github.com/Fantom-foundation/go-opera/utils/iodb"
 )
 
@@ -136,6 +141,17 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 		Atropos: hash.Event{},
 	}
 
+	pc := payback.PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*payback.EpochStakes),
+	}
+
+	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
+	if err != nil {
+		panic(err)
+	}
+	pc.ContractABI = &abi
+
 	sealer := blockProc.SealerModule.Start(blockCtx, bs, es)
 	sealing := true
 	txListener := blockProc.TxListenerModule.Start(blockCtx, bs, es, b.tmpStateDB)
@@ -146,7 +162,7 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 			Upgrades: es.Rules.Upgrades,
 			Height:   0,
 		},
-	}))
+	}), &pc)
 
 	// Execute genesis transactions
 	evmProcessor.Execute(genesisTxs)

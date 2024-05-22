@@ -15,6 +15,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
 
@@ -24,7 +25,7 @@ func New() *EVMModule {
 	return &EVMModule{}
 }
 
-func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig) blockproc.EVMProcessor {
+func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig, paybackCache *payback.PaybackCache) blockproc.EVMProcessor {
 	var prevBlockHash common.Hash
 	if block.Idx != 0 {
 		prevBlockHash = reader.GetHeader(common.Hash{}, uint64(block.Idx-1)).Hash
@@ -38,6 +39,7 @@ func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, rea
 		evmCfg:        evmCfg,
 		blockIdx:      utils.U64toBig(uint64(block.Idx)),
 		prevBlockHash: prevBlockHash,
+		paybackCache:  paybackCache,
 	}
 }
 
@@ -57,6 +59,8 @@ type OperaEVMProcessor struct {
 	incomingTxs types.Transactions
 	skippedTxs  []uint32
 	receipts    types.Receipts
+
+	paybackCache *payback.PaybackCache
 }
 
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
@@ -89,7 +93,7 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 		// Note: l.Index is properly set before
 		l.TxIndex += txsOffset
 		p.onNewLog(l)
-	})
+	}, p.paybackCache)
 	if err != nil {
 		log.Crit("EVM internal error", "err", err)
 	}

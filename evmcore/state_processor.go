@@ -18,6 +18,8 @@ package evmcore
 
 import (
 	"fmt"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -56,7 +58,12 @@ func NewStateProcessor(config *params.ChainConfig, bc DummyChain) *StateProcesso
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(
-	block *EvmBlock, statedb *state.StateDB, cfg vm.Config, usedGas *uint64, onNewLog func(*types.Log, *state.StateDB),
+	block *EvmBlock,
+	statedb *state.StateDB,
+	cfg vm.Config,
+	usedGas *uint64,
+	onNewLog func(*types.Log, *state.StateDB),
+	paybackCache *payback.PaybackCache,
 ) (
 	receipts types.Receipts, allLogs []*types.Log, skipped []uint32, err error,
 ) {
@@ -72,15 +79,18 @@ func (p *StateProcessor) Process(
 		blockNumber  = block.Number
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
-		msg, err := TxAsMessage(tx, signer, header.BaseFee)
+		var msg types.Message
+		msg, err = TxAsMessage(tx, signer, header.BaseFee)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 
 		statedb.Prepare(tx.Hash(), i)
-		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog)
+
+		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, paybackCache)
 		if skip {
 			skipped = append(skipped, uint32(i))
 			err = nil
@@ -91,7 +101,19 @@ func (p *StateProcessor) Process(
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
+		if err = paybackCache.AddTransaction(tx, receipt); err != nil {
+			log.Info(
+				"Transaction not applied",
+				"hash", tx.Hash(),
+				"index", i,
+				"receipt", receipt,
+			)
+			return nil, nil, nil, fmt.Errorf("could not add transaction to quota cache: %w", err)
+		}
+
 	}
+
 	return
 }
 
@@ -106,6 +128,7 @@ func applyTransaction(
 	usedGas *uint64,
 	evm *vm.EVM,
 	onNewLog func(*types.Log, *state.StateDB),
+	paybackCache *payback.PaybackCache,
 ) (
 	*types.Receipt,
 	uint64,
@@ -116,8 +139,11 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
+	paybackCache.SetEVM(evm)
+	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From())
+
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp)
+	result, err := ApplyMessage(evm, msg, gp, availablePayback)
 	if err != nil {
 		return nil, 0, result == nil, err
 	}
@@ -158,6 +184,7 @@ func applyTransaction(
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+	receipt.FeeRefund = result.FeeRefund
 	return receipt, result.UsedGas, false, err
 }
 

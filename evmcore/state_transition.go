@@ -42,22 +42,26 @@ The state transitioning model does all the necessary work to work out a valid ne
 3) Create a new state object if the recipient is \0*32
 4) Value transfer
 == If contract creation ==
-  4a) Attempt to run transaction data
-  4b) If valid, use result as code for the new state object
+
+	4a) Attempt to run transaction data
+	4b) If valid, use result as code for the new state object
+
 == end ==
 5) Run Script section
 6) Derive new state root
 */
 type StateTransition struct {
-	gp         *GasPool
-	msg        Message
-	gas        uint64
-	gasPrice   *big.Int
-	initialGas uint64
-	value      *big.Int
-	data       []byte
-	state      vm.StateDB
-	evm        *vm.EVM
+	gp             *GasPool
+	msg            Message
+	gas            uint64
+	gasPrice       *big.Int
+	initialGas     uint64
+	value          *big.Int
+	data           []byte
+	state          vm.StateDB
+	evm            *vm.EVM
+	availableQuota *big.Int
+	feeRefund      *big.Int
 }
 
 // Message represents a message sent to a contract.
@@ -80,9 +84,10 @@ type Message interface {
 // ExecutionResult includes all output after executing given evm
 // message no matter the execution itself is successful or not.
 type ExecutionResult struct {
-	UsedGas    uint64 // Total used gas but include the refunded gas
-	Err        error  // Any error encountered during the execution(listed in core/vm/errors.go)
-	ReturnData []byte // Returned data from evm(function result or data supplied with revert opcode)
+	FeeRefund  *big.Int // Refund for the fee of the transaction
+	UsedGas    uint64   // Total used gas but include the refunded gas
+	Err        error    // Any error encountered during the execution(listed in core/vm/errors.go)
+	ReturnData []byte   // Returned data from evm(function result or data supplied with revert opcode)
 }
 
 // Unwrap returns the internal evm error which allows us for further
@@ -150,15 +155,17 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition {
+func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) *StateTransition {
 	return &StateTransition{
-		gp:       gp,
-		evm:      evm,
-		msg:      msg,
-		gasPrice: msg.GasPrice(),
-		value:    msg.Value(),
-		data:     msg.Data(),
-		state:    evm.StateDB,
+		gp:             gp,
+		evm:            evm,
+		msg:            msg,
+		gasPrice:       msg.GasPrice(),
+		value:          msg.Value(),
+		data:           msg.Data(),
+		state:          evm.StateDB,
+		availableQuota: availableQuota,
+		feeRefund:      big.NewInt(0),
 	}
 }
 
@@ -169,8 +176,8 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
-	res, err := NewStateTransition(evm, msg, gp).TransitionDb()
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) (*ExecutionResult, error) {
+	res, err := NewStateTransition(evm, msg, gp, availableQuota).TransitionDb()
 	if err != nil {
 		log.Debug("Tx skipped", "err", err)
 	}
@@ -232,13 +239,13 @@ func (st *StateTransition) internal() bool {
 // TransitionDb will transition the state by applying the current message and
 // returning the evm execution result with following fields.
 //
-// - used gas:
-//      total gas used (including gas being refunded)
-// - returndata:
-//      the returned data from evm
-// - concrete execution error:
-//      various **EVM** error which aborts the execution,
-//      e.g. ErrOutOfGas, ErrExecutionReverted
+//   - used gas:
+//     total gas used (including gas being refunded)
+//   - returndata:
+//     the returned data from evm
+//   - concrete execution error:
+//     various **EVM** error which aborts the execution,
+//     e.g. ErrOutOfGas, ErrExecutionReverted
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
@@ -305,6 +312,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	return &ExecutionResult{
+		FeeRefund:  st.feeRefund,
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,
 		ReturnData: ret,
@@ -321,6 +329,30 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	// Return wei for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
+	feeRefund := big.NewInt(0)
+
+	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
+		log.Info("refundGas: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
+		log.Info("refundGas: Fee", "address", st.msg.From().String(), "fee", fee.String())
+	}
+
+	if fee.Cmp(st.availableQuota) > 0 {
+		feeRefund = st.availableQuota
+	} else {
+		feeRefund = fee
+	}
+
+	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
+		log.Info("refundGas: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
+	}
+
+	if feeRefund.Cmp(big.NewInt(0)) > 0 {
+		st.feeRefund = feeRefund
+		remaining = remaining.Add(remaining, feeRefund)
+	}
+
 	st.state.AddBalance(st.msg.From(), remaining)
 
 	// Also return remaining gas to the block gas counter so it is

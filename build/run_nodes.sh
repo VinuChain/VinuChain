@@ -34,6 +34,8 @@ do
 
 done
 
+sleep 10
+
 # ececuting command on node function
 attach_and_exec() {
     local NODE_DATADIR=$1

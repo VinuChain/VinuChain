@@ -346,6 +346,10 @@ func (em *Emitter) createEvent(sortedTxs *types.TransactionsByPriceAndNonce) (*i
 		version = 1
 	}
 
+	if em.world.GetRules().Upgrades.Podgorica {
+		version = 2
+	}
+
 	mutEvent := &inter.MutableEventPayload{}
 	mutEvent.SetVersion(version)
 	mutEvent.SetEpoch(em.epoch)

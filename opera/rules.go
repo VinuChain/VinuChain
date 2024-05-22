@@ -25,6 +25,7 @@ const (
 	berlinBit                = 1 << 0
 	londonBit                = 1 << 1
 	llrBit                   = 1 << 2
+	podgoricaBit             = 1 << 3
 )
 
 var DefaultVMConfig = vm.Config{
@@ -106,6 +107,8 @@ type EconomyRules struct {
 
 	ShortGasPower GasPowerRules
 	LongGasPower  GasPowerRules
+
+	QuotaCacheAddress common.Address `rlp:"optional"`
 }
 
 // BlocksRules contains blocks constants
@@ -115,9 +118,10 @@ type BlocksRules struct {
 }
 
 type Upgrades struct {
-	Berlin bool
-	London bool
-	Llr    bool
+	Berlin    bool
+	London    bool
+	Llr       bool
+	Podgorica bool
 }
 
 type UpgradeHeight struct {
@@ -315,7 +319,7 @@ func VitainuNetEpochsRules() EpochsRules {
 func FakeNetEpochsRules() EpochsRules {
 	cfg := DefaultEpochsRules()
 	cfg.MaxEpochGas /= 5
-	cfg.MaxEpochDuration = inter.Timestamp(10 * time.Minute)
+	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
 	return cfg
 }
 

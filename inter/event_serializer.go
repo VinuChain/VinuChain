@@ -20,7 +20,7 @@ var (
 	ErrUnknownVersion    = errors.New("unknown serialization version")
 )
 
-const MaxSerializationVersion = 1
+const MaxSerializationVersion = 2
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024
 
