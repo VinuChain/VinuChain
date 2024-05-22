@@ -1,4 +1,4 @@
-package quota
+package payback
 
 import (
 	"github.com/Fantom-foundation/go-opera/inter"

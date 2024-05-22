@@ -72,6 +72,9 @@ func (pc *PaybackCache) deleteCurrentBlock() error {
 
 func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Receipt) error {
 	if receipt.Status == types.ReceiptStatusSuccessful {
+		if pc.store == nil {
+			return nil
+		}
 		epoch := pc.store.GetCurrentEpoch()
 		txtype := getTxType(tx, *pc.ContractABI)
 		if txtype == TxTypeStake {
@@ -111,7 +114,7 @@ func NewPaybackCache(store Store) *PaybackCache {
 
 	if store.GetRules().Upgrades.Podgorica {
 		pc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
-		log.Info("NewPaybackCache: QuotaCacheAddress is set", "address", pc.contractAddress.String())
+		log.Info("NewPaybackCache: PaybackCacheAddress is set", "address", pc.contractAddress.String())
 	} else {
 		log.Info("HardFork Podgorica is not activated", "status", store.GetRules().Upgrades.Podgorica)
 		log.Info("NewPaybackCache:", "Rules", store.GetRules())

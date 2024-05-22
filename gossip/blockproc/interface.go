@@ -1,7 +1,7 @@
 package blockproc
 
 import (
-	"github.com/Fantom-foundation/go-opera/quota"
+	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -53,5 +53,5 @@ type EVMProcessor interface {
 }
 
 type EVM interface {
-	Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig, quotaCache *quota.QuotaCache) EVMProcessor
+	Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig, paybackCache *payback.PaybackCache) EVMProcessor
 }
