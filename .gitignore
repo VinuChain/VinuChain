@@ -2,3 +2,6 @@
 .vscode/
 .idea/
 .DS_Store
+gitignore/
+.claude/
+CLAUDE.md

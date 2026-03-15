@@ -193,8 +193,8 @@ type handler struct {
 	logger.Instance
 }
 
-// newHandler returns a new Fantom sub protocol manager. The Fantom sub protocol manages peers capable
-// with the Fantom network.
+// newHandler returns a new VinuChain sub protocol manager. The VinuChain sub protocol manages peers capable
+// with the VinuChain network.
 func newHandler(
 	c handlerConfig,
 ) (

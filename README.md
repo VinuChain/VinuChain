@@ -1,4 +1,4 @@
-# Opera 
+# Opera
 
 EVM-compatible chain secured by the Lachesis consensus algorithm.
 
@@ -20,7 +20,7 @@ on how you can run your own `opera` instance.
 
 ### Launching a network
 
-You will need a genesis file to join a network, which may be found in https://github.com/Fantom-foundation/lachesis_launch
+You will need a genesis file to join a network, which may be found at https://drive.google.com/drive/folders/1_LKq9ljXYwH4LkxO-6e8UnVgiWncGCBH?usp=sharing
 
 Launching `opera` readonly (non-validator) node for network specified by the genesis file:
 
