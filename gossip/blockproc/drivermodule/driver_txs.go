@@ -7,6 +7,7 @@ import (
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/common"
+	ethmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -23,8 +24,15 @@ import (
 )
 
 const (
-	maxAdvanceEpochs = 1 << 16
+	maxAdvanceEpochs       = 1 << 16
+	baseFeeBurnPercentage  = 30
+	baseFeeBurnDenominator = 100
 )
+
+// burnNumeratorVal and burnDenominatorVal return fresh big.Int values
+// to prevent accidental mutation of consensus-critical constants.
+func burnNumeratorVal() *big.Int   { return big.NewInt(baseFeeBurnPercentage) }
+func burnDenominatorVal() *big.Int { return big.NewInt(baseFeeBurnDenominator) }
 
 type DriverTxListenerModule struct{}
 
@@ -134,15 +142,53 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	}
 	originatorIdx := p.es.Validators.GetIdx(originator)
 
-	// track originated fee
-	txFee := new(big.Int).Mul(new(big.Int).SetUint64(r.GasUsed), tx.GasPrice())
-	originated := p.bs.ValidatorStates[originatorIdx].Originated
+	gasUsed := new(big.Int).SetUint64(r.GasUsed)
 
-	if r.FeeRefund.Cmp(common.Big0) == 0 {
-		originated.Add(originated, txFee)
-	} else {
-		originated.Add(originated, new(big.Int).Sub(txFee, r.FeeRefund))
-		log.Info("Zero fee refund", "tx", tx.Hash().Hex(), "fee", txFee, "refund", r.FeeRefund)
+	// Compute effective gas price: for EIP-1559 txs, min(gasTipCap + baseFee, gasFeeCap)
+	effectiveGasPrice := tx.GasPrice()
+	if p.es.Rules.Upgrades.London && p.es.Rules.Economy.MinGasPrice != nil {
+		effectiveGasPrice = ethmath.BigMin(
+			new(big.Int).Add(tx.GasTipCap(), p.es.Rules.Economy.MinGasPrice),
+			tx.GasFeeCap(),
+		)
+	}
+	txFee := new(big.Int).Mul(gasUsed, effectiveGasPrice)
+
+	// Guard against nil FeeRefund
+	feeRefund := r.FeeRefund
+	if feeRefund == nil {
+		feeRefund = new(big.Int)
+	}
+
+	// Calculate validator's share: total fee minus payback refund
+	validatorFee := new(big.Int).Sub(txFee, feeRefund)
+	if validatorFee.Sign() < 0 {
+		validatorFee.SetUint64(0)
+	}
+
+	// Burn 30% of base fee portion from the validator's share when SfcV2 is active
+	burnAmount := new(big.Int)
+	if p.es.Rules.Upgrades.SfcV2 && p.es.Rules.Upgrades.London && p.es.Rules.Economy.MinGasPrice != nil && p.es.Rules.Economy.MinGasPrice.Sign() > 0 {
+		baseFeeUsed := new(big.Int).Mul(p.es.Rules.Economy.MinGasPrice, gasUsed)
+		burnAmount.Mul(baseFeeUsed, burnNumeratorVal())
+		burnAmount.Div(burnAmount, burnDenominatorVal())
+		// burn cannot exceed what validators would receive
+		if burnAmount.Cmp(validatorFee) > 0 {
+			burnAmount.Set(validatorFee)
+		}
+	}
+
+	originated := p.bs.ValidatorStates[originatorIdx].Originated
+	originated.Add(originated, new(big.Int).Sub(validatorFee, burnAmount))
+
+	if feeRefund.Sign() > 0 {
+		log.Debug("Payback fee refund", "tx", tx.Hash().Hex(), "fee", txFee, "refund", feeRefund)
+	}
+
+	// Send burned amount to 0x0 address for on-chain accounting
+	if burnAmount.Sign() > 0 {
+		p.statedb.AddBalance(common.Address{}, burnAmount)
+		log.Debug("Base fee burned", "tx", tx.Hash().Hex(), "burn", burnAmount, "baseFee", p.es.Rules.Economy.MinGasPrice, "fee", txFee)
 	}
 
 	// track gas power refunds

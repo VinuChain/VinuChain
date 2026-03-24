@@ -177,7 +177,7 @@ func (s *Service) EvmSnapshotGeneration() bool {
 // processEvent extends the engine.Process with gossip-specific actions on each event processing
 func (s *Service) processEvent(e *inter.EventPayload) error {
 	// s.engineMu is locked here
-	if s.stopped {
+	if atomic.LoadUint32(&s.stopped) != 0 {
 		return errStopped
 	}
 	if err := s.verWatcher.Pause(); err != nil {
@@ -249,7 +249,7 @@ func (s *Service) processEvent(e *inter.EventPayload) error {
 
 	if s.haltCheck != nil && s.haltCheck(oldEpoch, newEpoch, e.MedianTime().Time()) {
 		// halt syncing
-		s.stopped = true
+		atomic.StoreUint32(&s.stopped, 1)
 	}
 	return nil
 }

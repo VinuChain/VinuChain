@@ -422,7 +422,12 @@ func (h *handler) peerMisbehaviour(peer string, err error) bool {
 
 func (h *handler) makeDagProcessor(checkers *eventcheck.Checkers) *dagprocessor.Processor {
 	// checkers
-	lightCheck := func(e dag.Event) error {
+	lightCheck := func(e dag.Event) (retErr error) {
+		defer func() {
+			if r := recover(); r != nil {
+				retErr = fmt.Errorf("type assertion failed in lightCheck: %v", r)
+			}
+		}()
 		if h.store.GetEpoch() != e.ID().Epoch() {
 			return epochcheck.ErrNotRelevant
 		}
@@ -440,7 +445,12 @@ func (h *handler) makeDagProcessor(checkers *eventcheck.Checkers) *dagprocessor.
 		}
 		return nil
 	}
-	bufferedCheck := func(_e dag.Event, _parents dag.Events) error {
+	bufferedCheck := func(_e dag.Event, _parents dag.Events) (retErr error) {
+		defer func() {
+			if r := recover(); r != nil {
+				retErr = fmt.Errorf("type assertion failed in bufferedCheck: %v", r)
+			}
+		}()
 		e := _e.(inter.EventI)
 		parents := make(inter.EventIs, len(_parents))
 		for i := range _parents {
@@ -606,7 +616,11 @@ func (h *handler) onlyInterestedEventsI(ids []interface{}) []interface{} {
 	epoch := h.store.GetEpoch()
 	interested := make([]interface{}, 0, len(ids))
 	for _, id := range ids {
-		if h.isEventInterested(id.(hash.Event), epoch) {
+		eid, ok := id.(hash.Event)
+		if !ok {
+			continue
+		}
+		if h.isEventInterested(eid, epoch) {
 			interested = append(interested, id)
 		}
 	}

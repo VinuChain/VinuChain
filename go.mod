@@ -45,6 +45,6 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.0-quota
+replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.1-quota
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f

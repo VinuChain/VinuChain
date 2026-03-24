@@ -2,8 +2,6 @@ package gossip
 
 import (
 	"fmt"
-	"github.com/Fantom-foundation/go-opera/payback"
-	"github.com/Fantom-foundation/go-opera/utils"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -27,6 +25,9 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/utils"
 )
 
 var (
@@ -277,6 +278,11 @@ func consensusCallbackBeginBlockFn(
 							Height:   blockCtx.Idx + 1,
 						})
 					}
+					// Apply SFC V2 bytecode upgrade when the flag activates
+					if es.Rules.Upgrades.SfcV2 && !prevUpg.SfcV2 {
+						log.Info("Applying SFC V2 bytecode upgrade", "block", blockCtx.Idx)
+						statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+					}
 					store.SetBlockEpochState(bs, es)
 					newValidators = es.Validators
 					txListener.Update(bs, es)
@@ -444,10 +450,15 @@ func consensusCallbackBeginBlockFn(
 					err := parallelTasks.Enqueue(func() {
 						defer atomic.StoreUint32(blockBusyFlag, 0)
 						defer wg.Done()
+						defer func() {
+							if r := recover(); r != nil {
+								log.Error("Panic in block processing", "err", r)
+							}
+						}()
 						blockFn()
 					})
 					if err != nil {
-						panic(err)
+						log.Crit("Failed to enqueue block processing", "err", err)
 					}
 				} else {
 					blockFn()

@@ -312,7 +312,10 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 		if len(e) > 0 {
 			for _, f := range filters[LogsSubscription] {
 				if matchedLogs := filterLogs(e, f.logsCrit.FromBlock, f.logsCrit.ToBlock, f.logsCrit.Addresses, f.logsCrit.Topics); len(matchedLogs) > 0 {
-					f.logs <- matchedLogs
+					select {
+					case f.logs <- matchedLogs:
+					default:
+					}
 				}
 			}
 		}
@@ -322,14 +325,20 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 			hashes = append(hashes, tx.Hash())
 		}
 		for _, f := range filters[PendingTransactionsSubscription] {
-			f.hashes <- hashes
+			select {
+			case f.hashes <- hashes:
+			default:
+			}
 		}
 	case evmcore.ChainHeadNotify:
 		h := e.Block.EthHeader()
 		h.GasLimit = 0xffffffffffff // don't use too much bits here to avoid parsing issues
 		es.calculateExtBlockApi(h)
 		for _, f := range filters[BlocksSubscription] {
-			f.headers <- h
+			select {
+			case f.headers <- h:
+			default:
+			}
 		}
 	}
 }

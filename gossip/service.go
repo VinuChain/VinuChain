@@ -150,7 +150,7 @@ type Service struct {
 
 	procLogger *proclogger.Logger
 
-	stopped   bool
+	stopped   uint32
 	haltCheck func(oldEpoch, newEpoch idx.Epoch, time time.Time) bool
 
 	tflusher PeriodicFlusher
@@ -286,7 +286,10 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	// create quota cache
 	paybackStore := NewPaybackStore(svc.store)
 	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.paybackCache = payback.NewPaybackCache(paybackStore)
+	svc.paybackCache, err = payback.NewPaybackCache(paybackStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create payback cache: %w", err)
+	}
 
 	return svc, nil
 }
@@ -472,7 +475,7 @@ func (s *Service) Start() error {
 
 	if s.haltCheck != nil && s.haltCheck(s.store.GetEpoch(), s.store.GetEpoch(), s.store.GetBlockState().LastBlock.Time.Time()) {
 		// halt syncing
-		s.stopped = true
+		atomic.StoreUint32(&s.stopped, 1)
 	}
 
 	return nil
@@ -505,7 +508,7 @@ func (s *Service) Stop() error {
 	// flush the state at exit, after all the routines stopped
 	s.engineMu.Lock()
 	defer s.engineMu.Unlock()
-	s.stopped = true
+	atomic.StoreUint32(&s.stopped, 1)
 
 	s.blockProcWg.Wait()
 	close(s.blockProcTasksDone)

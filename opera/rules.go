@@ -26,6 +26,7 @@ const (
 	londonBit                = 1 << 1
 	llrBit                   = 1 << 2
 	podgoricaBit             = 1 << 3
+	sfcV2Bit                 = 1 << 4
 )
 
 var DefaultVMConfig = vm.Config{
@@ -122,6 +123,7 @@ type Upgrades struct {
 	London    bool
 	Llr       bool
 	Podgorica bool
+	SfcV2     bool
 }
 
 type UpgradeHeight struct {
@@ -200,6 +202,7 @@ func FakeNetRules() Rules {
 			Berlin: true,
 			London: true,
 			Llr:    true,
+			SfcV2:  true,
 		},
 	}
 }
@@ -239,6 +242,7 @@ func VitainuTestNetRules() Rules {
 			Berlin: true,
 			London: true,
 			Llr:    true,
+			SfcV2:  true,
 		},
 	}
 }
