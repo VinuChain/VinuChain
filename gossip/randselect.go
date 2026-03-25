@@ -1,8 +1,21 @@
 package gossip
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
+	"errors"
 	"math/rand"
+
+	"github.com/ethereum/go-ethereum/log"
 )
+
+func init() {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		panic("crypto/rand unavailable: " + err.Error())
+	}
+	rand.Seed(int64(binary.BigEndian.Uint64(b[:])))
+}
 
 // wrsItem interface should be implemented by any entries that are to be selected from
 // a weightedRandomSelect set. Note that recalculating monotonously decreasing item
@@ -44,13 +57,17 @@ func (w *weightedRandomSelect) setWeight(item wrsItem, weight int64) {
 	} else {
 		if weight != 0 {
 			if w.root.itemCnt == w.root.maxItems {
-				// add a new level
 				newRoot := &wrsNode{sumWeight: w.root.sumWeight, itemCnt: w.root.itemCnt, level: w.root.level + 1, maxItems: w.root.maxItems * wrsBranches}
 				newRoot.items[0] = w.root
 				newRoot.weights[0] = w.root.sumWeight
 				w.root = newRoot
 			}
-			w.idx[item] = w.root.insert(item, weight)
+			insertIdx, err := w.root.insert(item, weight)
+			if err != nil {
+				log.Warn("wrsNode insert failed", "err", err)
+				return
+			}
+			w.idx[item] = insertIdx
 		}
 	}
 }
@@ -65,7 +82,10 @@ func (w *weightedRandomSelect) choose() wrsItem {
 			return nil
 		}
 		val := rand.Int63n(w.root.sumWeight)
-		choice, lastWeight := w.root.choose(val)
+		choice, lastWeight, err := w.root.choose(val)
+		if err != nil {
+			return nil
+		}
 		weight := choice.Weight()
 		if weight != lastWeight {
 			w.setWeight(choice, weight)
@@ -86,13 +106,16 @@ type wrsNode struct {
 	level, itemCnt, maxItems int
 }
 
-// insert recursively inserts a new item to the tree and returns the item index
-func (n *wrsNode) insert(item wrsItem, weight int64) int {
+var errTreeFull = errors.New("wrsNode: tree is full, cannot insert")
+var errSelectionExceeded = errors.New("wrsNode: random selection exceeded weight sum")
+
+// insert recursively inserts an item into the tree and returns its index.
+func (n *wrsNode) insert(item wrsItem, weight int64) (int, error) {
 	branch := 0
 	for n.items[branch] != nil && (n.level == 0 || n.items[branch].(*wrsNode).itemCnt == n.items[branch].(*wrsNode).maxItems) {
 		branch++
 		if branch == wrsBranches {
-			panic("wrsNode: tree is full, cannot insert")
+			return 0, errTreeFull
 		}
 	}
 	n.itemCnt++
@@ -100,17 +123,27 @@ func (n *wrsNode) insert(item wrsItem, weight int64) int {
 	n.weights[branch] += weight
 	if n.level == 0 {
 		n.items[branch] = item
-		return branch
+		return branch, nil
 	}
 	var subNode *wrsNode
-	if n.items[branch] == nil {
+	newlyCreated := n.items[branch] == nil
+	if newlyCreated {
 		subNode = &wrsNode{maxItems: n.maxItems / wrsBranches, level: n.level - 1}
 		n.items[branch] = subNode
 	} else {
 		subNode = n.items[branch].(*wrsNode)
 	}
-	subIdx := subNode.insert(item, weight)
-	return subNode.maxItems*branch + subIdx
+	subIdx, err := subNode.insert(item, weight)
+	if err != nil {
+		n.itemCnt--
+		n.sumWeight -= weight
+		n.weights[branch] -= weight
+		if newlyCreated {
+			n.items[branch] = nil
+		}
+		return 0, err
+	}
+	return subNode.maxItems*branch + subIdx, nil
 }
 
 // setWeight updates the weight of a certain item (which should exist) and returns
@@ -138,16 +171,23 @@ func (n *wrsNode) setWeight(idx int, weight int64) int64 {
 	return diff
 }
 
-// choose recursively selects an item from the tree and returns it along with its weight
-func (n *wrsNode) choose(val int64) (wrsItem, int64) {
+func (n *wrsNode) choose(val int64) (wrsItem, int64, error) {
 	for i, w := range n.weights {
 		if val < w {
 			if n.level == 0 {
-				return n.items[i].(wrsItem), n.weights[i]
+				item, ok := n.items[i].(wrsItem)
+				if !ok {
+					return nil, 0, errSelectionExceeded
+				}
+				return item, n.weights[i], nil
 			}
-			return n.items[i].(*wrsNode).choose(val)
+			subNode, ok := n.items[i].(*wrsNode)
+			if !ok {
+				return nil, 0, errSelectionExceeded
+			}
+			return subNode.choose(val)
 		}
 		val -= w
 	}
-	panic("wrsNode: random selection exceeded weight sum")
+	return nil, 0, errSelectionExceeded
 }

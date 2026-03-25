@@ -50,7 +50,9 @@ func DefaultStoreConfig(scale cachescale.Func) StoreConfig {
 			EvmSnap:           scale.I(32 * opt.MiB),
 			EvmBlocksNum:      scale.I(5000),
 			EvmBlocksSize:     scale.U(6 * opt.MiB),
-			TrieDirtyDisabled: true,
+			// Archive nodes should set this to true for full trie persistence per block.
+			// For normal validators, false enables the dirty cache for batched writes.
+			TrieDirtyDisabled: false,
 			GreedyGC:          false,
 			TrieDirtyLimit:    scale.U(256 * opt.MiB),
 		},

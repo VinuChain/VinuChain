@@ -2,6 +2,7 @@ package sealmodule
 
 import (
 	"math/big"
+	"sort"
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/inter/pos"
@@ -47,8 +48,13 @@ func (s *OperaEpochsSealer) SealEpoch() (iblockproc.BlockState, iblockproc.Epoch
 	// Select new validators
 	oldValidators := s.es.Validators
 	builder := pos.NewBigBuilder()
-	for v, profile := range s.bs.NextValidatorProfiles {
-		builder.Set(v, profile.Weight)
+	validatorIDs := make([]idx.ValidatorID, 0, len(s.bs.NextValidatorProfiles))
+	for v := range s.bs.NextValidatorProfiles {
+		validatorIDs = append(validatorIDs, v)
+	}
+	sort.Slice(validatorIDs, func(i, j int) bool { return validatorIDs[i] < validatorIDs[j] })
+	for _, v := range validatorIDs {
+		builder.Set(v, s.bs.NextValidatorProfiles[v].Weight)
 	}
 	newValidators := builder.Build()
 	s.es.Validators = newValidators

@@ -18,9 +18,9 @@ const (
 	MainNetworkID     uint64 = 0xfa
 	TestNetworkID     uint64 = 0xfa2
 	FakeNetworkID     uint64 = 0xfa3
-	VinuTestNetworkID        = 0xce // 206
-	VinuMainNetworkID        = 0xcf // 207
-	VinuNewNetworkId         = 0x1b
+	VinuChainTestNetworkID        = 0xce // 206
+	VinuChainMainNetworkID        = 0xcf // 207
+	VinuChainNewNetworkId         = 0x1b
 	DefaultEventGas   uint64 = 28000
 	berlinBit                = 1 << 0
 	londonBit                = 1 << 1
@@ -85,7 +85,7 @@ type EpochsRules struct {
 	MaxEpochDuration inter.Timestamp
 }
 
-// DagRules of Lachesis DAG (directed acyclic graph).
+// DagRules of VinuChain DAG (directed acyclic graph).
 type DagRules struct {
 	MaxParents     idx.Event
 	MaxFreeParents idx.Event // maximum number of parents with no gas cost
@@ -118,6 +118,12 @@ type BlocksRules struct {
 	MaxEmptyBlockSkipPeriod inter.Timestamp
 }
 
+// Upgrades tracks which hard fork features are active on the network.
+// Each boolean flag gates consensus-critical behavior changes. Adding a new
+// upgrade requires updating this struct, the bitfield encoding in Copy/RLP,
+// the EvmChainConfig mapping, and the network rule constructors. A fork
+// registry pattern would reduce this coupling, but for now all four sites
+// must be kept in sync when introducing new upgrades.
 type Upgrades struct {
 	Berlin    bool
 	London    bool
@@ -190,9 +196,9 @@ func TestNetRules() Rules {
 func FakeNetRules() Rules {
 	return Rules{
 		Name:      "vinuchain",
-		NetworkID: VinuNewNetworkId,
+		NetworkID: VinuChainNewNetworkId,
 		Dag:       DefaultDagRules(),
-		Epochs:    VitainuNetEpochsRules(),
+		Epochs:    VinuChainNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
@@ -210,7 +216,7 @@ func FakeNetRules() Rules {
 func LegacyFakeNetRules() Rules {
 	return Rules{
 		Name:      "vinuchain",
-		NetworkID: VinuNewNetworkId,
+		NetworkID: VinuChainNewNetworkId,
 		Dag:       DefaultDagRules(),
 		Epochs:    FakeNetEpochsRules(),
 		Economy:   FakeEconomyRules(),
@@ -226,13 +232,13 @@ func LegacyFakeNetRules() Rules {
 	}
 }
 
-// VitainuTestNetRules returns testnet rules
-func VitainuTestNetRules() Rules {
+// VinuChainTestNetRules returns testnet rules
+func VinuChainTestNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Testnet",
-		NetworkID: VinuTestNetworkID,
+		NetworkID: VinuChainTestNetworkID,
 		Dag:       DefaultDagRules(),
-		Epochs:    VitainuNetEpochsRules(),
+		Epochs:    VinuChainNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
@@ -247,13 +253,16 @@ func VitainuTestNetRules() Rules {
 	}
 }
 
-// VitainuMainNetRules returns mainnet rules
-func VitainuMainNetRules() Rules {
+// VinuChainMainNetRules returns mainnet rules.
+// Podgorica activation on mainnet is governance-controlled via UpdateNetworkRules.
+// The expected activation path is: deploy payback proxy contract, then submit a
+// governance proposal that sets Podgorica=true and Economy.QuotaCacheAddress.
+func VinuChainMainNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Mainnet",
-		NetworkID: VinuMainNetworkID,
+		NetworkID: VinuChainMainNetworkID,
 		Dag:       DefaultDagRules(),
-		Epochs:    VitainuNetEpochsRules(),
+		Epochs:    VinuChainNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
 		Blocks: BlocksRules{
 			MaxBlockGas:             20500000,
@@ -274,7 +283,7 @@ func DefaultEconomyRules() EconomyRules {
 		Gas:              DefaultGasRules(),
 		MinGasPrice:      big.NewInt(1e9),
 		ShortGasPower:    DefaultShortGasPowerRules(),
-		LongGasPower:     DefaulLongGasPowerRules(),
+		LongGasPower:     DefaultLongGasPowerRules(),
 	}
 }
 
@@ -314,7 +323,7 @@ func DefaultGasRules() GasRules {
 	}
 }
 
-func VitainuNetEpochsRules() EpochsRules {
+func VinuChainNetEpochsRules() EpochsRules {
 	cfg := DefaultEpochsRules()
 	cfg.MaxEpochDuration = inter.Timestamp(4 * time.Hour)
 	return cfg
@@ -327,8 +336,8 @@ func FakeNetEpochsRules() EpochsRules {
 	return cfg
 }
 
-// DefaulLongGasPowerRules is long-window config
-func DefaulLongGasPowerRules() GasPowerRules {
+// DefaultLongGasPowerRules is long-window config
+func DefaultLongGasPowerRules() GasPowerRules {
 	return GasPowerRules{
 		AllocPerSec:        100 * DefaultEventGas,
 		MaxAllocPeriod:     inter.Timestamp(60 * time.Minute),
@@ -340,7 +349,7 @@ func DefaulLongGasPowerRules() GasPowerRules {
 // DefaultShortGasPowerRules is short-window config
 func DefaultShortGasPowerRules() GasPowerRules {
 	// 2x faster allocation rate, 6x lower max accumulated gas power
-	cfg := DefaulLongGasPowerRules()
+	cfg := DefaultLongGasPowerRules()
 	cfg.AllocPerSec *= 2
 	cfg.StartupAllocPeriod /= 2
 	cfg.MaxAllocPeriod /= 2 * 6
@@ -349,7 +358,7 @@ func DefaultShortGasPowerRules() GasPowerRules {
 
 // FakeLongGasPowerRules is fake long-window config
 func FakeLongGasPowerRules() GasPowerRules {
-	config := DefaulLongGasPowerRules()
+	config := DefaultLongGasPowerRules()
 	config.AllocPerSec *= 1000
 	return config
 }

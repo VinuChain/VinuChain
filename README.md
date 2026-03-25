@@ -1,6 +1,6 @@
-# Opera
+# VinuChain
 
-EVM-compatible chain secured by the Lachesis consensus algorithm.
+EVM-compatible chain secured by the VinuChain consensus algorithm.
 
 ## Building the source
 
@@ -85,7 +85,7 @@ $ opera --datadir /path/to/datadir attach # attach to IPC
 
 ### Testing
 
-Lachesis has extensive unit-testing. Use the Go tool to run tests:
+VinuChain has extensive unit-testing. Use the Go tool to run tests:
 ```shell
 go test ./...
 ```
@@ -154,7 +154,7 @@ $ opera --fakenet 1/5 --bootnodes "enode://verylonghex@1.2.3.4:5050"
 For the testing purposes, the full demo may be launched using:
 ```shell
 cd demo/
-./start.sh # start the Opera processes
+./start.sh # start the VinuChain processes
 ./stop.sh # stop the demo
 ./clean.sh # erase the chain data
 ```

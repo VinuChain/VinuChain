@@ -205,7 +205,7 @@ func init() {
 
 	// App.
 
-	app.Action = lachesisMain
+	app.Action = vinuChainMain
 	app.Version = params.VersionWithCommit(gitCommit, gitDate)
 	app.HideVersion = true // we have a command to print the version
 	app.Commands = []cli.Command{
@@ -271,7 +271,7 @@ func Launch(args []string) error {
 // opera is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
-func lachesisMain(ctx *cli.Context) error {
+func vinuChainMain(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}

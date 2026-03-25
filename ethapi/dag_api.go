@@ -24,7 +24,7 @@ func NewPublicDAGChainAPI(b Backend) *PublicDAGChainAPI {
 	return &PublicDAGChainAPI{b}
 }
 
-// GetEvent returns the Lachesis event header by hash or short ID.
+// GetEvent returns the VinuChain event header by hash or short ID.
 func (s *PublicDAGChainAPI) GetEvent(ctx context.Context, shortEventID string) (map[string]interface{}, error) {
 	header, err := s.b.GetEvent(ctx, shortEventID)
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *PublicDAGChainAPI) GetEvent(ctx context.Context, shortEventID string) (
 	return inter.RPCMarshalEvent(header), nil
 }
 
-// GetEventPayload returns Lachesis event by hash or short ID.
+// GetEventPayload returns VinuChain event by hash or short ID.
 func (s *PublicDAGChainAPI) GetEventPayload(ctx context.Context, shortEventID string, inclTx bool) (map[string]interface{}, error) {
 	event, err := s.b.GetEventPayload(ctx, shortEventID)
 	if err != nil {

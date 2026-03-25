@@ -34,7 +34,7 @@ var InitNetCommand = cli.Command{
 		{
 			Name:      "new",
 			Usage:     "Create a new network",
-			Action:    utils.MigrateFlags(newVinuNetwork),
+			Action:    utils.MigrateFlags(newVinuChainNetwork),
 			ArgsUsage: "network new <val_num> [flags]",
 			Flags: []cli.Flag{
 				DataDirFlag,
@@ -127,7 +127,7 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 
 }
 
-func newVinuNetwork(ctx *cli.Context) error {
+func newVinuChainNetwork(ctx *cli.Context) error {
 
 	num, err := getValidatorsNum(ctx)
 	if err != nil {
@@ -149,14 +149,14 @@ func newVinuNetwork(ctx *cli.Context) error {
 	epoch := idx.Epoch(2)
 	block := idx.Block(1)
 
-	netrules := opera.VitainuTestNetRules()
+	netrules := opera.VinuChainTestNetRules()
 	if ctx.GlobalBool(NetworkMainnetFlag.Name) {
-		netrules = opera.VitainuMainNetRules()
+		netrules = opera.VinuChainMainNetRules()
 		fmt.Println("Used mainnet rules")
 	}
 
 	// Create genesisStore
-	genesisStore := makefakegenesis.VinuTestGenesisStoreWithRulesAndStart(futils.ToFtm(200000000), futils.ToFtm(1000000), netrules, epoch, block, validators)
+	genesisStore := makefakegenesis.VinuChainTestGenesisStoreWithRulesAndStart(futils.ToVC(200000000), futils.ToVC(1000000), netrules, epoch, block, validators)
 
 	// Save validators to file for future use
 	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {

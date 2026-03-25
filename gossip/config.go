@@ -100,7 +100,10 @@ type (
 		// RPCTimeout is a global time limit for RPC methods execution.
 		RPCTimeout time.Duration
 
-		// allows only for EIP155 transactions.
+		// AllowUnprotectedTxs permits pre-EIP-155 transactions without chain ID
+		// protection. Enabling this creates a cross-chain replay vulnerability
+		// where transactions can be replayed on other EVM chains. Only enable
+		// for legacy compatibility with full understanding of the risks.
 		AllowUnprotectedTxs bool
 
 		RPCBlockExt bool
@@ -214,7 +217,7 @@ func DefaultConfig(scale cachescale.Func) Config {
 		RPCBlockExt: true,
 
 		RPCGasCap:   50000000,
-		RPCTxFeeCap: 100, // 100 FTM
+		RPCTxFeeCap: 100, // 100 VC
 		RPCTimeout:  5 * time.Second,
 	}
 	sessionCfg := cfg.Protocol.DagStreamLeecher.Session

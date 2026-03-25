@@ -1,10 +1,11 @@
 package gossip
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -180,17 +181,24 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	svc.netRPCService = ethapi.NewPublicNetAPI(svc.p2pServer, store.GetRules().NetworkID)
 	svc.haltCheck = haltCheck
 
-	// TODO: remove this log
-	log.Info("Payback cache initialized", "payback_cache", svc.paybackCache.String())
+	log.Debug("Payback cache initialized", "payback_cache", svc.paybackCache.String())
 
 	return svc, nil
+}
+
+func cryptoRandIntn(n int) int {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		panic("crypto/rand unavailable: " + err.Error())
+	}
+	return int(binary.BigEndian.Uint64(b[:])>>1) % n
 }
 
 func newService(config Config, store *Store, blockProc BlockProc, engine lachesis.Consensus, dagIndexer *vecmt.Index, newTxPool func(evmcore.StateReader) TxPool) (*Service, error) {
 	svc := &Service{
 		config:             config,
 		blockProcTasksDone: make(chan struct{}),
-		Name:               fmt.Sprintf("Node-%d", rand.Int()),
+		Name:               fmt.Sprintf("Node-%d", cryptoRandIntn(1<<31)),
 		store:              store,
 		engine:             engine,
 		blockProcModules:   blockProc,
@@ -488,7 +496,7 @@ func (s *Service) WaitBlockEnd() {
 
 // Stop method invoked when the node terminates the service.
 func (s *Service) Stop() error {
-	defer log.Info("Fantom service stopped")
+	defer log.Info("VinuChain service stopped")
 	s.verWatcher.Stop()
 	for _, em := range s.emitters {
 		em.Stop()

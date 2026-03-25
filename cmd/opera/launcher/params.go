@@ -25,21 +25,21 @@ var (
 		},
 	}
 
-	vinuTestnetHeader = genesis.Header{
+	vinuChainTestnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xbf7a3d7f49cd99745acd2aa1c828c81576c41a84fddc9c6ffb9857bab02fe260"),
-		NetworkID:   opera.VinuTestNetworkID,
+		NetworkID:   opera.VinuChainTestNetworkID,
 		NetworkName: "VinuChain Testnet",
 	}
 
-	vinuTestMainnetHeader = genesis.Header{
+	vinuChainTestMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xb1b0e08cb0d53d0fb1067658c5af0b3d3ff334d574679f5f74eee2b3448394ce"),
 		NetworkID:   205,
 		NetworkName: "VinuChain Mainnet",
 	}
 
-	vinuMainnetHeader = genesis.Header{
+	vinuChainMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xca7941e04fc93391af59a3a87e2ad386312d6b74922deeaa05068b1c08d9caa4"),
-		NetworkID:   opera.VinuMainNetworkID,
+		NetworkID:   opera.VinuChainMainNetworkID,
 		NetworkName: "VinuChain Mainnet",
 	}
 
@@ -47,8 +47,8 @@ var (
 
 		// Mainnet
 		{
-			Name:   "VitaInu mainnet without history",
-			Header: vinuMainnetHeader,
+			Name:   "VinuChain mainnet without history",
+			Header: vinuChainMainnetHeader,
 			Hashes: genesis.Hashes{
 				genesisstore.EpochsSection(0): hash.HexToHash("0xc6640c1b62156a63c3121fba3aaf755ee88b84935d2ebf1497611e4ee7f09144"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0x438be95bb65eee5e23d7f78d39773646f2f21a6b18266b4d73d1e723c55fb94e"),
@@ -58,8 +58,8 @@ var (
 
 		// Mainnet with deployed contracts
 		{
-			Name:   "VitaInu mainnet with deployed contracts",
-			Header: vinuMainnetHeader,
+			Name:   "VinuChain mainnet with deployed contracts",
+			Header: vinuChainMainnetHeader,
 			Hashes: genesis.Hashes{
 				genesisstore.EpochsSection(0): hash.HexToHash("0x482f104dc843b2f86265a3494b1047c65a8568b0578ef1c43ea9aa8c961e6a6f"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0x9aab452d91d99fe26457feac40c2be7f2b31facf8edf66d815e2b0a184b871de"),
@@ -67,10 +67,10 @@ var (
 			},
 		},
 
-		// Vita Inu testnet
+		// VinuChain testnet
 		{
-			Name:   "VitaInu testnet without history",
-			Header: vinuTestnetHeader,
+			Name:   "VinuChain testnet without history",
+			Header: vinuChainTestnetHeader,
 			Hashes: genesis.Hashes{
 				genesisstore.EpochsSection(0): hash.HexToHash("0x7a74f234769f2285be94ac48c4a97abf98de32b93a05ddfd6cc934027b6d2d4f"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0xbfe43b2d77e7d672c4b0130d0a43f0710704f53ebb2c39a379c93076a43bddce"),
@@ -78,10 +78,10 @@ var (
 			},
 		},
 
-		// Vita Inu test mainnet
+		// VinuChain test mainnet
 		{
-			Name:   "VitaInu test mainnet without history",
-			Header: vinuTestMainnetHeader,
+			Name:   "VinuChain test mainnet without history",
+			Header: vinuChainTestMainnetHeader,
 			Hashes: genesis.Hashes{
 				genesisstore.EpochsSection(0): hash.HexToHash("0x4d9b7946e4c2afba6d015e4a4282dd8d2299c1494f13ad6908846e4f09ed11be"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0xf51e8759171b4109bbd5d592d62a93d9d882cc0d2846323d20df0ef7b7cd27db"),

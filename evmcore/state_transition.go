@@ -298,7 +298,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	// use 10% of not used gas
+	// Penalize 10% of unused gas to discourage over-estimation.
+	// This inflates gasUsed(), which in turn inflates the payback fee refund.
+	// The payback supply cap (C-01) must account for this amplification.
 	if !st.internal() {
 		st.gas -= st.gas / 10
 	}
@@ -333,19 +335,25 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 	fee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 	feeRefund := big.NewInt(0)
 
+	if st.availableQuota == nil {
+		st.state.AddBalance(st.msg.From(), remaining)
+		st.gp.AddGas(st.gas)
+		return
+	}
+
 	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
-		log.Info("refundGas: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
-		log.Info("refundGas: Fee", "address", st.msg.From().String(), "fee", fee.String())
+		log.Debug("refundGas: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
+		log.Debug("refundGas: Fee", "address", st.msg.From().String(), "fee", fee.String())
 	}
 
 	if fee.Cmp(st.availableQuota) > 0 {
-		feeRefund = st.availableQuota
+		feeRefund = new(big.Int).Set(st.availableQuota)
 	} else {
 		feeRefund = fee
 	}
 
 	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
-		log.Info("refundGas: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
+		log.Debug("refundGas: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
 	}
 
 	if feeRefund.Cmp(big.NewInt(0)) > 0 {

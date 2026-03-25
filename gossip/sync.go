@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -125,7 +124,7 @@ func (h *handler) txsyncLoop() {
 		if len(pending) == 0 {
 			return nil
 		}
-		n := rand.Intn(len(pending)) + 1
+		n := cryptoRandIntn(len(pending)) + 1
 		for _, s := range pending {
 			if n--; n == 0 {
 				return s

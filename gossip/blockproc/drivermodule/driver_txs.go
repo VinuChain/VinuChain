@@ -69,10 +69,12 @@ func NewDriverTxPreTransactor() *DriverTxPreTransactor {
 }
 
 func InternalTxBuilder(statedb *state.StateDB) func(calldata []byte, addr common.Address) *types.Transaction {
-	nonce := uint64(math.MaxUint64)
+	var nonce uint64
+	nonceInitialized := false
 	return func(calldata []byte, addr common.Address) *types.Transaction {
-		if nonce == math.MaxUint64 {
+		if !nonceInitialized {
 			nonce = statedb.GetNonce(common.Address{})
+			nonceInitialized = true
 		}
 		tx := types.NewTransaction(nonce, addr, common.Big0, 1e10, common.Big0, calldata)
 		nonce++
@@ -203,10 +205,16 @@ func decodeDataBytes(l *types.Log) ([]byte, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 	start := new(big.Int).SetBytes(l.Data[24:32]).Uint64()
+	if start > math.MaxUint64-32 {
+		return nil, io.ErrUnexpectedEOF
+	}
 	if start+32 > uint64(len(l.Data)) {
 		return nil, io.ErrUnexpectedEOF
 	}
 	size := new(big.Int).SetBytes(l.Data[start+24 : start+32]).Uint64()
+	if size > math.MaxUint64-start-32 {
+		return nil, io.ErrUnexpectedEOF
+	}
 	if start+32+size > uint64(len(l.Data)) {
 		return nil, io.ErrUnexpectedEOF
 	}

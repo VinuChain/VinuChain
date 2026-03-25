@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	sfcContract "github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 	"github.com/Fantom-foundation/go-opera/payback/contract/paybackProxy"
+	sfcBinding "github.com/Fantom-foundation/go-opera/payback/contract/sfc"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -18,7 +20,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
+)
+
+const (
+	paybackStaticCallGas = 100_000
+
+	maxPaybackEntries = 50_000
+
+	abiEncodedUint256Len = 32
 )
 
 type TxType string
@@ -50,6 +59,18 @@ type EpochStakes struct {
 	StakesByAddress map[common.Address][]StakeInfo
 }
 
+// blockContext holds values that remain constant for the duration of a single
+// block's processing, avoiding repeated store lookups per transaction.
+type blockContext struct {
+	epoch     idx.Epoch
+	rules     opera.Rules
+	blockTime time.Time
+
+	baseRewardPerSecond *big.Int
+	totalStakeSFC       *big.Int
+	totalStakeQuota     *big.Int
+}
+
 type PaybackCache struct {
 	mu sync.RWMutex
 
@@ -62,15 +83,38 @@ type PaybackCache struct {
 	// ABI to get names of called methods
 	ContractABI *abi.ABI
 
+	// sfcABI is used for baseRewardPerSecond calls to the SFC contract.
+	sfcABI abi.ABI
+
 	store Store
 
-	evm *vm.EVM
-
 	contractAddress common.Address
+
+	// inBlockProcessing guards epoch cleanup to prevent mid-block resets.
+	inBlockProcessing bool
+
+	blkCtx *blockContext
 }
 
-func (pc *PaybackCache) deleteCurrentBlock() error {
-	return nil
+// PrepareForBlock caches per-block constants so they are not re-fetched per
+// transaction. Must be called before processing any transactions in a block.
+func (pc *PaybackCache) PrepareForBlock(epoch idx.Epoch, rules opera.Rules, blockTime time.Time) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.blkCtx = &blockContext{
+		epoch:     epoch,
+		rules:     rules,
+		blockTime: blockTime,
+	}
+	pc.inBlockProcessing = true
+}
+
+// FinishBlock marks the end of block processing, allowing epoch cleanup.
+func (pc *PaybackCache) FinishBlock() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.inBlockProcessing = false
+	pc.blkCtx = nil
 }
 
 func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Receipt) error {
@@ -78,41 +122,61 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 		if pc.store == nil {
 			return nil
 		}
-		epoch := pc.store.GetCurrentEpoch()
+
+		pc.mu.Lock()
+		defer pc.mu.Unlock()
+
+		epoch := pc.getEpochLocked()
 		txtype := getTxType(tx, *pc.ContractABI)
 		if txtype == TxTypeStake {
-			if receipt.BlockNumber == nil {
-				return errors.New("receipt.BlockNumber is nil")
-			}
+			blockTime := pc.getBlockTimeLocked()
 
-			block := pc.store.GetBlock(idx.Block(receipt.BlockNumber.Uint64()))
-			if block == nil {
-				return fmt.Errorf("block %d not found in store", receipt.BlockNumber.Uint64())
-			}
-
-			pc.mu.Lock()
 			if pc.StakesMap[epoch] == nil {
 				pc.StakesMap[epoch] = &EpochStakes{
 					StakesByAddress: make(map[common.Address][]StakeInfo),
 				}
 			}
 
-			stakes := pc.StakesMap[epoch].StakesByAddress[tx.From()]
+			// tx.From() relies on go-vinu's fork which caches the sender
+			// recovered during signature verification. For internal txs the
+			// sender is set explicitly by internaltx package.
+			sender := tx.From()
+			if sender == (common.Address{}) {
+				return errors.New("recovered sender is zero address")
+			}
+
+			if len(pc.StakesMap[epoch].StakesByAddress) >= maxPaybackEntries {
+				if _, exists := pc.StakesMap[epoch].StakesByAddress[sender]; !exists {
+					log.Warn("StakesMap at capacity, ignoring new address", "address", sender)
+					return nil
+				}
+			}
+
+			stakes := pc.StakesMap[epoch].StakesByAddress[sender]
 			stakes = append(stakes, StakeInfo{
 				Amount:    tx.Value(),
-				Timestamp: block.Time.Time(),
+				Timestamp: blockTime,
 			})
-			pc.StakesMap[epoch].StakesByAddress[tx.From()] = stakes
-			pc.mu.Unlock()
+			pc.StakesMap[epoch].StakesByAddress[sender] = stakes
 		}
 
 		if receipt.FeeRefund != nil && receipt.FeeRefund.Sign() > 0 {
-			pc.mu.Lock()
-			if _, ok := pc.PaybackUsedMap[tx.From()]; !ok {
-				pc.PaybackUsedMap[tx.From()] = big.NewInt(0)
+			sender := tx.From()
+			if sender == (common.Address{}) {
+				return errors.New("recovered sender is zero address")
 			}
-			pc.PaybackUsedMap[tx.From()].Add(pc.PaybackUsedMap[tx.From()], receipt.FeeRefund)
-			pc.mu.Unlock()
+
+			if len(pc.PaybackUsedMap) >= maxPaybackEntries {
+				if _, exists := pc.PaybackUsedMap[sender]; !exists {
+					log.Warn("PaybackUsedMap at capacity, ignoring new address", "address", sender)
+					return nil
+				}
+			}
+
+			if _, ok := pc.PaybackUsedMap[sender]; !ok {
+				pc.PaybackUsedMap[sender] = big.NewInt(0)
+			}
+			pc.PaybackUsedMap[sender].Add(pc.PaybackUsedMap[sender], receipt.FeeRefund)
 		}
 
 	}
@@ -122,6 +186,10 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 func (pc *PaybackCache) GetQuotaUsed(address common.Address) *big.Int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
+	return pc.getQuotaUsedLocked(address)
+}
+
+func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
 	if _, ok := pc.PaybackUsedMap[address]; ok {
 		return new(big.Int).Set(pc.PaybackUsedMap[address])
 	}
@@ -148,6 +216,12 @@ func NewPaybackCache(store Store) (*PaybackCache, error) {
 		return nil, fmt.Errorf("failed to parse payback proxy ABI: %w", err)
 	}
 	pc.ContractABI = &abiQuotaProxy
+
+	sfcABI, err := abi.JSON(strings.NewReader(sfcBinding.ContractABI))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SFC ABI: %w", err)
+	}
+	pc.sfcABI = sfcABI
 
 	return &pc, nil
 }
@@ -178,62 +252,67 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 }
 
 // GetAvailablePaybackByAddress calculates the available quota for a given address.
-func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address) *big.Int {
-	// Initialize payback to zero.
+// The evm parameter is passed directly to avoid storing a mutable pointer on the cache.
+func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm *vm.EVM) *big.Int {
 	payback := big.NewInt(0)
 
-	// Return zero payback if the address is empty.
 	if address == (common.Address{}) {
 		return payback
 	}
 
-	// Check and update the contract address.
-	if err := pc.checkAndUpdateContractAddress(); err != nil {
+	contractAddr, err := pc.resolveContractAddress()
+	if err != nil {
 		log.Warn("GetAvailablePaybackByAddress:", "error", err)
 		return payback
 	}
 
-	// Retrieve total stake for the address and handle errors.
-	addressTotalStake, err := pc.getAddressTotalStake(address)
-	if err != nil {
-		log.Warn("GetAvailablePaybackByAddress:", "error", err)
+	if contractAddr == (common.Address{}) {
+		return payback
 	}
 
-	// Get minimum stake required and handle errors.
-	minStake, err := pc.getMinStake(address)
+	addressTotalStake, err := pc.getAddressTotalStake(address, evm, contractAddr)
 	if err != nil {
 		log.Warn("GetAvailablePaybackByAddress:", "error", err)
+		return payback
 	}
 
-	// Return zero payback if the address's total stake is below the minimum stake.
+	minStake, err := pc.getMinStake(address, evm, contractAddr)
+	if err != nil {
+		log.Warn("GetAvailablePaybackByAddress:", "error", err)
+		return payback
+	}
+
 	if addressTotalStake.Cmp(minStake) < 0 {
 		return payback
 	}
 
-	// Retrieve the current epoch.
-	currentEpoch := pc.store.GetCurrentEpoch()
+	pc.mu.Lock()
+	currentEpoch := pc.getEpochLocked()
 
-	// Guard against epoch underflow: need at least epoch 1 for prevEpoch.
 	if currentEpoch < 1 {
+		pc.mu.Unlock()
 		log.Warn("GetAvailablePaybackByAddress: currentEpoch is 0, cannot compute payback")
 		return payback
 	}
 	prevEpoch := currentEpoch - 1
 
-	// Initialize stakes map for the current epoch if not already done.
-	pc.mu.Lock()
 	if pc.StakesMap[currentEpoch] == nil {
 		pc.StakesMap[currentEpoch] = &EpochStakes{
 			StakesByAddress: make(map[common.Address][]StakeInfo),
 		}
-
-		// Cleanup old epochs.
 		pc.cleanupOldEpochsLocked()
 	}
+
+	quotaUsed := pc.getQuotaUsedLocked(address)
 	pc.mu.Unlock()
 
-	// Calculate the base reward per second and the total stake from SFC contract and Quota contract.
-	baseRewardPerSecond, sumTotalStake, err := pc.calculateStakeDetails(address)
+	prevEpochState := pc.store.GetHistoryEpochState(prevEpoch)
+
+	pc.mu.Lock()
+	fullDuration := pc.calculateFullDurationLocked(address, currentEpoch, prevEpochState)
+	pc.mu.Unlock()
+
+	baseRewardPerSecond, sumTotalStake, err := pc.calculateStakeDetails(address, evm, contractAddr)
 	if err != nil {
 		log.Warn("GetAvailablePaybackByAddress:", "error", err)
 		return payback
@@ -242,97 +321,137 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address) *bi
 	log.Debug("GetAvailablePaybackByAddress:", "baseRewardPerSecond", baseRewardPerSecond)
 	log.Debug("GetAvailablePaybackByAddress:", "sumTotalStake", sumTotalStake)
 
-	// Apply a multiplier for calculation precision.
 	multiplier := big.NewInt(1e10)
 	addressTotalStakeMultiplied := new(big.Int).Mul(addressTotalStake, multiplier)
 	log.Debug("GetAvailablePaybackByAddress:", "addressTotalStakeMultiplied", addressTotalStakeMultiplied)
 
-	// Calculate the slice of base reward per second based on the stake percentage.
 	sliceOfBaseRewardPerSecondPercent := new(big.Int).Div(addressTotalStakeMultiplied, sumTotalStake)
 	log.Debug("GetAvailablePaybackByAddress:", "sliceOfBaseRewardPerSecondPercent * multiplier(1e10)", sliceOfBaseRewardPerSecondPercent)
-
-	// Calculate full duration for payback calculations
-	fullDuration := pc.calculateFullDuration(address, currentEpoch, prevEpoch)
 	log.Debug("GetAvailablePaybackByAddress:", "fullDuration", fullDuration)
 
-	// Calculate total available payback based on base reward and duration.
 	paybackSum := pc.calculatePayback(multiplier, baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent, fullDuration)
 
-	// Subtract used payback from the total available payback.
-	paybackSum = paybackSum.Sub(paybackSum, pc.GetQuotaUsed(address))
+	paybackSum = paybackSum.Sub(paybackSum, quotaUsed)
 	log.Debug("GetAvailablePaybackByAddress:", "paybackSum after subtracting used payback", paybackSum)
 
-	// Return zero if the total payback is negative after adjustments.
-	if paybackSum.Cmp(big.NewInt(0)) < 0 {
+	if paybackSum.Sign() < 0 {
 		log.Warn("GetAvailablePaybackByAddress: paybackSum is negative", "paybackSum", paybackSum)
 		return big.NewInt(0)
 	}
 
-	// Return the calculated payback.
 	return paybackSum
 }
 
 // calculatePayback calculates the available quota based on the base reward per second, the percentage of total stake, and the full duration.
 func (pc *PaybackCache) calculatePayback(multiplier, baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent *big.Int, fullDuration int64) *big.Int {
-	// Calculate actual base reward per second value using the calculated percentage.
 	sliceOfBaseRewardPerSecondValueMultiplied := new(big.Int).Mul(baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent)
 	sliceOfBaseRewardPerSecondValue := new(big.Int).Div(sliceOfBaseRewardPerSecondValueMultiplied, multiplier)
 
-	// Calculate total available quota based on base reward and duration.
 	paybackSum := big.NewInt(0)
 	paybackSum = paybackSum.Mul(sliceOfBaseRewardPerSecondValue, big.NewInt(fullDuration))
 
 	return paybackSum
 }
 
-// checkAndUpdateContractAddress ensures the contract address is current and updates it if necessary.
-func (pc *PaybackCache) checkAndUpdateContractAddress() error {
+// resolveContractAddress returns the current contract address, updating it if
+// rules have changed. Uses RLock for the common fast path and only upgrades
+// to a write lock when the cached address needs updating.
+func (pc *PaybackCache) resolveContractAddress() (common.Address, error) {
 	if pc.store == nil {
-		return errors.New("store is nil")
+		return common.Address{}, errors.New("store is nil")
 	}
 
-	if pc.store.GetRules() == (opera.Rules{}) {
-		return errors.New("rules are empty")
+	pc.mu.RLock()
+	var rules opera.Rules
+	if pc.blkCtx != nil {
+		rules = pc.blkCtx.rules
+	} else {
+		rules = pc.store.GetRules()
 	}
 
-	newContractAddress := pc.store.GetRules().Economy.QuotaCacheAddress
-	if pc.contractAddress == (common.Address{}) || pc.contractAddress != newContractAddress {
-		if pc.store.GetRules().Upgrades.Podgorica {
-			pc.mu.Lock()
-			pc.contractAddress = newContractAddress
-			pc.mu.Unlock()
-			log.Info("checkAndUpdateContractAddress: QuotaCacheAddress is updated", "address", pc.contractAddress.String())
-		} else {
-			log.Info("checkAndUpdateContractAddress: HardFork Podgorica not activated", "status", pc.store.GetRules().Upgrades.Podgorica)
-			return errors.New("Podgorica upgrade  not activated")
-		}
+	if rules.NetworkID == 0 {
+		pc.mu.RUnlock()
+		return common.Address{}, errors.New("rules are empty")
 	}
 
-	return nil
+	if !rules.Upgrades.Podgorica {
+		pc.mu.RUnlock()
+		return common.Address{}, nil
+	}
+
+	newContractAddress := rules.Economy.QuotaCacheAddress
+	if pc.contractAddress == newContractAddress {
+		addr := pc.contractAddress
+		pc.mu.RUnlock()
+		return addr, nil
+	}
+	pc.mu.RUnlock()
+
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	if pc.blkCtx != nil {
+		rules = pc.blkCtx.rules
+	} else {
+		rules = pc.store.GetRules()
+	}
+	newContractAddress = rules.Economy.QuotaCacheAddress
+	if pc.contractAddress != newContractAddress {
+		pc.contractAddress = newContractAddress
+		log.Debug("resolveContractAddress: QuotaCacheAddress updated", "address", newContractAddress.String())
+	}
+
+	return pc.contractAddress, nil
 }
 
 // calculateStakeDetails computes the total stakes and base reward for an address.
-func (pc *PaybackCache) calculateStakeDetails(address common.Address) (*big.Int, *big.Int, error) {
-	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(address)
+// Block-invariant values (baseRewardPerSecond, totalStakeSFC, totalStakeQuota)
+// are cached in the blockContext after the first EVM call within a block.
+func (pc *PaybackCache) calculateStakeDetails(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, *big.Int, error) {
+	pc.mu.RLock()
+	if pc.blkCtx != nil && pc.blkCtx.baseRewardPerSecond != nil {
+		brps := new(big.Int).Set(pc.blkCtx.baseRewardPerSecond)
+		sumTotalStake := new(big.Int).Add(
+			new(big.Int).Set(pc.blkCtx.totalStakeSFC),
+			new(big.Int).Set(pc.blkCtx.totalStakeQuota),
+		)
+		pc.mu.RUnlock()
+		if sumTotalStake.Sign() == 0 {
+			log.Warn("calculateStakeDetails", "sumTotalStake", "is zero")
+			return nil, nil, errors.New("sum of total stakes is zero")
+		}
+		return brps, sumTotalStake, nil
+	}
+	pc.mu.RUnlock()
+
+	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(address, evm)
 	if err != nil {
 		log.Warn("calculateStakeDetails:", "error", err)
 		return nil, nil, err
 	}
 
-	totalStakeSFC, err := pc.getTotalStake(address, sfcContract.ContractAddress)
+	totalStakeSFC, err := pc.getTotalStake(address, sfcContract.ContractAddress, evm)
 	if err != nil {
 		log.Warn("calculateStakeDetails:", "error", err)
 		return nil, nil, err
 	}
 
-	totalStakeQuota, err := pc.getTotalStake(address, pc.contractAddress)
+	totalStakeQuota, err := pc.getTotalStake(address, contractAddr, evm)
 	if err != nil {
 		log.Warn("calculateStakeDetails:", "error", err)
 		return nil, nil, err
 	}
 
-	sumTotalStake := totalStakeSFC.Add(totalStakeSFC, totalStakeQuota)
-	if sumTotalStake.Cmp(big.NewInt(0)) == 0 {
+	pc.mu.Lock()
+	if pc.blkCtx != nil && pc.blkCtx.baseRewardPerSecond == nil {
+		pc.blkCtx.baseRewardPerSecond = new(big.Int).Set(baseRewardPerSecond)
+		pc.blkCtx.totalStakeSFC = new(big.Int).Set(totalStakeSFC)
+		pc.blkCtx.totalStakeQuota = new(big.Int).Set(totalStakeQuota)
+	}
+	pc.mu.Unlock()
+
+	sumTotalStake := new(big.Int).Add(totalStakeSFC, totalStakeQuota)
+	if sumTotalStake.Sign() == 0 {
 		log.Warn("calculateStakeDetails", "sumTotalStake", "is zero")
 		return nil, nil, errors.New("sum of total stakes is zero")
 	}
@@ -340,154 +459,126 @@ func (pc *PaybackCache) calculateStakeDetails(address common.Address) (*big.Int,
 	return baseRewardPerSecond, sumTotalStake, nil
 }
 
-// calculateFullDuration calculates the effective duration of stakes for quota calculations.
-func (pc *PaybackCache) calculateFullDuration(address common.Address, currentEpoch, prevEpoch idx.Epoch) int64 {
-	sumStakeByAddress := pc.getSumStakeByAddress(address, prevEpoch, currentEpoch)
+// calculateFullDurationLocked calculates the effective duration of stakes for
+// quota calculations. Caller must hold pc.mu. The prevEpochState parameter
+// must be fetched outside the lock to avoid blocking readers on store I/O.
+func (pc *PaybackCache) calculateFullDurationLocked(address common.Address, currentEpoch idx.Epoch, prevEpochState *iblockproc.EpochState) int64 {
+	prevEpoch := currentEpoch - 1
+	sumCurrent, sumPrev := pc.getSumStakeByAddressSplitLocked(address, currentEpoch, prevEpoch)
+
 	var fullDuration int64
 
-	if sumStakeByAddress.Cmp(big.NewInt(0)) != 0 {
-		sumStakeByAddressCurrentEpoch := pc.getSumStakeByAddress(address, currentEpoch, currentEpoch)
-		sumStakeByAddressPrevEpoch := pc.getSumStakeByAddress(address, prevEpoch, prevEpoch)
+	if sumCurrent.Sign() > 0 && sumPrev.Sign() == 0 {
+		lastBlockTime := pc.getBlockTimeLocked()
+		stakes := pc.getStakesForEpochLocked(currentEpoch, address)
 
-		// Calculate the duration if stakes exist in the current epoch but not in the previous.
-		if sumStakeByAddressCurrentEpoch.Cmp(big.NewInt(0)) > 0 && sumStakeByAddressPrevEpoch.Cmp(big.NewInt(0)) == 0 {
-			block := pc.store.GetBlock(idx.Block(pc.store.GetLatestBlockIndex()))
-			if block == nil {
-				log.Warn("calculateFullDuration: latest block not found in store")
-				return 0
-			}
-			lastBlockTime := block.Time.Time()
-
-			pc.mu.RLock()
-			stakes := pc.getStakesForEpochLocked(currentEpoch, address)
-			pc.mu.RUnlock()
-
-			if len(stakes) == 0 {
-				log.Warn("calculateFullDuration: no stakes found for current epoch despite non-zero sum")
-				return 0
-			}
-			lastTimeStake := stakes[len(stakes)-1].Timestamp
-			fullDuration = int64(lastBlockTime.Sub(lastTimeStake) / 1e9)
+		if len(stakes) == 0 {
+			log.Warn("calculateFullDurationLocked: no stakes found for current epoch despite non-zero sum")
+			return 0
+		}
+		lastTimeStake := stakes[len(stakes)-1].Timestamp
+		dur := lastBlockTime.Sub(lastTimeStake)
+		fullDuration = int64(dur / 1e9)
+		if fullDuration < 0 {
+			fullDuration = 0
 		}
 	}
 
-	// Use previous epoch duration as full duration if no current stakes.
 	if fullDuration == 0 {
-		epochState := pc.store.GetHistoryEpochState(prevEpoch)
-		if epochState == nil {
-			log.Warn("calculateFullDuration: epoch state not found for prevEpoch", "prevEpoch", prevEpoch)
+		if prevEpochState == nil {
+			log.Warn("calculateFullDurationLocked: epoch state not found for prevEpoch", "prevEpoch", prevEpoch)
 			return 0
 		}
-		durationPrevEpochBySec := epochState.Duration() / 1e9
+		durationPrevEpochBySec := prevEpochState.Duration() / 1e9
 		fullDuration = int64(durationPrevEpochBySec)
+		if fullDuration < 0 {
+			fullDuration = 0
+		}
 	}
 
 	return fullDuration
 }
 
-func (pc *PaybackCache) getAddressTotalStake(address common.Address) (*big.Int, error) {
-	var (
-		result []byte
-		vmerr  error
-	)
-
+func (pc *PaybackCache) getAddressTotalStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
 	sender := vm.AccountRef(address)
 	packedData, err := pc.ContractABI.Pack("getStake", address)
 	if err != nil {
 		return big.NewInt(0), err
 	}
 
-	result, _, vmerr = pc.evm.StaticCall(sender, pc.contractAddress, packedData, 21000)
+	result, _, vmerr := evm.StaticCall(sender, contractAddr, packedData, paybackStaticCallGas)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
 
-	resultValue := big.NewInt(0)
-	resultValue.SetBytes(result)
-
-	return resultValue, nil
+	return decodeUint256(result)
 }
 
-func (pc *PaybackCache) getMinStake(address common.Address) (*big.Int, error) {
-	var (
-		result []byte
-		vmerr  error
-	)
-
+func (pc *PaybackCache) getMinStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("minStake()")
-	hash := crypto.Keccak256Hash(functionSignature)
-	methodID := hash[:4]
+	packedData, err := pc.ContractABI.Pack("minStake")
+	if err != nil {
+		return big.NewInt(0), err
+	}
 
-	result, _, vmerr = pc.evm.StaticCall(sender, pc.contractAddress, methodID, 21000)
+	result, _, vmerr := evm.StaticCall(sender, contractAddr, packedData, paybackStaticCallGas)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
 
-	resultValue := big.NewInt(0)
-	resultValue.SetBytes(result)
-
-	return resultValue, nil
+	return decodeUint256(result)
 }
 
 func (pc *PaybackCache) GetStore() Store {
 	return pc.store
 }
 
-func (pc *PaybackCache) SetEVM(evm *vm.EVM) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.evm = evm
-}
-
-func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address) (*big.Int, error) {
-	var (
-		result []byte
-		vmerr  error
-	)
-
+func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address, evm *vm.EVM) (*big.Int, error) {
 	sender := vm.AccountRef(address)
-	functionSignature := []byte("baseRewardPerSecond()")
-	hash := crypto.Keccak256Hash(functionSignature)
-	methodID := hash[:4]
+	packedData, err := pc.sfcABI.Pack("baseRewardPerSecond")
+	if err != nil {
+		return big.NewInt(0), err
+	}
 
-	result, _, vmerr = pc.evm.StaticCall(sender, sfcContract.ContractAddress, methodID, 21000)
+	result, _, vmerr := evm.StaticCall(sender, sfcContract.ContractAddress, packedData, paybackStaticCallGas)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
 
-	resultValue := big.NewInt(0)
-	resultValue.SetBytes(result)
-
-	return resultValue, nil
+	return decodeUint256(result)
 }
 
-func (pc *PaybackCache) getTotalStake(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (pc *PaybackCache) getTotalStake(address common.Address, contractAddress common.Address, evm *vm.EVM) (*big.Int, error) {
+	sender := vm.AccountRef(address)
+
 	var (
-		result []byte
-		vmerr  error
+		packedData []byte
+		err        error
 	)
 
-	sender := vm.AccountRef(address)
-	functionSignature := []byte("totalStake()")
-	hash := crypto.Keccak256Hash(functionSignature)
-	methodID := hash[:4]
+	if contractAddress == sfcContract.ContractAddress {
+		packedData, err = pc.sfcABI.Pack("totalStake")
+	} else {
+		packedData, err = pc.ContractABI.Pack("totalStake")
+	}
+	if err != nil {
+		return big.NewInt(0), err
+	}
 
-	result, _, vmerr = pc.evm.StaticCall(sender, contractAddress, methodID, 21000)
+	result, _, vmerr := evm.StaticCall(sender, contractAddress, packedData, paybackStaticCallGas)
 	if vmerr != nil {
 		return big.NewInt(0), vmerr
 	}
 
-	resultValue := big.NewInt(0)
-	resultValue.SetBytes(result)
-
-	return resultValue, nil
+	return decodeUint256(result)
 }
 
-func (pc *PaybackCache) getStakesForEpoch(epoch idx.Epoch, address common.Address) []StakeInfo {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return pc.getStakesForEpochLocked(epoch, address)
+// decodeUint256 validates that result is exactly 32 bytes and decodes as a uint256.
+func decodeUint256(data []byte) (*big.Int, error) {
+	if len(data) != abiEncodedUint256Len {
+		return big.NewInt(0), fmt.Errorf("expected %d bytes of return data, got %d", abiEncodedUint256Len, len(data))
+	}
+	return new(big.Int).SetBytes(data), nil
 }
 
 // getStakesForEpochLocked requires pc.mu to be held by the caller.
@@ -502,27 +593,39 @@ func (pc *PaybackCache) getStakesForEpochLocked(epoch idx.Epoch, address common.
 	return nil
 }
 
-func (pc *PaybackCache) getSumStakeByAddress(address common.Address, prevEpoch idx.Epoch, currentEpoch idx.Epoch) *big.Int {
-	sum := big.NewInt(0)
+// getSumStakeByAddressSplitLocked computes the stake sums for the current and
+// previous epochs in a single pass. Caller must hold pc.mu.
+func (pc *PaybackCache) getSumStakeByAddressSplitLocked(address common.Address, currentEpoch, prevEpoch idx.Epoch) (current, prev *big.Int) {
+	current = big.NewInt(0)
+	prev = big.NewInt(0)
 
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-
-	for i := prevEpoch; i <= currentEpoch; i++ {
-		stakes := pc.getStakesForEpochLocked(i, address)
-		if stakes != nil {
-			for _, stake := range stakes {
-				sum.Add(sum, stake.Amount)
+	for _, epoch := range []idx.Epoch{prevEpoch, currentEpoch} {
+		if epochStakes, ok := pc.StakesMap[epoch]; ok {
+			if stakes, ok := epochStakes.StakesByAddress[address]; ok {
+				target := prev
+				if epoch == currentEpoch {
+					target = current
+				}
+				for _, stake := range stakes {
+					target.Add(target, stake.Amount)
+				}
 			}
 		}
 	}
 
-	return sum
+	return current, prev
 }
 
-// cleanupOldEpochsLocked removes epoch data older than 2 epochs. Caller must hold pc.mu.
+// cleanupOldEpochsLocked removes epoch data older than 2 epochs and resets the
+// PaybackUsedMap. The reset is intentional: quotas are per-epoch, so used
+// amounts must be zeroed when the epoch advances. This is only called during
+// StakesMap initialization for a new epoch (under write lock, between blocks).
 func (pc *PaybackCache) cleanupOldEpochsLocked() {
-	currentEpoch := pc.store.GetCurrentEpoch()
+	if pc.inBlockProcessing {
+		return
+	}
+
+	currentEpoch := pc.getEpochLocked()
 	if currentEpoch <= 2 {
 		pc.PaybackUsedMap = make(map[common.Address]*big.Int)
 		return
@@ -536,4 +639,26 @@ func (pc *PaybackCache) cleanupOldEpochsLocked() {
 	}
 
 	pc.PaybackUsedMap = make(map[common.Address]*big.Int)
+}
+
+// getEpochLocked returns the current epoch, preferring the cached block context.
+// Caller must hold pc.mu (read or write).
+func (pc *PaybackCache) getEpochLocked() idx.Epoch {
+	if pc.blkCtx != nil {
+		return pc.blkCtx.epoch
+	}
+	return pc.store.GetCurrentEpoch()
+}
+
+// getBlockTimeLocked returns the block time from block context if available.
+// Caller must hold pc.mu.
+func (pc *PaybackCache) getBlockTimeLocked() time.Time {
+	if pc.blkCtx != nil {
+		return pc.blkCtx.blockTime
+	}
+	block := pc.store.GetBlock(idx.Block(pc.store.GetLatestBlockIndex()))
+	if block == nil {
+		return time.Time{}
+	}
+	return block.Time.Time()
 }

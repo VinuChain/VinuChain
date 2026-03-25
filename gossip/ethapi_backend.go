@@ -177,7 +177,7 @@ func (b *EthAPIBackend) GetFullEventID(shortEventID string) (hash.Event, error) 
 	return options[0], nil
 }
 
-// GetEventPayload returns Lachesis event by hash or short ID.
+// GetEventPayload returns VinuChain event by hash or short ID.
 func (b *EthAPIBackend) GetEventPayload(ctx context.Context, shortEventID string) (*inter.EventPayload, error) {
 	id, err := b.GetFullEventID(shortEventID)
 	if err != nil {
@@ -186,7 +186,7 @@ func (b *EthAPIBackend) GetEventPayload(ctx context.Context, shortEventID string
 	return b.svc.store.GetEventPayload(id), nil
 }
 
-// GetEvent returns the Lachesis event header by hash or short ID.
+// GetEvent returns the VinuChain event header by hash or short ID.
 func (b *EthAPIBackend) GetEvent(ctx context.Context, shortEventID string) (*inter.Event, error) {
 	id, err := b.GetFullEventID(shortEventID)
 	if err != nil {
@@ -383,7 +383,7 @@ func (b *EthAPIBackend) GetTransaction(ctx context.Context, txHash common.Hash) 
 		tx = b.svc.store.evm.GetTx(txHash)
 	} else {
 		event := b.svc.store.GetEventPayload(position.Event)
-		if position.EventOffset > uint32(event.Txs().Len()) {
+		if position.EventOffset >= uint32(event.Txs().Len()) {
 			return nil, 0, 0, fmt.Errorf("transactions index is corrupted (offset is larger than number of txs in event), event=%s, txid=%s, block=%d, offset=%d, txs_num=%d",
 				position.Event.String(),
 				txHash.String(),

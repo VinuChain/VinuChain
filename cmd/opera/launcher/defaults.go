@@ -49,27 +49,30 @@ var NodeDefaultConfig = node.Config{
 // DefaultDataDir is the default data directory to use for the databases and other
 // persistence requirements.
 func DefaultDataDir() string {
-	// Try to place the data folder in the user's home dir
 	home := homeDir()
 	if home != "" {
 		switch runtime.GOOS {
 		case "darwin":
-			return filepath.Join(home, "Library", "Lachesis")
-		case "windows":
-			// We used to put everything in %HOME%\AppData\Roaming, but this caused
-			// problems with non-typical setups. If this fallback location exists and
-			// is non-empty, use it, otherwise DTRT and check %LOCALAPPDATA%.
-			fallback := filepath.Join(home, "AppData", "Roaming", "Lachesis")
-			appdata := windowsAppData()
-			if appdata == "" || isNonEmptyDir(fallback) {
-				return fallback
+			legacy := filepath.Join(home, "Library", "Lachesis")
+			if isNonEmptyDir(legacy) {
+				return legacy
 			}
-			return filepath.Join(appdata, "Lachesis")
+			return filepath.Join(home, "Library", "VinuChain")
+		case "windows":
+			legacyFallback := filepath.Join(home, "AppData", "Roaming", "Lachesis")
+			appdata := windowsAppData()
+			if appdata == "" || isNonEmptyDir(legacyFallback) {
+				return legacyFallback
+			}
+			legacy := filepath.Join(appdata, "Lachesis")
+			if isNonEmptyDir(legacy) {
+				return legacy
+			}
+			return filepath.Join(appdata, "VinuChain")
 		default:
 			return filepath.Join(home, ".opera")
 		}
 	}
-	// As we cannot guess a stable location, return empty and handle later
 	return ""
 }
 

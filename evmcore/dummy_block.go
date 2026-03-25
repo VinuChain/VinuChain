@@ -87,7 +87,7 @@ func ToEvmHeader(block *inter.Block, index idx.Block, prevHash hash.Event, rules
 	}
 }
 
-// ConvertFromEthHeader converts ETH-formatted header to Lachesis EVM header
+// ConvertFromEthHeader converts ETH-formatted header to VinuChain EVM header
 func ConvertFromEthHeader(h *types.Header) *EvmHeader {
 	// NOTE: incomplete conversion
 	return &EvmHeader{

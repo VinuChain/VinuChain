@@ -82,10 +82,9 @@ func (s *Store) resetEpochStore(newEpoch idx.Epoch) {
 	// drop previous DB
 	// there may be race condition with threads which hold this DB, so wrap tables with skiperrors
 	if oldEs != nil {
-		err := oldEs.(*epochStore).db.Close()
-		if err != nil {
-			s.Log.Error("Failed to close epoch DB", "err", err)
-			return
+		closeErr := oldEs.(*epochStore).db.Close()
+		if closeErr != nil {
+			s.Log.Error("Failed to close epoch DB", "err", closeErr)
 		}
 		oldEs.(*epochStore).db.Drop()
 	}

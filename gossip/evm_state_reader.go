@@ -36,9 +36,10 @@ func (s *Service) GetEvmStateReader() *EvmStateReader {
 	}
 }
 
-// MinGasPrice returns current hard lower bound for gas price
+// MinGasPrice returns current hard lower bound for gas price.
+// Returns a copy to prevent callers from mutating the shared Rules object.
 func (r *EvmStateReader) MinGasPrice() *big.Int {
-	return r.store.GetRules().Economy.MinGasPrice
+	return new(big.Int).Set(r.store.GetRules().Economy.MinGasPrice)
 }
 
 // EffectiveMinTip returns current soft lower bound for gas tip
@@ -76,11 +77,19 @@ func (r *EvmStateReader) CurrentBlock() *evmcore.EvmBlock {
 func (r *EvmStateReader) CurrentHeader() *evmcore.EvmHeader {
 	n := r.store.GetLatestBlockIndex()
 
-	return r.getBlock(hash.Event{}, n, false).Header()
+	block := r.getBlock(hash.Event{}, n, false)
+	if block == nil {
+		return nil
+	}
+	return block.Header()
 }
 
 func (r *EvmStateReader) GetHeader(h common.Hash, n uint64) *evmcore.EvmHeader {
-	return r.getBlock(hash.Event(h), idx.Block(n), false).Header()
+	block := r.getBlock(hash.Event(h), idx.Block(n), false)
+	if block == nil {
+		return nil
+	}
+	return block.Header()
 }
 
 func (r *EvmStateReader) GetBlock(h common.Hash, n uint64) *evmcore.EvmBlock {

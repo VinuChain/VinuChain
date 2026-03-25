@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -714,7 +713,7 @@ func (h *handler) Start(maxPeers int) {
 }
 
 func (h *handler) Stop() {
-	log.Info("Stopping Fantom protocol")
+	log.Info("Stopping VinuChain protocol")
 
 	h.brLeecher.Stop()
 	h.brSeeder.Stop()
@@ -762,7 +761,7 @@ func (h *handler) Stop() {
 	h.wg.Wait()
 	h.peerWG.Wait()
 
-	log.Info("Fantom protocol stopped")
+	log.Info("VinuChain protocol stopped")
 }
 
 func (h *handler) myProgress() PeerProgress {
@@ -880,9 +879,13 @@ func (h *handler) handle(p *peer) error {
 }
 
 func interfacesToEventIDs(ids []interface{}) hash.Events {
-	res := make(hash.Events, len(ids))
-	for i, id := range ids {
-		res[i] = id.(hash.Event)
+	res := make(hash.Events, 0, len(ids))
+	for _, id := range ids {
+		eid, ok := id.(hash.Event)
+		if !ok {
+			continue
+		}
+		res = append(res, eid)
 	}
 	return res
 }
@@ -896,9 +899,13 @@ func eventIDsToInterfaces(ids hash.Events) []interface{} {
 }
 
 func interfacesToTxids(ids []interface{}) []common.Hash {
-	res := make([]common.Hash, len(ids))
-	for i, id := range ids {
-		res[i] = id.(common.Hash)
+	res := make([]common.Hash, 0, len(ids))
+	for _, id := range ids {
+		txid, ok := id.(common.Hash)
+		if !ok {
+			continue
+		}
+		res = append(res, txid)
 	}
 	return res
 }
@@ -972,8 +979,10 @@ func (h *handler) handleEvents(p *peer, events dag.Events, ordered bool) {
 		if e.Lamport() <= maxLamport {
 			notTooHigh = append(notTooHigh, e)
 		}
-		if now.Sub(e.(inter.EventI).CreationTime().Time()) < 10*time.Minute {
-			h.syncStatus.MarkMaybeSynced()
+		if ei, ok := e.(inter.EventI); ok {
+			if now.Sub(ei.CreationTime().Time()) < 10*time.Minute {
+				h.syncStatus.MarkMaybeSynced()
+			}
 		}
 	}
 	if len(events) != len(notTooHigh) {
@@ -1408,33 +1417,39 @@ func (h *handler) BroadcastEvent(event *inter.EventPayload, passed time.Duration
 // BroadcastTxs will propagate a batch of transactions to all peers which are not known to
 // already have the given transaction.
 func (h *handler) BroadcastTxs(txs types.Transactions) {
-	var txset = make(map[*peer]types.Transactions)
-
-	// Broadcast transactions to a batch of peers not knowing about it
 	totalSize := common.StorageSize(0)
 	for _, tx := range txs {
-		peers := h.peers.PeersWithoutTx(tx.Hash())
-		for _, peer := range peers {
-			txset[peer] = append(txset[peer], tx)
-		}
 		totalSize += tx.Size()
-		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
-	fullRecipients := h.decideBroadcastAggressiveness(int(totalSize), time.Second, len(txset))
-	i := 0
-	for peer, txs := range txset {
-		SplitTransactions(txs, func(batch types.Transactions) {
-			if i < fullRecipients {
-				peer.AsyncSendTransactions(batch, peer.queue)
+
+	peers := h.peers.List()
+	fullRecipients := h.decideBroadcastAggressiveness(int(totalSize), time.Second, len(peers))
+	fullSent := 0
+	for _, p := range peers {
+		var peerTxs types.Transactions
+		for _, tx := range txs {
+			if !p.knownTxs.Contains(tx.Hash()) {
+				peerTxs = append(peerTxs, tx)
+			}
+		}
+		if len(peerTxs) == 0 {
+			continue
+		}
+		sendFull := fullSent < fullRecipients
+		SplitTransactions(peerTxs, func(batch types.Transactions) {
+			if sendFull {
+				p.AsyncSendTransactions(batch, p.queue)
 			} else {
 				txids := make([]common.Hash, batch.Len())
-				for i, tx := range batch {
-					txids[i] = tx.Hash()
+				for j, tx := range batch {
+					txids[j] = tx.Hash()
 				}
-				peer.AsyncSendTransactionHashes(txids, peer.queue)
+				p.AsyncSendTransactionHashes(txids, p.queue)
 			}
 		})
-		i++
+		if sendFull {
+			fullSent++
+		}
 	}
 }
 
@@ -1510,7 +1525,7 @@ func (h *handler) txBroadcastLoop() {
 			if len(peers) == 0 {
 				continue
 			}
-			randPeer := peers[rand.Intn(len(peers))]
+			randPeer := peers[cryptoRandIntn(len(peers))]
 			h.syncTransactions(randPeer, h.txpool.SampleHashes(h.config.Protocol.MaxRandomTxHashesSend))
 		}
 	}

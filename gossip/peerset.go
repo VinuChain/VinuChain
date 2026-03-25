@@ -19,6 +19,7 @@ package gossip
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,6 +43,9 @@ var (
 	// errSnapWithoutOpera is returned if a peer attempts to connect only on the
 	// snap protocol without advertizing the opera main protocol.
 	errSnapWithoutOpera = errors.New("peer connected on snap without compatible opera support")
+
+	// errSnapExtensionTimeout is returned when a snap extension does not connect in time.
+	errSnapExtensionTimeout = errors.New("snap extension connection timed out")
 )
 
 // peerSet represents the collection of active peers currently participating in
@@ -121,12 +125,23 @@ func (ps *peerSet) WaitSnapExtension(p *peer) (*snap.Peer, error) {
 		ps.lock.Unlock()
 		return snap, nil
 	}
-	// Otherwise wait for `snap` to connect concurrently
+	// Otherwise wait for `snap` to connect concurrently, with a timeout
 	wait := make(chan *snap.Peer)
 	ps.snapWait[id] = wait
 	ps.lock.Unlock()
 
-	return <-wait, nil
+	timeout := time.NewTimer(30 * time.Second)
+	defer timeout.Stop()
+
+	select {
+	case peer := <-wait:
+		return peer, nil
+	case <-timeout.C:
+		ps.lock.Lock()
+		delete(ps.snapWait, id)
+		ps.lock.Unlock()
+		return nil, errSnapExtensionTimeout
+	}
 }
 
 // RegisterPeer injects a new `eth` peer into the working set, or returns an error

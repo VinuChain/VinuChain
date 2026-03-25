@@ -12,5 +12,6 @@ func UpdateRules(src Rules, diff []byte) (res Rules, err error) {
 	res = changed
 	res.NetworkID = src.NetworkID
 	res.Name = src.Name
+	res.Upgrades = src.Upgrades
 	return
 }

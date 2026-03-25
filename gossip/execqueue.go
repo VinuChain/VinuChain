@@ -8,12 +8,16 @@ type execQueue struct {
 	mu        sync.Mutex
 	cond      *sync.Cond
 	funcs     []func()
+	closing   bool
 	closeWait chan struct{}
 }
 
 // newExecQueue creates a new execution queue.
 func newExecQueue(capacity int) *execQueue {
-	q := &execQueue{funcs: make([]func(), 0, capacity)}
+	q := &execQueue{
+		funcs:     make([]func(), 0, capacity),
+		closeWait: make(chan struct{}),
+	}
 	q.cond = sync.NewCond(&q.mu)
 	go q.loop()
 	return q
@@ -33,7 +37,7 @@ func (q *execQueue) waitNext(drop bool) (f func()) {
 		// dequeuing so len(q.funcs) includes the function that is running.
 		q.funcs = append(q.funcs[:0], q.funcs[1:]...)
 	}
-	for !q.isClosed() {
+	for !q.closing {
 		if len(q.funcs) > 0 {
 			f = q.funcs[0]
 			break
@@ -44,14 +48,10 @@ func (q *execQueue) waitNext(drop bool) (f func()) {
 	return f
 }
 
-func (q *execQueue) isClosed() bool {
-	return q.closeWait != nil
-}
-
 // canQueue returns true if more function calls can be added to the execution queue.
 func (q *execQueue) canQueue() bool {
 	q.mu.Lock()
-	ok := !q.isClosed() && len(q.funcs) < cap(q.funcs)
+	ok := !q.closing && len(q.funcs) < cap(q.funcs)
 	q.mu.Unlock()
 	return ok
 }
@@ -59,7 +59,7 @@ func (q *execQueue) canQueue() bool {
 // queue adds a function call to the execution queue. Returns true if successful.
 func (q *execQueue) queue(f func()) bool {
 	q.mu.Lock()
-	ok := !q.isClosed() && len(q.funcs) < cap(q.funcs)
+	ok := !q.closing && len(q.funcs) < cap(q.funcs)
 	if ok {
 		q.funcs = append(q.funcs, f)
 		q.cond.Signal()
@@ -79,8 +79,8 @@ func (q *execQueue) clear() {
 // quit waits for the current execution to finish before returning.
 func (q *execQueue) quit() {
 	q.mu.Lock()
-	if !q.isClosed() {
-		q.closeWait = make(chan struct{})
+	if !q.closing {
+		q.closing = true
 		q.cond.Signal()
 	}
 	q.mu.Unlock()

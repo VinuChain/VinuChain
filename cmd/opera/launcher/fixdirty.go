@@ -75,7 +75,7 @@ func healDirty(ctx *cli.Context) error {
 	for typ, producer := range dbTypes {
 		err := clearDirtyFlags(id, producer)
 		if err != nil {
-			log.Crit("Failed to write clean FlushID", "type", typ, "err", err)
+			return fmt.Errorf("failed to write clean FlushID for type %s: %v", typ, err)
 		}
 	}
 
@@ -169,8 +169,7 @@ func clearDirtyFlags(id []byte, rawProducer kvdb.IterableDBProducer) error {
 
 		err = db.Put(integration.FlushIDKey, append([]byte{flushable.CleanPrefix}, id...))
 		if err != nil {
-			log.Crit("Failed to write CleanPrefix", "name", name)
-			return err
+			return fmt.Errorf("failed to write CleanPrefix for %s: %v", name, err)
 		}
 		log.Info("Database set clean", "name", name)
 		_ = db.Close()

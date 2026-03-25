@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -103,14 +104,14 @@ func dbTransform(ctx *cli.Context) error {
 	for _, component := range byComponents {
 		err := transformComponent(cfg.Node.DataDir, dbTypes, tmpDbTypes, component)
 		if err != nil {
-			log.Crit("Failed to transform component", "err", err)
+			return fmt.Errorf("failed to transform component: %v", err)
 		}
 	}
 	id := bigendian.Uint64ToBytes(uint64(time.Now().UnixNano()))
 	for typ, producer := range dbTypes {
 		err := clearDirtyFlags(id, producer)
 		if err != nil {
-			log.Crit("Failed to write clean FlushID", "type", typ, "err", err)
+			return fmt.Errorf("failed to write clean FlushID for type %s: %v", typ, err)
 		}
 	}
 
@@ -150,12 +151,12 @@ func readRoutes(cfg *config, dbTypes map[multidb.TypeName]kvdb.FullDBProducer) (
 		for _, dbName := range producer.Names() {
 			db, err := producer.OpenDB(dbName)
 			if err != nil {
-				log.Crit("DB opening error", "name", dbName, "err", err)
+				return nil, fmt.Errorf("failed to open DB %s: %v", dbName, err)
 			}
 			defer db.Close()
 			tables, err := multidb.ReadTablesList(db, integration.TablesKey)
 			if err != nil {
-				log.Crit("Failed to read tables list", "name", dbName, "err", err)
+				return nil, fmt.Errorf("failed to read tables list for %s: %v", dbName, err)
 			}
 			for _, t := range tables {
 				oldRoute := multidb.Route{

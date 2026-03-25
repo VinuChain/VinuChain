@@ -58,7 +58,7 @@ var (
 		Usage: "TOML configuration file",
 	}
 
-	// DataDirFlag defines directory to store Lachesis state and user's wallets
+	// DataDirFlag defines directory to store VinuChain state and user's wallets
 	DataDirFlag = utils.DirectoryFlag{
 		Name:  "datadir",
 		Usage: "Data directory for the databases and keystore",
@@ -102,7 +102,7 @@ var (
 	}
 	RPCGlobalTxFeeCapFlag = cli.Float64Flag{
 		Name:  "rpc.txfeecap",
-		Usage: "Sets a cap on transaction fee (in FTM) that can be sent via the RPC APIs (0 = no cap)",
+		Usage: "Sets a cap on transaction fee (in VC) that can be sent via the RPC APIs (0 = no cap)",
 		Value: gossip.DefaultConfig(cachescale.Identity).RPCTxFeeCap,
 	}
 	RPCGlobalTimeoutFlag = cli.DurationFlag{
@@ -218,7 +218,7 @@ func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
 		if err != nil {
 			log.Crit("Invalid flag", "flag", FakeNetFlag.Name, "err", err)
 		}
-		return makefakegenesis.FakeGenesisStore(num, futils.ToFtm(333_333_333), futils.ToFtm(200_000))
+		return makefakegenesis.FakeGenesisStore(num, futils.ToVC(333_333_333), futils.ToVC(200_000))
 	case ctx.GlobalIsSet(GenesisFlag.Name):
 		genesisPath := ctx.GlobalString(GenesisFlag.Name)
 
@@ -485,7 +485,24 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		return nil, err
 	}
 
+	if err := validateConfig(&cfg); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
+}
+
+func validateConfig(cfg *config) error {
+	if cfg.Opera.RPCGasCap != 0 && cfg.Opera.RPCGasCap < 21000 {
+		return fmt.Errorf("RPCGasCap %d is below minimum transaction gas (21000)", cfg.Opera.RPCGasCap)
+	}
+	if cfg.Opera.RPCTxFeeCap < 0 {
+		return fmt.Errorf("RPCTxFeeCap must not be negative, got %f", cfg.Opera.RPCTxFeeCap)
+	}
+	if cfg.TxPool.PriceLimit == 0 {
+		log.Warn("TxPool PriceLimit is 0, all transactions regardless of gas price will be accepted")
+	}
+	return nil
 }
 
 func makeAllConfigs(ctx *cli.Context) *config {

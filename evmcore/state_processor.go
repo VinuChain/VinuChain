@@ -18,15 +18,15 @@ package evmcore
 
 import (
 	"fmt"
-	"github.com/Fantom-foundation/go-opera/payback"
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
+	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/Fantom-foundation/go-opera/utils/signers/gsignercache"
@@ -79,6 +79,14 @@ func (p *StateProcessor) Process(
 		blockNumber  = block.Number
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
+
+	store := paybackCache.GetStore()
+	paybackCache.PrepareForBlock(
+		store.GetCurrentEpoch(),
+		store.GetRules(),
+		block.Time.Time(),
+	)
+	defer paybackCache.FinishBlock()
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {
@@ -139,8 +147,7 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
-	paybackCache.SetEVM(evm)
-	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From())
+	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From(), evm)
 
 	// Apply the transaction to the current state (included in the env).
 	result, err := ApplyMessage(evm, msg, gp, availablePayback)

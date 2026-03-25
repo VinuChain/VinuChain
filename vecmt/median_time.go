@@ -49,7 +49,11 @@ func (vi *Index) MedianTime(id hash.Event, defaultTime inter.Timestamp) inter.Ti
 		highests = append(highests, highest)
 		honestTotalWeight += highest.weight
 	}
-	// it's technically possible honestTotalWeight == 0 (all validators are cheaters)
+	// If all validators are detected as cheaters, no honest weight exists.
+	// Return the default time as a safe fallback in this catastrophic scenario.
+	if honestTotalWeight == 0 {
+		return defaultTime
+	}
 
 	// sort by claimed time (partial order is enough here, because we need only creationTime)
 	sort.Slice(highests, func(i, j int) bool {

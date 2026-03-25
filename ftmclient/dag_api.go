@@ -12,7 +12,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 )
 
-// GetEvent returns Lachesis event by hash or short ID.
+// GetEvent returns VinuChain event by hash or short ID.
 func (ec *Client) GetEvent(ctx context.Context, h hash.Event) (e inter.EventI, err error) {
 	var raw map[string]interface{}
 	err = ec.c.CallContext(ctx, &raw, "dag_getEvent", h.Hex())
@@ -27,7 +27,7 @@ func (ec *Client) GetEvent(ctx context.Context, h hash.Event) (e inter.EventI, e
 	return
 }
 
-// GetEvent returns Lachesis event by hash or short ID.
+// GetEventPayload returns VinuChain event by hash or short ID.
 func (ec *Client) GetEventPayload(ctx context.Context, h hash.Event, inclTx bool) (e inter.EventI, txs []common.Hash, err error) {
 	var raw map[string]interface{}
 	err = ec.c.CallContext(ctx, &raw, "dag_getEventPayload", h.Hex(), inclTx)

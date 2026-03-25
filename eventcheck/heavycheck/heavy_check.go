@@ -174,7 +174,7 @@ func (v *Checker) matchPubkey(creator idx.ValidatorID, epoch idx.Epoch, want []b
 	if !ok {
 		return epochcheck.ErrAuth
 	}
-	if bytes.Compare(pubkey.Bytes(), want) != 0 {
+	if !bytes.Equal(pubkey.Bytes(), want) {
 		return ErrPubkeyChanged
 	}
 	return nil

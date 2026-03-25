@@ -90,14 +90,14 @@ type Backend interface {
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *evmcore.EvmBlock
 
-	// Lachesis DAG API
+	// VinuChain DAG API
 	GetEventPayload(ctx context.Context, shortEventID string) (*inter.EventPayload, error)
 	GetEvent(ctx context.Context, shortEventID string) (*inter.Event, error)
 	GetHeads(ctx context.Context, epoch rpc.BlockNumber) (hash.Events, error)
 	CurrentEpoch(ctx context.Context) idx.Epoch
 	SealedEpochTiming(ctx context.Context) (start inter.Timestamp, end inter.Timestamp)
 
-	// Lachesis aBFT API
+	// VinuChain aBFT API
 	GetEpochBlockState(ctx context.Context, epoch rpc.BlockNumber) (*iblockproc.BlockState, *iblockproc.EpochState, error)
 	GetDowntime(ctx context.Context, vid idx.ValidatorID) (idx.Block, inter.Timestamp, error)
 	GetUptime(ctx context.Context, vid idx.ValidatorID) (*big.Int, error)

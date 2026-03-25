@@ -2,6 +2,8 @@ package evmwriter
 
 import (
 	"bytes"
+	"errors"
+	"math"
 	"math/big"
 	"strings"
 
@@ -194,7 +196,12 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 			return nil, 0, vm.ErrExecutionReverted
 		}
 
-		stateDB.SetNonce(acc, stateDB.GetNonce(acc)+value.Uint64())
+		currentNonce := stateDB.GetNonce(acc)
+		increment := value.Uint64()
+		if currentNonce > math.MaxUint64-increment {
+			return nil, 0, errors.New("nonce overflow")
+		}
+		stateDB.SetNonce(acc, currentNonce+increment)
 	} else {
 		return nil, 0, vm.ErrExecutionReverted
 	}

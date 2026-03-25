@@ -188,7 +188,7 @@ func GetFakeValidators(num idx.Validator) gpos.Validators {
 	return validators
 }
 
-func VinuTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules opera.Rules, epoch idx.Epoch, block idx.Block, validators []gpos.Validator) *genesisstore.Store {
+func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules opera.Rules, epoch idx.Epoch, block idx.Block, validators []gpos.Validator) *genesisstore.Store {
 	builder := makegenesis.NewGenesisBuilder(memorydb.NewProducer(""))
 
 	// add balances to validators
