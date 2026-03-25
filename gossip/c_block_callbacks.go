@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -452,7 +453,7 @@ func consensusCallbackBeginBlockFn(
 						defer wg.Done()
 						defer func() {
 							if r := recover(); r != nil {
-								log.Error("Panic in block processing", "err", r)
+								log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
 							}
 						}()
 						blockFn()
