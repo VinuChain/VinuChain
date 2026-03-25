@@ -119,6 +119,8 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 	var owner common.Address
 	if num != 0 {
 		owner = validators[0].Address
+	} else {
+		owner = crypto.PubkeyToAddress(FakeKey(1).PublicKey)
 	}
 
 	blockProc := makegenesis.DefaultBlockProc()

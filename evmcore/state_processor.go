@@ -81,12 +81,14 @@ func (p *StateProcessor) Process(
 	)
 
 	store := paybackCache.GetStore()
-	paybackCache.PrepareForBlock(
-		store.GetCurrentEpoch(),
-		store.GetRules(),
-		block.Time.Time(),
-	)
-	defer paybackCache.FinishBlock()
+	if store != nil {
+		paybackCache.PrepareForBlock(
+			store.GetCurrentEpoch(),
+			store.GetRules(),
+			block.Time.Time(),
+		)
+		defer paybackCache.FinishBlock()
+	}
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {

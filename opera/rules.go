@@ -208,7 +208,6 @@ func FakeNetRules() Rules {
 			Berlin: true,
 			London: true,
 			Llr:    true,
-			SfcV2:  true,
 		},
 	}
 }
