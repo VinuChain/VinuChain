@@ -299,8 +299,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	// Penalize 10% of unused gas to discourage over-estimation.
-	// This inflates gasUsed(), which in turn inflates the payback fee refund.
-	// The payback supply cap (C-01) must account for this amplification.
 	if !st.internal() {
 		st.gas -= st.gas / 10
 	}
