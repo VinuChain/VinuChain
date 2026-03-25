@@ -73,7 +73,7 @@ func TestSFC(t *testing.T) {
 		t.Run("Genesis SFC", func(t *testing.T) {
 			require := require.New(t)
 
-			exp := sfc.GetContractBin()
+			exp := sfc.GetGenesisContractBin()
 			got, err := env.CodeAt(nil, sfc.ContractAddress, nil)
 			require.NoError(err)
 			require.Equal(exp, got, "genesis SFC contract")

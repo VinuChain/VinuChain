@@ -80,8 +80,8 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 	builder.SetCode(driver.ContractAddress, driver.GetContractBin())
 	// pre deploy NodeDriverAuth
 	builder.SetCode(driverauth.ContractAddress, driverauth.GetContractBin())
-	// pre deploy SFC
-	builder.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+	// pre deploy SFC (V1 bytecode for genesis; V2 applied via SfcV2 runtime upgrade)
+	builder.SetCode(sfc.ContractAddress, sfc.GetGenesisContractBin())
 	// set non-zero code for pre-compiled contracts
 	builder.SetCode(evmwriter.ContractAddress, []byte{0})
 
@@ -217,8 +217,8 @@ func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules o
 	builder.SetCode(driver.ContractAddress, driver.GetContractBin())
 	// pre deploy NodeDriverAuth
 	builder.SetCode(driverauth.ContractAddress, driverauth.GetContractBin())
-	// pre deploy SFC
-	builder.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+	// pre deploy SFC (V1 bytecode for genesis; V2 applied via SfcV2 runtime upgrade)
+	builder.SetCode(sfc.ContractAddress, sfc.GetGenesisContractBin())
 	// set non-zero code for pre-compiled contracts
 	builder.SetCode(evmwriter.ContractAddress, []byte{0})
 
