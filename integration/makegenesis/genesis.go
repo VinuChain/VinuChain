@@ -3,6 +3,7 @@ package makegenesis
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"io"
 	"math/big"
@@ -185,9 +186,9 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 	evmProcessor.Execute(internalTxs)
 
 	evmBlock, skippedTxs, receipts := evmProcessor.Finalize()
-	for _, r := range receipts {
+	for i, r := range receipts {
 		if r.Status == 0 {
-			return errors.New("genesis transaction reverted")
+			return fmt.Errorf("genesis transaction %d reverted (gasUsed=%d)", i, r.GasUsed)
 		}
 	}
 	if len(skippedTxs) != 0 {
