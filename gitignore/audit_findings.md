@@ -15,12 +15,9 @@
 
 ---
 
-## HIGH (1)
+## HIGH (0)
 
-- [IGNORE] **H-17: Go 1.14 + stale dependencies with known CVEs**
-  - File: `go.mod`
-  - 6+ year old Go version. `golang.org/x/crypto v0.0.0-20210322153248` and `golang.org/x/sys v0.0.0-20220520151302` have known CVEs. Fork version `v1.20.1-quota` doesn't exist upstream, creating confusion.
-  - Fix: Bump Go to at least 1.21. Audit and update `golang.org/x/*` dependencies. Adopt transparent versioning for go-vinu fork.
+(none remaining)
 
 ---
 
@@ -41,7 +38,7 @@
 | Severity | Original | Fixed | Ignored | Remaining |
 | ---------- | ---------- | ------- | --------- | ----------- |
 | CRITICAL | 12 | 11 | 1 | 0 |
-| HIGH | 17 | 16 | 1 | 0 |
+| HIGH | 17 | 17 | 0 | 0 |
 | MEDIUM | 19 | 19 | 0 | 0 |
 | LOW | 12 | 12 | 0 | 0 |
-| **Total** | **60** | **58** | **2** | **0** |
+| **Total** | **60** | **59** | **1** | **0** |

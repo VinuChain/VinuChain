@@ -1,21 +1,11 @@
 package gossip
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
 	"errors"
 	"math/rand"
 
 	"github.com/ethereum/go-ethereum/log"
 )
-
-func init() {
-	var b [8]byte
-	if _, err := crand.Read(b[:]); err != nil {
-		panic("crypto/rand unavailable: " + err.Error())
-	}
-	rand.Seed(int64(binary.BigEndian.Uint64(b[:])))
-}
 
 // wrsItem interface should be implemented by any entries that are to be selected from
 // a weightedRandomSelect set. Note that recalculating monotonously decreasing item
