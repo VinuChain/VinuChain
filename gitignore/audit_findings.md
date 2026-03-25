@@ -6,12 +6,7 @@
 
 ---
 
-## CRITICAL (2)
-
-- [IGNORE] **C-01: Fee refund mints tokens from nothing (supply inflation)**
-  - File: `evmcore/state_transition.go:336-356`
-  - `feeRefund` is added to sender's balance but never deducted from any pool. `validatorFee = txFee - feeRefund` reduces validator revenue, but the refunded tokens are created, not transferred. Supply inflates with every payback-eligible transaction.
-  - Fix: Fee refunds must be funded from a pre-funded pool or deducted from validator rewards, not minted.
+## CRITICAL (1)
 
 - [IGNORE] **C-10: God object — gossip.Service and 386-line block callback closure**
   - File: `gossip/service.go`, `gossip/c_block_callbacks.go`
@@ -45,8 +40,8 @@
 
 | Severity | Original | Fixed | Ignored | Remaining |
 | ---------- | ---------- | ------- | --------- | ----------- |
-| CRITICAL | 12 | 10 | 2 | 0 |
+| CRITICAL | 12 | 11 | 1 | 0 |
 | HIGH | 17 | 16 | 1 | 0 |
 | MEDIUM | 19 | 19 | 0 | 0 |
 | LOW | 12 | 12 | 0 | 0 |
-| **Total** | **60** | **57** | **3** | **0** |
+| **Total** | **60** | **58** | **2** | **0** |
