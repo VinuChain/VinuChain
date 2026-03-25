@@ -33,7 +33,7 @@ func TestFakeNetFlag_NonValidator(t *testing.T) {
 
 	// Verify the actual welcome message to the required template
 	cli.Expect(`
-Welcome to the Lachesis JavaScript console!
+Welcome to the VinuChain JavaScript console!
 
 instance: go-opera/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{.Coinbase}}
@@ -77,7 +77,7 @@ func TestFakeNetFlag_Validator(t *testing.T) {
 
 	// Verify the actual welcome message to the required template
 	cli.Expect(`
-Welcome to the Lachesis JavaScript console!
+Welcome to the VinuChain JavaScript console!
 
 instance: go-opera/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{.Coinbase}}

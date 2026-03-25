@@ -4,10 +4,10 @@ IPCPath = "opera.ipc"
 HTTPHost = ""
 HTTPPort = 18545
 HTTPVirtualHosts = ["localhost"]
-HTTPModules = ["eth", "ftm", "dag", "abft", "web3"]
+HTTPModules = ["eth", "vc", "dag", "abft", "web3"]
 WSHost = ""
 WSPort = 18546
-WSModules = ["eth", "ftm", "dag", "abft", "web3"]
+WSModules = ["eth", "vc", "dag", "abft", "web3"]
 GraphQLVirtualHosts = ["localhost"]
 
 [Node.P2P]

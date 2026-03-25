@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	ipcAPIs  = "abft:1.0 admin:1.0 dag:1.0 debug:1.0 ftm:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0"
-	httpAPIs = "abft:1.0 dag:1.0 ftm:1.0 rpc:1.0 web3:1.0"
+	ipcAPIs  = "abft:1.0 admin:1.0 dag:1.0 debug:1.0 vc:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0"
+	httpAPIs = "abft:1.0 dag:1.0 vc:1.0 rpc:1.0 web3:1.0"
 )
 
 // Tests that a node embedded within a console can be started up properly and
@@ -39,7 +39,7 @@ func TestConsoleWelcome(t *testing.T) {
 
 	// Verify the actual welcome message to the required template
 	cli.Expect(`
-Welcome to the Lachesis JavaScript console!
+Welcome to the VinuChain JavaScript console!
 
 instance: go-opera/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{.Coinbase}}
@@ -58,7 +58,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 	// Configure the instance for IPC attachement
 	var ipc string
 	if runtime.GOOS == "windows" {
-		ipc = `\\.\pipe\lachesis.ipc`
+		ipc = `\\.\pipe\vinuchain.ipc`
 	} else {
 		ws := tmpdir(t)
 		defer os.RemoveAll(ws)
@@ -121,7 +121,7 @@ func testAttachWelcome(t *testing.T, cli *testcli, endpoint, apis string) {
 
 	// Verify the actual welcome message to the required template
 	attach.Expect(`
-Welcome to the Lachesis JavaScript console!
+Welcome to the VinuChain JavaScript console!
 
 instance: go-opera/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{coinbase}}

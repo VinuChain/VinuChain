@@ -97,7 +97,7 @@ var (
 
 	RPCGlobalGasCapFlag = cli.Uint64Flag{
 		Name:  "rpc.gascap",
-		Usage: "Sets a cap on gas that can be used in ftm_call/estimateGas (0=infinite)",
+		Usage: "Sets a cap on gas that can be used in vc_call/estimateGas (0=infinite)",
 		Value: gossip.DefaultConfig(cachescale.Identity).RPCGasCap,
 	}
 	RPCGlobalTxFeeCapFlag = cli.Float64Flag{
@@ -517,8 +517,8 @@ func defaultNodeConfig() node.Config {
 	cfg := NodeDefaultConfig
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(gitCommit, gitDate)
-	cfg.HTTPModules = append(cfg.HTTPModules, "eth", "ftm", "dag", "abft", "web3")
-	cfg.WSModules = append(cfg.WSModules, "eth", "ftm", "dag", "abft", "web3")
+	cfg.HTTPModules = append(cfg.HTTPModules, "eth", "vc", "dag", "abft", "web3")
+	cfg.WSModules = append(cfg.WSModules, "eth", "vc", "dag", "abft", "web3")
 	cfg.IPCPath = "opera.ipc"
 	cfg.DataDir = DefaultDataDir()
 	return cfg
