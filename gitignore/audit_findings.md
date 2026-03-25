@@ -6,12 +6,9 @@
 
 ---
 
-## CRITICAL (1)
+## CRITICAL (0)
 
-- [IGNORE] **C-10: God object — gossip.Service and 386-line block callback closure**
-  - File: `gossip/service.go`, `gossip/c_block_callbacks.go`
-  - `gossip.Service` owns every subsystem. `consensusCallbackBeginBlockFn` is a 386-line closure mutating shared block/epoch state with 3 inline TODO comments about refactoring.
-  - Fix: Extract block processing pipeline into its own struct with explicit state transitions. Each phase should return new state objects rather than mutating shared variables.
+(none remaining)
 
 ---
 
@@ -37,8 +34,8 @@
 
 | Severity | Original | Fixed | Ignored | Remaining |
 | ---------- | ---------- | ------- | --------- | ----------- |
-| CRITICAL | 12 | 11 | 1 | 0 |
+| CRITICAL | 12 | 12 | 0 | 0 |
 | HIGH | 17 | 17 | 0 | 0 |
 | MEDIUM | 19 | 19 | 0 | 0 |
 | LOW | 12 | 12 | 0 | 0 |
-| **Total** | **60** | **59** | **1** | **0** |
+| **Total** | **60** | **60** | **0** | **0** |
