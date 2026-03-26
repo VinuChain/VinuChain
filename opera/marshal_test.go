@@ -11,8 +11,7 @@ import (
 func TestUpdateRules(t *testing.T) {
 	require := require.New(t)
 
-	var exp Rules
-	exp.Epochs.MaxEpochGas = 99
+	exp := FakeNetRules()
 
 	exp.Dag.MaxParents = 5
 	exp.Economy.MinGasPrice = big.NewInt(7)
@@ -21,8 +20,7 @@ func TestUpdateRules(t *testing.T) {
 	require.NoError(err)
 	require.Equal(exp.String(), got.String(), "mutate fields")
 
-	exp.Dag.MaxParents = 0
-	got, err = UpdateRules(exp, []byte(`{"Name":"xxx","NetworkID":1,"Dag":{"MaxParents":0}}`))
+	got, err = UpdateRules(exp, []byte(`{"Name":"xxx","NetworkID":1}`))
 	require.NoError(err)
 	require.Equal(exp.String(), got.String(), "readonly fields")
 
@@ -32,6 +30,57 @@ func TestUpdateRules(t *testing.T) {
 
 	_, err = UpdateRules(exp, []byte(`}{`))
 	require.Error(err)
+}
+
+func TestUpdateRulesGovernanceBounds(t *testing.T) {
+	require := require.New(t)
+	base := FakeNetRules()
+
+	// MaxParents below minimum
+	_, err := UpdateRules(base, []byte(`{"Dag":{"MaxParents":0}}`))
+	require.Error(err, "MaxParents=0 should be rejected")
+	require.Contains(err.Error(), "MaxParents")
+
+	_, err = UpdateRules(base, []byte(`{"Dag":{"MaxParents":2}}`))
+	require.Error(err, "MaxParents=2 should be rejected")
+
+	// MaxEventGas=0 halts chain
+	_, err = UpdateRules(base, []byte(`{"Economy":{"Gas":{"MaxEventGas":0}}}`))
+	require.Error(err, "MaxEventGas=0 should be rejected")
+	require.Contains(err.Error(), "MaxEventGas")
+
+	// EventGas > MaxEventGas
+	_, err = UpdateRules(base, []byte(`{"Economy":{"Gas":{"EventGas":999999999}}}`))
+	require.Error(err, "EventGas > MaxEventGas should be rejected")
+	require.Contains(err.Error(), "EventGas exceeds")
+
+	// MaxEpochGas=0
+	_, err = UpdateRules(base, []byte(`{"Epochs":{"MaxEpochGas":0}}`))
+	require.Error(err, "MaxEpochGas=0 should be rejected")
+	require.Contains(err.Error(), "MaxEpochGas")
+
+	// ShortGasPower.AllocPerSec=0
+	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"AllocPerSec":0}}}`))
+	require.Error(err, "ShortGasPower.AllocPerSec=0 should be rejected")
+
+	// LongGasPower.AllocPerSec=0
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"AllocPerSec":0}}}`))
+	require.Error(err, "LongGasPower.AllocPerSec=0 should be rejected")
+
+	// MaxBlockGas=0
+	_, err = UpdateRules(base, []byte(`{"Blocks":{"MaxBlockGas":0}}`))
+	require.Error(err, "MaxBlockGas=0 should be rejected")
+
+	// MisbehaviourProofGas > MaxEventGas/2
+	bigGas := base.Economy.Gas.MaxEventGas/2 + 1
+	diff := []byte(`{"Economy":{"Gas":{"MisbehaviourProofGas":` + big.NewInt(int64(bigGas)).String() + `}}}`)
+	_, err = UpdateRules(base, diff)
+	require.Error(err, "MisbehaviourProofGas > MaxEventGas/2 should be rejected")
+	require.Contains(err.Error(), "MisbehaviourProofGas")
+
+	// Valid changes should still work
+	_, err = UpdateRules(base, []byte(`{"Dag":{"MaxParents":10}}`))
+	require.NoError(err, "valid MaxParents=10 should succeed")
 }
 
 func TestMainNetRulesRLP(t *testing.T) {
