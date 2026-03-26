@@ -91,7 +91,7 @@ func cryptoRandInt63n(n int64) int64 {
 	max := new(big.Int).SetInt64(n)
 	val, err := crand.Int(crand.Reader, max)
 	if err != nil {
-		return 0
+		log.Crit("crypto/rand failure in peer selection", "err", err)
 	}
 	return val.Int64()
 }
@@ -112,7 +112,7 @@ var errSelectionExceeded = errors.New("wrsNode: random selection exceeded weight
 // insert recursively inserts an item into the tree and returns its index.
 func (n *wrsNode) insert(item wrsItem, weight int64) (int, error) {
 	branch := 0
-	for n.items[branch] != nil && (n.level == 0 || n.items[branch].(*wrsNode).itemCnt == n.items[branch].(*wrsNode).maxItems) {
+	for n.items[branch] != nil && (n.level == 0 || n.branchFull(branch)) {
 		branch++
 		if branch == wrsBranches {
 			return 0, errTreeFull
@@ -131,7 +131,14 @@ func (n *wrsNode) insert(item wrsItem, weight int64) (int, error) {
 		subNode = &wrsNode{maxItems: n.maxItems / wrsBranches, level: n.level - 1}
 		n.items[branch] = subNode
 	} else {
-		subNode = n.items[branch].(*wrsNode)
+		var ok bool
+		subNode, ok = n.items[branch].(*wrsNode)
+		if !ok {
+			n.itemCnt--
+			n.sumWeight -= weight
+			n.weights[branch] -= weight
+			return 0, errTreeFull
+		}
 	}
 	subIdx, err := subNode.insert(item, weight)
 	if err != nil {
@@ -144,6 +151,14 @@ func (n *wrsNode) insert(item wrsItem, weight int64) (int, error) {
 		return 0, err
 	}
 	return subNode.maxItems*branch + subIdx, nil
+}
+
+func (n *wrsNode) branchFull(branch int) bool {
+	sub, ok := n.items[branch].(*wrsNode)
+	if !ok {
+		return true
+	}
+	return sub.itemCnt == sub.maxItems
 }
 
 // setWeight updates the weight of a certain item (which should exist) and returns
@@ -162,7 +177,11 @@ func (n *wrsNode) setWeight(idx int, weight int64) int64 {
 	}
 	branchItems := n.maxItems / wrsBranches
 	branch := idx / branchItems
-	diff := n.items[branch].(*wrsNode).setWeight(idx-branch*branchItems, weight)
+	sub, ok := n.items[branch].(*wrsNode)
+	if !ok {
+		return 0
+	}
+	diff := sub.setWeight(idx-branch*branchItems, weight)
 	n.weights[branch] += diff
 	n.sumWeight += diff
 	if weight == 0 {

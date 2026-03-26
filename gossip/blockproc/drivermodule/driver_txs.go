@@ -259,7 +259,12 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 			log.Warn("Unexpected UpdatedValidatorPubkey Driver event")
 			return
 		}
-		profile.PubKey, _ = validatorpk.FromBytes(pubkey)
+		parsedKey, err := validatorpk.FromBytes(pubkey)
+		if err != nil {
+			log.Crit("Malformed validator pubkey in UpdateValidatorPubkey event", "validator", validatorID, "err", err)
+			return
+		}
+		profile.PubKey = parsedKey
 		p.bs.NextValidatorProfiles[validatorID] = profile
 	}
 	// Update rules

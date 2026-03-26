@@ -53,3 +53,11 @@ func (s *SyncedKeystore) Get(pubkey validatorpk.PubKey, auth string) (*encryptio
 	defer s.mu.Unlock()
 	return s.backend.Get(pubkey, auth)
 }
+
+func (s *SyncedKeystore) Lock(pubkey validatorpk.PubKey) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if lockable, ok := s.backend.(*CachedKeystore); ok {
+		lockable.Lock(pubkey)
+	}
+}

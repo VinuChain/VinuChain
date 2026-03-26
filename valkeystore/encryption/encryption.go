@@ -1,8 +1,8 @@
 package encryption
 
 import (
-	"bytes"
 	"crypto/ecdsa"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,9 +55,12 @@ func (ks Keystore) ReadKey(wantPubkey validatorpk.PubKey, filename, auth string)
 		return nil, err
 	}
 	// Make sure we're really operating on the requested key (no swap attacks)
-	keySecp256k1 := key.Decoded.(*ecdsa.PrivateKey)
+	keySecp256k1, ok := key.Decoded.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("decoded key is not *ecdsa.PrivateKey")
+	}
 	gotPubkey := crypto.FromECDSAPub(&keySecp256k1.PublicKey)
-	if bytes.Compare(wantPubkey.Raw, gotPubkey) != 0 {
+	if subtle.ConstantTimeCompare(wantPubkey.Raw, gotPubkey) != 1 {
 		return nil, fmt.Errorf("key content mismatch: have public key %X, want %X", gotPubkey, wantPubkey.Raw)
 	}
 	return key, nil
@@ -123,9 +126,14 @@ func DecryptKey(keyjson []byte, auth string) (*PrivateKey, error) {
 		return nil, err
 	}
 
+	keyCopy := make([]byte, len(keyBytes))
+	copy(keyCopy, keyBytes)
+	for i := range keyBytes {
+		keyBytes[i] = 0
+	}
 	return &PrivateKey{
 		Type:    k.Type,
-		Bytes:   keyBytes,
+		Bytes:   keyCopy,
 		Decoded: decoded,
 	}, nil
 }

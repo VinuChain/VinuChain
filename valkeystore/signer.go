@@ -2,6 +2,7 @@ package valkeystore
 
 import (
 	"crypto/ecdsa"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -32,7 +33,10 @@ func (s *Signer) Sign(pubkey validatorpk.PubKey, digest []byte) ([]byte, error) 
 		return nil, err
 	}
 
-	secp256k1Key := key.Decoded.(*ecdsa.PrivateKey)
+	secp256k1Key, ok := key.Decoded.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("decoded key is not *ecdsa.PrivateKey")
+	}
 
 	sigRSV, err := crypto.Sign(digest, secp256k1Key)
 	if err != nil {

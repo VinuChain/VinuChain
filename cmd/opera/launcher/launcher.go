@@ -380,6 +380,9 @@ func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (
 	stack.RegisterLifecycle(svc)
 
 	return stack, svc, func() {
+		if !valPubkey.Empty() {
+			valKeystore.Lock(valPubkey)
+		}
 		_ = stack.Close()
 		gdb.Close()
 		_ = cdb.Close()
