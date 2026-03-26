@@ -7,6 +7,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/kvdb"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
@@ -93,7 +94,11 @@ func (s *Store) recoverLlrState() error {
 }
 
 func (s *Store) eraseSfcApiTable() error {
-	sfcapiTable, _ := s.dbs.OpenDB("gossip/S")
+	sfcapiTable, err := s.dbs.OpenDB("gossip/S")
+	if err != nil {
+		log.Warn("Could not open gossip/S table for migration, skipping", "err", err)
+		return nil
+	}
 	it := sfcapiTable.NewIterator(nil, nil)
 	defer it.Release()
 	for it.Next() {

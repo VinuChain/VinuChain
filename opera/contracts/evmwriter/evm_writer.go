@@ -159,7 +159,7 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		if cost0 > math.MaxUint64-cost1 {
 			return nil, 0, vm.ErrOutOfGas
 		}
-		cost = (cost0 + cost1) / 2
+		cost = cost0 + cost1
 		if suppliedGas < cost {
 			return nil, 0, vm.ErrOutOfGas
 		}

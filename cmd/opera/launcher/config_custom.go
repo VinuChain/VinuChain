@@ -26,7 +26,10 @@ func isBootstrapNodesDefault(root *ast.Table) (
 		if !ok {
 			return
 		}
-		table = val.(*ast.Table)
+		table, ok = val.(*ast.Table)
+		if !ok {
+			return
+		}
 	}
 
 	emptyNode := fmt.Sprintf("\"%s\"", asDefault[0])
@@ -37,8 +40,14 @@ func isBootstrapNodesDefault(root *ast.Table) (
 	}
 	for name := range res {
 		if val, ok := table.Fields[name]; ok {
-			kv := val.(*ast.KeyValue)
-			arr := kv.Value.(*ast.Array)
+			kv, ok := val.(*ast.KeyValue)
+			if !ok {
+				continue
+			}
+			arr, ok := kv.Value.(*ast.Array)
+			if !ok {
+				continue
+			}
 			if len(arr.Value) == len(asDefault) && arr.Value[0].Source() == emptyNode {
 				res[name] = true
 				delete(table.Fields, name)

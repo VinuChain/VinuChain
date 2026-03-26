@@ -130,8 +130,8 @@ func (w *unitWriter) Start(header genesis.Header, name, tmpDirPath string) error
 	w.fileshasher = fileshash.WrapWriter(w.gziper, genesisstore.FilesHashPieceSize, func(tmpI int) fileshash.TmpWriter {
 		tmpI++
 		tmpPath := path.Join(tmpDirPath, fmt.Sprintf("genesis-%s-tmp-%d", name, tmpI))
-		_ = os.MkdirAll(tmpDirPath, os.ModePerm)
-		tmpFh, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_RDWR, os.ModePerm)
+		_ = os.MkdirAll(tmpDirPath, 0700)
+		tmpFh, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_RDWR, 0600)
 		if err != nil {
 			log.Crit("File opening error", "path", tmpPath, "err", err)
 		}
@@ -272,7 +272,7 @@ func exportGenesis(ctx *cli.Context) error {
 	// Open the file handle
 	var plain io.WriteSeeker
 	if fn != "dry-run" {
-		fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+		fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}

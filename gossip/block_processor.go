@@ -392,7 +392,7 @@ func (bp *BlockProcessor) processBlock() {
 		txs = append(txs, e.Txs()...)
 	}
 
-	_ = bp.evmProcessor.Execute(txs)
+	bp.evmProcessor.Execute(txs)
 
 	evmBlock, skippedTxs, allReceipts := bp.evmProcessor.Finalize()
 	block.SkippedTxs = skippedTxs

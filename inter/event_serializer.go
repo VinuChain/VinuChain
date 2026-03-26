@@ -520,11 +520,8 @@ func RPCMarshalEventPayload(event EventPayloadI, inclTx bool, fullTx bool) (map[
 			return tx.Hash(), nil
 		}
 		if fullTx {
-			// TODO: full txs for events API
-			panic("is not implemented")
-			//formatTx = func(tx *types.Transaction) (interface{}, error) {
-			//	return newRPCTransactionFromBlockHash(event, tx.Hash()), nil
-			//}
+			// fullTx=true is not yet implemented; fall back to returning
+			// transaction hashes so callers are not disrupted.
 		}
 		txs := event.Txs()
 		transactions := make([]interface{}, len(txs))

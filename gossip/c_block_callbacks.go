@@ -98,7 +98,9 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()
-		_ = s.store.evm.Commit(b, block.Root, false)
+		if err := s.store.evm.Commit(b, block.Root, false); err != nil {
+			log.Crit("Failed to commit EVM state during re-execution", "block", b, "err", err)
+		}
 		s.store.evm.Cap()
 		s.mayCommit(false)
 		prev = block
