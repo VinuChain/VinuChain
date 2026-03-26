@@ -370,7 +370,9 @@ func (h *handler) handleEvents(p *peer, events dag.Events, ordered bool) {
 	if len(notTooHigh) == 0 {
 		return
 	}
-	// Schedule all the events for connection
+	// Schedule all the events for connection.
+	// We capture p (pointer) rather than copying *p because peer contains a sync.RWMutex.
+	// If the peer disconnects before the callback fires, p2p.Send returns an error gracefully.
 	peerID := p.id
 	requestEvents := func(ids []interface{}) error {
 		return p.RequestEvents(interfacesToEventIDs(ids))

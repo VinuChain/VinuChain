@@ -126,9 +126,9 @@ func spillBlockEvents(store *Store, block *inter.Block, network opera.Rules) (*i
 		e := store.GetEventPayload(id)
 		if e == nil {
 			// log.Crit exits without flush — acceptable here because a missing
-		// confirmed event indicates store corruption; block assembly cannot
-		// continue with incomplete data.
-		log.Crit("Block event not found", "event", id.String())
+			// confirmed event indicates store corruption; block assembly cannot
+			// continue with incomplete data.
+			log.Crit("Block event not found", "event", id.String())
 		}
 		fullEvents[i] = e
 		gasPowerUsedSum += e.GasPowerUsed()

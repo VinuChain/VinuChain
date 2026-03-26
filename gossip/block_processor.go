@@ -531,9 +531,9 @@ func (bp *BlockProcessor) dispatchBlock() {
 			defer func() {
 				if r := recover(); r != nil {
 					// log.Crit exits without flush — acceptable here because a panic
-				// in block processing indicates corrupted consensus state; the
-				// node cannot safely continue.
-				log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
+					// in block processing indicates corrupted consensus state; the
+					// node cannot safely continue.
+					log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
 				}
 			}()
 			bp.processBlock()
