@@ -425,6 +425,11 @@ func (h *handler) handleMsg(p *peer) error {
 			p.Log().Warn("Peer progress epoch suspiciously far ahead", "peer_epoch", progress.Epoch, "local_epoch", localEpoch)
 			break
 		}
+		localBlock := h.store.GetLatestBlockIndex()
+		if progress.LastBlockIdx > localBlock+5000 {
+			p.Log().Warn("Peer progress block suspiciously far ahead", "peer_block", progress.LastBlockIdx, "local_block", localBlock)
+			break
+		}
 		p.SetProgress(progress)
 
 	case msg.Code == EvmTxsMsg:
