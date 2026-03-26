@@ -137,7 +137,10 @@ func getSessionID(block idx.Block, try uint32) uint32 {
 }
 
 func (d *Leecher) startSession(candidates []string) {
-	randIdx, _ := crand.Int(crand.Reader, big.NewInt(int64(len(candidates))))
+	randIdx, err := crand.Int(crand.Reader, big.NewInt(int64(len(candidates))))
+	if err != nil {
+		randIdx = big.NewInt(0)
+	}
 	peer := candidates[randIdx.Int64()]
 
 	startEpoch, startBlock := d.callback.LowestBlockToDecide()
