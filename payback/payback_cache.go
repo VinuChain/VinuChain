@@ -81,7 +81,7 @@ type PaybackCache struct {
 	StakesMap map[idx.Epoch]*EpochStakes
 
 	// ABI to get names of called methods
-	ContractABI *abi.ABI
+	contractABI *abi.ABI
 
 	// sfcABI is used for baseRewardPerSecond calls to the SFC contract.
 	sfcABI abi.ABI
@@ -93,14 +93,26 @@ type PaybackCache struct {
 	// inBlockProcessing guards epoch cleanup to prevent mid-block resets.
 	inBlockProcessing bool
 
+	// lastCleanedEpoch tracks the most recent epoch for which cleanup ran,
+	// preventing redundant cleanup within the same epoch.
+	lastCleanedEpoch idx.Epoch
+
 	blkCtx *blockContext
 }
 
 // PrepareForBlock caches per-block constants so they are not re-fetched per
 // transaction. Must be called before processing any transactions in a block.
+// Epoch cleanup runs here (before inBlockProcessing is set) so that
+// PaybackUsedMap is reset at epoch boundaries.
 func (pc *PaybackCache) PrepareForBlock(epoch idx.Epoch, rules opera.Rules, blockTime time.Time) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
+
+	if epoch > pc.lastCleanedEpoch {
+		pc.cleanupOldEpochsLocked(epoch)
+		pc.lastCleanedEpoch = epoch
+	}
+
 	pc.blkCtx = &blockContext{
 		epoch:     epoch,
 		rules:     rules,
@@ -127,7 +139,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 		defer pc.mu.Unlock()
 
 		epoch := pc.getEpochLocked()
-		txtype := getTxType(tx, *pc.ContractABI)
+		txtype := getTxType(tx, *pc.contractABI)
 		if txtype == TxTypeStake {
 			blockTime := pc.getBlockTimeLocked()
 
@@ -215,7 +227,7 @@ func NewPaybackCache(store Store) (*PaybackCache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse payback proxy ABI: %w", err)
 	}
-	pc.ContractABI = &abiQuotaProxy
+	pc.contractABI = &abiQuotaProxy
 
 	sfcABI, err := abi.JSON(strings.NewReader(sfcBinding.ContractABI))
 	if err != nil {
@@ -224,6 +236,14 @@ func NewPaybackCache(store Store) (*PaybackCache, error) {
 	pc.sfcABI = sfcABI
 
 	return &pc, nil
+}
+
+// SetContractABI sets the ABI used for transaction type identification.
+// Must be called before the cache is used for block processing.
+func (pc *PaybackCache) SetContractABI(a *abi.ABI) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.contractABI = a
 }
 
 // String prints all data in cache
@@ -305,7 +325,6 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 		pc.StakesMap[currentEpoch] = &EpochStakes{
 			StakesByAddress: make(map[common.Address][]StakeInfo),
 		}
-		pc.cleanupOldEpochsLocked()
 	}
 
 	quotaUsed := pc.getQuotaUsedLocked(address)
@@ -483,26 +502,25 @@ func (pc *PaybackCache) calculateFullDurationLocked(address common.Address, curr
 		if fullDuration < 0 {
 			fullDuration = 0
 		}
+		return fullDuration
 	}
 
-	if fullDuration == 0 {
-		if prevEpochState == nil {
-			log.Warn("calculateFullDurationLocked: epoch state not found for prevEpoch", "prevEpoch", prevEpoch)
-			return 0
-		}
-		durationPrevEpochBySec := prevEpochState.Duration() / 1e9
-		fullDuration = int64(durationPrevEpochBySec)
-		if fullDuration < 0 {
-			fullDuration = 0
-		}
+	if prevEpochState == nil {
+		log.Warn("calculateFullDurationLocked: epoch state not found for prevEpoch", "prevEpoch", prevEpoch)
+		return 0
+	}
+	durationPrevEpochBySec := prevEpochState.Duration() / 1e9
+	fullDuration = int64(durationPrevEpochBySec)
+	if fullDuration < 0 {
+		fullDuration = 0
 	}
 
 	return fullDuration
 }
 
 func (pc *PaybackCache) getAddressTotalStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
-	sender := vm.AccountRef(address)
-	packedData, err := pc.ContractABI.Pack("getStake", address)
+	sender := vm.AccountRef(common.Address{})
+	packedData, err := pc.contractABI.Pack("getStake", address)
 	if err != nil {
 		return big.NewInt(0), err
 	}
@@ -516,8 +534,8 @@ func (pc *PaybackCache) getAddressTotalStake(address common.Address, evm *vm.EVM
 }
 
 func (pc *PaybackCache) getMinStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
-	sender := vm.AccountRef(address)
-	packedData, err := pc.ContractABI.Pack("minStake")
+	sender := vm.AccountRef(common.Address{})
+	packedData, err := pc.contractABI.Pack("minStake")
 	if err != nil {
 		return big.NewInt(0), err
 	}
@@ -535,7 +553,7 @@ func (pc *PaybackCache) GetStore() Store {
 }
 
 func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address, evm *vm.EVM) (*big.Int, error) {
-	sender := vm.AccountRef(address)
+	sender := vm.AccountRef(common.Address{})
 	packedData, err := pc.sfcABI.Pack("baseRewardPerSecond")
 	if err != nil {
 		return big.NewInt(0), err
@@ -550,7 +568,7 @@ func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address, evm *vm.E
 }
 
 func (pc *PaybackCache) getTotalStake(address common.Address, contractAddress common.Address, evm *vm.EVM) (*big.Int, error) {
-	sender := vm.AccountRef(address)
+	sender := vm.AccountRef(common.Address{})
 
 	var (
 		packedData []byte
@@ -560,7 +578,7 @@ func (pc *PaybackCache) getTotalStake(address common.Address, contractAddress co
 	if contractAddress == sfcContract.ContractAddress {
 		packedData, err = pc.sfcABI.Pack("totalStake")
 	} else {
-		packedData, err = pc.ContractABI.Pack("totalStake")
+		packedData, err = pc.contractABI.Pack("totalStake")
 	}
 	if err != nil {
 		return big.NewInt(0), err
@@ -618,16 +636,12 @@ func (pc *PaybackCache) getSumStakeByAddressSplitLocked(address common.Address, 
 }
 
 // cleanupOldEpochsLocked removes epoch data older than 2 epochs and resets the
-// PaybackUsedMap. The reset is intentional: quotas are per-epoch, so used
-// amounts must be zeroed when the epoch advances. This is only called during
-// StakesMap initialization for a new epoch (under write lock, between blocks).
-func (pc *PaybackCache) cleanupOldEpochsLocked() {
-	if pc.inBlockProcessing {
-		return
-	}
-
-	currentEpoch := pc.getEpochLocked()
-	// Guard: currentEpoch <= 2 returns early, so currentEpoch - 2 below is safe from underflow.
+// cleanupOldEpochsLocked prunes stale epoch data from StakesMap and resets
+// PaybackUsedMap. Quotas are per-epoch, so used amounts must be zeroed when
+// the epoch advances. Called from PrepareForBlock before inBlockProcessing
+// is set, ensuring cleanup happens exactly once per epoch transition.
+// Caller must hold pc.mu write lock.
+func (pc *PaybackCache) cleanupOldEpochsLocked(currentEpoch idx.Epoch) {
 	if currentEpoch <= 2 {
 		pc.PaybackUsedMap = make(map[common.Address]*big.Int)
 		return

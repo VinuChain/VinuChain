@@ -11,6 +11,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/payback"
 )
 
 var (
@@ -68,6 +69,14 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 	blockProc := s.blockProcModules
 	upgradeHeights := s.store.GetUpgradeHeights()
 	evmStateReader := s.GetEvmStateReader()
+
+	// Use a fresh PaybackCache for re-execution to avoid residual quota
+	// data from the live cache producing incorrect FeeRefund values.
+	reexecCache, err := payback.NewPaybackCache(s.paybackCache.GetStore())
+	if err != nil {
+		log.Crit("Failed to create re-execution PaybackCache", "err", err)
+	}
+
 	prev := s.store.GetBlock(from)
 	for b := from + 1; b <= to; b++ {
 		block := s.store.GetBlock(b)
@@ -85,7 +94,7 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
 
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), s.paybackCache)
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), reexecCache)
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()

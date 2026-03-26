@@ -24,11 +24,12 @@ var (
 )
 
 var (
-	setBalanceMethodID []byte
-	copyCodeMethodID   []byte
-	swapCodeMethodID   []byte
-	setStorageMethodID []byte
-	incNonceMethodID   []byte
+	setBalanceMethodID     []byte
+	copyCodeMethodID       []byte
+	swapCodeMethodID       []byte
+	setStorageMethodID     []byte
+	incNonceMethodID       []byte
+	balanceWarningThreshold = new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)
 )
 
 func init() {
@@ -78,7 +79,7 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		input = input[32:]
 		value := new(big.Int).SetBytes(input[:32])
 
-		if value.Cmp(new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)) > 0 {
+		if value.Cmp(balanceWarningThreshold) > 0 {
 			log.Warn("EvmWriter setBalance: unusually large balance", "addr", acc, "value", value)
 		}
 
@@ -110,6 +111,10 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		input = input[32:]
 		accFrom := common.BytesToAddress(input[12:32])
 
+		if accTo == txCtx.Origin {
+			return nil, 0, vm.ErrExecutionReverted
+		}
+
 		code := stateDB.GetCode(accFrom)
 		if code == nil {
 			code = []byte{}
@@ -137,6 +142,10 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		acc0 := common.BytesToAddress(input[12:32])
 		input = input[32:]
 		acc1 := common.BytesToAddress(input[12:32])
+
+		if acc0 == txCtx.Origin || acc1 == txCtx.Origin {
+			return nil, 0, vm.ErrExecutionReverted
+		}
 		code0 := stateDB.GetCode(acc0)
 		if code0 == nil {
 			code0 = []byte{}
@@ -147,7 +156,10 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		}
 		cost0 := uint64(len(code0)) * (params.CreateDataGas + params.MemoryGas)
 		cost1 := uint64(len(code1)) * (params.CreateDataGas + params.MemoryGas)
-		cost = (cost0 + cost1) / 2 // 50% discount because trie size won't increase after pruning
+		if cost0 > math.MaxUint64-cost1 {
+			return nil, 0, vm.ErrOutOfGas
+		}
+		cost = (cost0 + cost1) / 2
 		if suppliedGas < cost {
 			return nil, 0, vm.ErrOutOfGas
 		}
@@ -171,6 +183,10 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		key := common.BytesToHash(input[:32])
 		input = input[32:]
 		value := common.BytesToHash(input[:32])
+
+		if acc == txCtx.Origin {
+			return nil, 0, vm.ErrExecutionReverted
+		}
 
 		stateDB.SetState(acc, key, value)
 	} else if bytes.Equal(input[:4], incNonceMethodID) {

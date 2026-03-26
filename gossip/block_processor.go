@@ -545,6 +545,11 @@ func (bp *BlockProcessor) dispatchBlock() {
 			log.Crit("Failed to enqueue block processing", "err", err)
 		}
 	} else {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
+			}
+		}()
 		bp.processBlock()
 	}
 }
