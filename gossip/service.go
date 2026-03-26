@@ -28,6 +28,8 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/Fantom-foundation/go-opera/opera"
+
 	"github.com/Fantom-foundation/go-opera/ethapi"
 	"github.com/Fantom-foundation/go-opera/eventcheck"
 	"github.com/Fantom-foundation/go-opera/eventcheck/basiccheck"
@@ -165,6 +167,9 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	haltCheck func(oldEpoch, newEpoch idx.Epoch, age time.Time) bool) (*Service, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
+	}
+	if config.AllowUnprotectedTxs && store.GetRules().NetworkID == opera.VinuChainMainNetworkID {
+		return nil, errors.New("AllowUnprotectedTxs cannot be enabled on mainnet (NetworkID 207)")
 	}
 
 	svc, err := newService(config, store, blockProc, engine, dagIndexer, newTxPool)

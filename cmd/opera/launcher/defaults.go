@@ -75,9 +75,10 @@ func DefaultDataDir() string {
 			newDir := filepath.Join(home, ".vinuchain")
 			if _, err := os.Stat(legacyDir); err == nil {
 				if _, err := os.Stat(newDir); os.IsNotExist(err) {
-					log.Printf("WARNING: using legacy data directory %s — consider migrating to %s", legacyDir, newDir)
+					log.Println("Using legacy data directory", legacyDir, "— consider migrating to", newDir)
 					return legacyDir
 				}
+				log.Println("Legacy data directory", legacyDir, "still exists alongside", newDir, "— consider removing the legacy directory")
 			}
 			return newDir
 		}
