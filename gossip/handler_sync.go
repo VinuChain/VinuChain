@@ -38,6 +38,33 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter/ier"
 )
 
+const (
+	// maxPeerEpochDrift is the maximum number of epochs a peer may claim
+	// ahead of our local epoch before we consider it invalid.
+	maxPeerEpochDrift = idx.Epoch(1000)
+	// maxPeerBlockDrift is the maximum number of blocks a peer may claim
+	// ahead of our local head before we consider it invalid.
+	maxPeerBlockDrift = idx.Block(5000)
+)
+
+// validatePeerProgress checks that a peer-reported progress is within
+// plausible bounds relative to our local state. Returns a non-nil error
+// (suitable for errResp) if the progress should be rejected.
+func (h *handler) validatePeerProgress(progress PeerProgress) error {
+	if progress.Epoch == 0 {
+		return errResp(ErrDecode, "peer progress with zero epoch")
+	}
+	localEpoch := h.store.GetEpoch()
+	if progress.Epoch > localEpoch+maxPeerEpochDrift {
+		return errResp(ErrDecode, "peer epoch %d too far ahead of local %d", progress.Epoch, localEpoch)
+	}
+	localBlock := h.store.GetLatestBlockIndex()
+	if progress.LastBlockIdx > localBlock+maxPeerBlockDrift {
+		return errResp(ErrDecode, "peer block %d too far ahead of local %d", progress.LastBlockIdx, localBlock)
+	}
+	return nil
+}
+
 func (h *handler) highestPeerProgress() PeerProgress {
 	peers := h.peers.List()
 	max := h.myProgress()
@@ -417,18 +444,8 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := msg.Decode(&progress); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		if progress.Epoch == 0 {
-			break
-		}
-		localEpoch := h.store.GetEpoch()
-		if progress.Epoch > localEpoch+1000 {
-			p.Log().Warn("Peer progress epoch suspiciously far ahead", "peer_epoch", progress.Epoch, "local_epoch", localEpoch)
-			break
-		}
-		localBlock := h.store.GetLatestBlockIndex()
-		if progress.LastBlockIdx > localBlock+5000 {
-			p.Log().Warn("Peer progress block suspiciously far ahead", "peer_block", progress.LastBlockIdx, "local_block", localBlock)
-			break
+		if err := h.validatePeerProgress(progress); err != nil {
+			return err
 		}
 		p.SetProgress(progress)
 

@@ -1,6 +1,7 @@
 package evmstore
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
@@ -100,6 +101,7 @@ func fakeReceipts() (idx.Block, []*types.ReceiptForStorage) {
 				BlockHash:         common.Hash{},
 				BlockNumber:       nil,
 				TransactionIndex:  0,
+				FeeRefund:         new(big.Int),
 			},
 		}
 }

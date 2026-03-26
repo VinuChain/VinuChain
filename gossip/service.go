@@ -190,6 +190,10 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	return svc, nil
 }
 
+// cryptoRandIntn returns a cryptographically random int in [0, n).
+// On crypto/rand failure it terminates via log.Crit (which calls os.Exit(1)).
+// This is intentional: crypto/rand failure indicates a broken OS entropy source,
+// which is unrecoverable and unsafe for consensus-critical randomness.
 func cryptoRandIntn(n int) int {
 	if n <= 0 {
 		return 0

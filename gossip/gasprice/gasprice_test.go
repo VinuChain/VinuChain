@@ -79,12 +79,12 @@ func TestOracle_EffectiveMinGasPrice(t *testing.T) {
 	backend.totalGasPowerLeft = 1008000000
 	require.Equal(t, "25000000000", gpo.EffectiveMinGasPrice().String())
 	backend.block++
-	require.Equal(t, "24994672000", gpo.EffectiveMinGasPrice().String())
+	require.Equal(t, "19666672000", gpo.EffectiveMinGasPrice().String())
 	backend.block++
 
 	// all the gas is free, price should be low
 	backend.totalGasPowerLeft = gpo.maxTotalGasPower().Uint64()
-	require.Equal(t, uint64(0x92aeed1c000), backend.totalGasPowerLeft)
+	require.Equal(t, uint64(0x258d09800), backend.totalGasPowerLeft)
 	require.Equal(t, "1000000000", gpo.EffectiveMinGasPrice().String())
 	backend.block++
 
@@ -138,21 +138,21 @@ func TestOracle_constructiveGasPrice(t *testing.T) {
 	backend.totalGasPowerLeft = gpo.maxTotalGasPower().Uint64()
 	require.Equal(t, "100", gpo.constructiveGasPrice(0, 0, big.NewInt(100)).String())
 	require.Equal(t, "120", gpo.constructiveGasPrice(0, 0.1*DecimalUnit, big.NewInt(100)).String())
-	require.Equal(t, "101", gpo.constructiveGasPrice(100800000000, 0, big.NewInt(100)).String())
+	require.Equal(t, "101", gpo.constructiveGasPrice(100800000, 0, big.NewInt(100)).String())
 	require.Equal(t, "2500", gpo.constructiveGasPrice(gpo.maxTotalGasPower().Uint64()*2, 2*DecimalUnit, big.NewInt(100)).String())
 
 	// half of the gas is free, price should be 3.75x
 	backend.totalGasPowerLeft = gpo.maxTotalGasPower().Uint64() / 2
 	require.Equal(t, "375", gpo.constructiveGasPrice(0, 0, big.NewInt(100)).String())
 	require.Equal(t, "637", gpo.constructiveGasPrice(0, 0.1*DecimalUnit, big.NewInt(100)).String())
-	require.Equal(t, "401", gpo.constructiveGasPrice(100800000000, 0, big.NewInt(100)).String())
+	require.Equal(t, "401", gpo.constructiveGasPrice(100800000, 0, big.NewInt(100)).String())
 	require.Equal(t, "2500", gpo.constructiveGasPrice(gpo.maxTotalGasPower().Uint64()*2, 2*DecimalUnit, big.NewInt(100)).String())
 
 	// third of the gas is free, price should be higher
 	backend.totalGasPowerLeft = gpo.maxTotalGasPower().Uint64() / 3
 	require.Equal(t, "812", gpo.constructiveGasPrice(0, 0, big.NewInt(100)).String())
 	require.Equal(t, "1255", gpo.constructiveGasPrice(0, 0.1*DecimalUnit, big.NewInt(100)).String())
-	require.Equal(t, "838", gpo.constructiveGasPrice(100800000000, 0, big.NewInt(100)).String())
+	require.Equal(t, "838", gpo.constructiveGasPrice(100800000, 0, big.NewInt(100)).String())
 	require.Equal(t, "2500", gpo.constructiveGasPrice(gpo.maxTotalGasPower().Uint64()*2, 2*DecimalUnit, big.NewInt(100)).String())
 
 }

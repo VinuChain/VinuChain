@@ -165,7 +165,7 @@ func TestSFC(t *testing.T) {
 		require := require.New(t)
 
 		// create new
-		anyContractBin := driver100.ContractBin
+		anyContractBin := sfc100.ContractBin
 		rr, err := env.ApplyTxs(nextEpoch,
 			env.Contract(admin, utils.ToVC(0), anyContractBin),
 		)

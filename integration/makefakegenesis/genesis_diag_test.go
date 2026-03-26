@@ -12,7 +12,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
 )
 
-func assertGenesisStructure(t *testing.T, store *genesisstore.Store) {
+func assertGenesisStructure(t *testing.T, store *genesisstore.Store, expectedValidators int) {
 	t.Helper()
 
 	if store == nil {
@@ -35,6 +35,18 @@ func assertGenesisStructure(t *testing.T, store *genesisstore.Store) {
 		if er.EpochState.Validators == nil {
 			t.Error("epoch state has nil validators")
 		}
+		if er.EpochState.EpochStart == 0 {
+			t.Error("epoch state has zero EpochStart timestamp")
+		}
+		if er.EpochState.Rules.NetworkID == 0 {
+			t.Error("epoch state has zero NetworkID in rules")
+		}
+		if expectedValidators > 0 {
+			profileCount := len(er.EpochState.ValidatorProfiles)
+			if profileCount != expectedValidators {
+				t.Errorf("expected %d validator profiles in epoch state, got %d", expectedValidators, profileCount)
+			}
+		}
 		return true
 	})
 	if epochCount == 0 {
@@ -42,12 +54,27 @@ func assertGenesisStructure(t *testing.T, store *genesisstore.Store) {
 	}
 
 	var blockCount int
-	g.Blocks.ForEach(func(_ ibr.LlrIdxFullBlockRecord) bool {
+	g.Blocks.ForEach(func(br ibr.LlrIdxFullBlockRecord) bool {
 		blockCount++
+		if br.Idx == 0 {
+			t.Error("block record has zero index")
+		}
+		if br.Time == 0 {
+			t.Error("block record has zero timestamp")
+		}
 		return true
 	})
 	if blockCount == 0 {
 		t.Fatal("genesis has no block records")
+	}
+
+	var evmItemCount int
+	g.RawEvmItems.ForEach(func(key, value []byte) bool {
+		evmItemCount++
+		return true
+	})
+	if evmItemCount == 0 {
+		t.Fatal("genesis has no EVM state items (expected deployed contract code including SFC)")
 	}
 }
 
@@ -56,7 +83,7 @@ func TestFakeGenesisStoreDoesNotPanic(t *testing.T) {
 	stake := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000))
 
 	store := FakeGenesisStore(1, balance, stake)
-	assertGenesisStructure(t, store)
+	assertGenesisStructure(t, store, 1)
 
 	header := store.Header()
 	if header.NetworkID == 0 {
@@ -70,5 +97,5 @@ func TestFakeGenesisStoreMultiValidator(t *testing.T) {
 	stake := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000))
 
 	store := FakeGenesisStore(idx.Validator(numValidators), balance, stake)
-	assertGenesisStructure(t, store)
+	assertGenesisStructure(t, store, numValidators)
 }

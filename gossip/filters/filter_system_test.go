@@ -177,12 +177,14 @@ func TestBlockSubscription(t *testing.T) {
 		})
 	}
 
-	chan0 := make(chan *types.Header)
+	chan0 := make(chan *types.Header, len(chainEvents))
 	sub0 := api.events.SubscribeNewHeads(chan0)
-	chan1 := make(chan *types.Header)
+	chan1 := make(chan *types.Header, len(chainEvents))
 	sub1 := api.events.SubscribeNewHeads(chan1)
 
+	done := make(chan struct{})
 	go func() { // simulate client
+		defer close(done)
 		i1, i2 := 0, 0
 		for i1 != len(chainEvents) || i2 != len(chainEvents) {
 			select {
@@ -198,6 +200,9 @@ func TestBlockSubscription(t *testing.T) {
 					t.Errorf("sub1 received invalid hash on index %d, want %x, got %x", i2, chainEvents[i2].Block.Hash, got)
 				}
 				i2++
+			case <-time.After(10 * time.Second):
+				t.Errorf("timed out waiting for events: sub0 got %d/%d, sub1 got %d/%d", i1, len(chainEvents), i2, len(chainEvents))
+				return
 			}
 		}
 
@@ -210,8 +215,11 @@ func TestBlockSubscription(t *testing.T) {
 		backend.blocksFeed.Send(e)
 	}
 
-	<-sub0.Err()
-	<-sub1.Err()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("TestBlockSubscription timed out")
+	}
 }
 
 // TestPendingTxFilter tests whether pending tx filters retrieve all pending transactions that are posted to the event mux.

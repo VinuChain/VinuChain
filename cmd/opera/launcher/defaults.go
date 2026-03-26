@@ -71,6 +71,8 @@ func DefaultDataDir() string {
 			}
 			return filepath.Join(appdata, "VinuChain")
 		default:
+			// Default to .vinuchain; fall back to legacy .opera if it exists
+			// and .vinuchain has not yet been created (one-time migration path).
 			legacyDir := filepath.Join(home, ".opera")
 			newDir := filepath.Join(home, ".vinuchain")
 			if _, err := os.Stat(legacyDir); err == nil {

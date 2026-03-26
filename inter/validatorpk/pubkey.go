@@ -6,7 +6,10 @@ import (
 )
 
 const (
-	// FakePassword is used only for fakenet and test validator key encryption. Not used in production.
+	// FakePassword is the passphrase used to encrypt validator keys on fakenet
+	// and in test fixtures. It is intentionally compiled into the production
+	// binary so that the fakenet CLI (--fakenet) can decrypt keys without user
+	// interaction. It must never be used for real validator key encryption.
 	FakePassword = "fakepassword"
 )
 
