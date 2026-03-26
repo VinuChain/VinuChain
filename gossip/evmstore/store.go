@@ -77,7 +77,11 @@ func NewStore(dbs kvdb.DBProducer, cfg StoreConfig) *Store {
 	}
 
 	s.initEVMDB()
-	s.EvmLogs = topicsdb.New(dbs)
+	evmLogs, err := topicsdb.New(dbs)
+	if err != nil {
+		s.Log.Crit("Failed to open EVM log index", "err", err)
+	}
+	s.EvmLogs = evmLogs
 	s.initCache()
 
 	return s
@@ -176,7 +180,9 @@ func (s *Store) CleanCommit(block iblockproc.BlockState) error {
 }
 
 func (s *Store) PauseEvmSnapshot() {
-	s.Snaps.Disable()
+	if s.Snaps != nil {
+		s.Snaps.Disable()
+	}
 }
 
 func (s *Store) IsEvmSnapshotPaused() bool {

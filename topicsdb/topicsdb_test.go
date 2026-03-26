@@ -102,7 +102,10 @@ func TestIndexSearchMultyVariants(t *testing.T) {
 	},
 	}
 
-	index := New(memorydb.NewProducer(""))
+	index, err := New(memorydb.NewProducer(""))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, l := range testdata {
 		err := index.Push(l)
@@ -225,7 +228,10 @@ func TestIndexSearchShortCircuits(t *testing.T) {
 	},
 	}
 
-	index := New(memorydb.NewProducer(""))
+	index, err := New(memorydb.NewProducer(""))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, l := range testdata {
 		err := index.Push(l)
@@ -283,7 +289,10 @@ func TestIndexSearchSingleVariant(t *testing.T) {
 
 	topics, recs, topics4rec := genTestData(100)
 
-	index := New(memorydb.NewProducer(""))
+	index, err := New(memorydb.NewProducer(""))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, rec := range recs {
 		err := index.Push(rec)
@@ -353,17 +362,17 @@ func TestIndexSearchSimple(t *testing.T) {
 	},
 	}
 
-	index := New(memorydb.NewProducer(""))
+	index, err := New(memorydb.NewProducer(""))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, l := range testdata {
 		err := index.Push(l)
 		require.NoError(t, err)
 	}
 
-	var (
-		got []*types.Log
-		err error
-	)
+	var got []*types.Log
 
 	for dsc, method := range map[string]func(context.Context, idx.Block, idx.Block, [][]common.Hash) ([]*types.Log, error){
 		"sync":  index.FindInBlocks,
@@ -413,8 +422,11 @@ func TestMaxTopicsCount(t *testing.T) {
 		pattern[i+1] = []common.Hash{testdata.Topics[i]}
 	}
 
-	index := New(memorydb.NewProducer(""))
-	err := index.Push(testdata)
+	index, err := New(memorydb.NewProducer(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = index.Push(testdata)
 	require.NoError(t, err)
 
 	for dsc, method := range map[string]func(context.Context, idx.Block, idx.Block, [][]common.Hash) ([]*types.Log, error){

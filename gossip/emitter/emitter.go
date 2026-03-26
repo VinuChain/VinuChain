@@ -175,6 +175,18 @@ func (em *Emitter) Stop() {
 	em.done = nil
 	em.wg.Wait()
 	em.busyRate.Stop()
+	em.closePrevActionFiles()
+}
+
+func (em *Emitter) closePrevActionFiles() {
+	for _, f := range []*os.File{em.emittedEventFile, em.emittedBvsFile, em.emittedEvFile} {
+		if f != nil {
+			_ = f.Close()
+		}
+	}
+	em.emittedEventFile = nil
+	em.emittedBvsFile = nil
+	em.emittedEvFile = nil
 }
 
 func (em *Emitter) tick() {

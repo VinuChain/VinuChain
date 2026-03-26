@@ -30,15 +30,15 @@ type Index struct {
 }
 
 // New Index instance.
-func New(dbs kvdb.DBProducer) *Index {
+func New(dbs kvdb.DBProducer) (*Index, error) {
 	tt := &Index{}
 
 	err := table.OpenTables(&tt.table, dbs, "evm-logs")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return tt
+	return tt, nil
 }
 
 func (tt *Index) WrapTablesAsBatched() (unwrap func()) {

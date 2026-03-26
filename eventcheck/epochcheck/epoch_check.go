@@ -2,6 +2,7 @@ package epochcheck
 
 import (
 	"errors"
+	"math"
 
 	base "github.com/Fantom-foundation/lachesis-base/eventcheck/epochcheck"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
@@ -42,6 +43,14 @@ func New(reader Reader) *Checker {
 	}
 }
 
+func safeAddU64(a, b uint64) uint64 {
+	sum := a + b
+	if sum < a {
+		return math.MaxUint64
+	}
+	return sum
+}
+
 func CalcGasPowerUsed(e inter.EventPayloadI, rules opera.Rules) uint64 {
 	txsGas := uint64(0)
 	for _, tx := range e.Txs() {
@@ -68,7 +77,22 @@ func CalcGasPowerUsed(e inter.EventPayloadI, rules opera.Rules) uint64 {
 		ersGas = gasCfg.EpochVoteGas
 	}
 
-	return txsGas + parentsGas + extraGas + gasCfg.EventGas + mpsGas + bvsGas + ersGas
+	if rules.Upgrades.Podgorica {
+		total := safeAddU64(txsGas, parentsGas)
+		total = safeAddU64(total, extraGas)
+		total = safeAddU64(total, gasCfg.EventGas)
+		total = safeAddU64(total, mpsGas)
+		total = safeAddU64(total, bvsGas)
+		total = safeAddU64(total, ersGas)
+		return total
+	}
+	total := safeAddU64(txsGas, parentsGas)
+	total = safeAddU64(total, extraGas)
+	total = safeAddU64(total, gasCfg.EventGas)
+	total = safeAddU64(total, mpsGas)
+	total = safeAddU64(total, bvsGas)
+	total = safeAddU64(total, ersGas)
+	return total
 }
 
 func (v *Checker) checkGas(e inter.EventPayloadI, rules opera.Rules) error {
