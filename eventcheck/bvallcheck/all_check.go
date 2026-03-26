@@ -30,5 +30,7 @@ func (c *Checker) Enqueue(bvs inter.LlrSignedBlockVotes, checked func(error)) {
 	}
 
 	// Run heavy check in parallel
-	_ = c.HeavyCheck.Enqueue(bvs, checked)
+	if err := c.HeavyCheck.Enqueue(bvs, checked); err != nil {
+		checked(err)
+	}
 }

@@ -1,6 +1,8 @@
 package topicsdb
 
 import (
+	"fmt"
+
 	"github.com/Fantom-foundation/lachesis-base/common/bigendian"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -71,12 +73,12 @@ func bytesToUint(b []byte) uint64 {
 	return bigendian.BytesToUint64(b)
 }
 
-func extractLogrecID(key []byte) (id ID) {
+func extractLogrecID(key []byte) (id ID, err error) {
 	switch len(key) {
 	case topicKeySize:
 		copy(id[:], key[hashSize+uint8Size:])
-		return
+		return id, nil
 	default:
-		panic("wrong key type")
+		return id, fmt.Errorf("unexpected key length %d in extractLogrecID", len(key))
 	}
 }

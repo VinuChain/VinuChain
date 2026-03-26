@@ -24,7 +24,7 @@ func (r *GasPowerCheckReader) GetValidationContext() *gaspowercheck.ValidationCo
 }
 
 // NewGasPowerContext reads current validation context for gaspowercheck
-func NewGasPowerContext(s *Store, validators *pos.Validators, epoch idx.Epoch, cfg opera.EconomyRules) *gaspowercheck.ValidationContext {
+func NewGasPowerContext(s *Store, validators *pos.Validators, epoch idx.Epoch, cfg opera.EconomyRules, podgorica bool) *gaspowercheck.ValidationContext {
 	// engineMu is locked here
 
 	short := cfg.ShortGasPower
@@ -35,6 +35,7 @@ func NewGasPowerContext(s *Store, validators *pos.Validators, epoch idx.Epoch, c
 		MinEnsuredAlloc:    cfg.Gas.MaxEventGas,
 		StartupAllocPeriod: short.StartupAllocPeriod,
 		MinStartupGas:      short.MinStartupGas,
+		Podgorica:          podgorica,
 	}
 
 	long := cfg.LongGasPower
@@ -45,6 +46,7 @@ func NewGasPowerContext(s *Store, validators *pos.Validators, epoch idx.Epoch, c
 		MinEnsuredAlloc:    cfg.Gas.MaxEventGas,
 		StartupAllocPeriod: long.StartupAllocPeriod,
 		MinStartupGas:      long.MinStartupGas,
+		Podgorica:          podgorica,
 	}
 
 	validatorStates := make([]gaspowercheck.ValidatorState, validators.Len())

@@ -73,16 +73,20 @@ func GetHashFn(ref *EvmHeader, chain DummyChain) func(n uint64) common.Hash {
 	var cache []common.Hash
 
 	return func(n uint64) common.Hash {
+		refNum := ref.Number.Uint64()
+		if n >= refNum {
+			return common.Hash{}
+		}
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)
 		}
-		if idx := ref.Number.Uint64() - n - 1; idx < uint64(len(cache)) {
+		if idx := refNum - n - 1; idx < uint64(len(cache)) {
 			return cache[idx]
 		}
 		// No luck in the cache, but we can start iterating from the last element we already know
 		lastKnownHash := cache[len(cache)-1]
-		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache))
+		lastKnownNumber := refNum - uint64(len(cache))
 
 		for {
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
@@ -91,7 +95,10 @@ func GetHashFn(ref *EvmHeader, chain DummyChain) func(n uint64) common.Hash {
 			}
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash
-			lastKnownNumber = header.Number.Uint64() - 1
+			if lastKnownNumber == 0 {
+				break
+			}
+			lastKnownNumber--
 			if n == lastKnownNumber {
 				return lastKnownHash
 			}

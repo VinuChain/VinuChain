@@ -1,6 +1,7 @@
 package iodb
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/Fantom-foundation/lachesis-base/common/bigendian"
@@ -57,7 +58,12 @@ func (it *Iterator) Next() bool {
 		return false
 	}
 
+	const maxIODBEntrySize = 10 * 1024 * 1024 // 10 MB
 	lenKey := bigendian.BytesToUint32(lenB[:])
+	if lenKey > maxIODBEntrySize {
+		it.err = fmt.Errorf("iodb key size %d exceeds maximum %d", lenKey, maxIODBEntrySize)
+		return false
+	}
 	key := make([]byte, lenKey)
 	it.err = ioread.ReadAll(it.reader, key)
 	if it.err != nil {
@@ -70,6 +76,10 @@ func (it *Iterator) Next() bool {
 	}
 
 	lenValue := bigendian.BytesToUint32(lenB[:])
+	if lenValue > maxIODBEntrySize {
+		it.err = fmt.Errorf("iodb value size %d exceeds maximum %d", lenValue, maxIODBEntrySize)
+		return false
+	}
 	value := make([]byte, lenValue)
 	it.err = ioread.ReadAll(it.reader, value)
 	if it.err != nil {

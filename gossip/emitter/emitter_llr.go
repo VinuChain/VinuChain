@@ -1,7 +1,8 @@
 package emitter
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/big"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
@@ -103,6 +104,9 @@ func (em *Emitter) skipLlrEpochVote() bool {
 	if em.epoch > em.world.GetLowestEpochToDecide()+2 {
 		return false
 	}
-	// otherwise, poor validators have a small chance to vote
-	return rand.Intn(30) != 0
+	val, err := crand.Int(crand.Reader, big.NewInt(30))
+	if err != nil {
+		return false
+	}
+	return val.Int64() != 0
 }

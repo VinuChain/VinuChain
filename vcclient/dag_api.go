@@ -2,6 +2,7 @@ package vcclient
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
@@ -41,10 +42,17 @@ func (ec *Client) GetEventPayload(ctx context.Context, h hash.Event, inclTx bool
 	e = inter.RPCUnmarshalEvent(raw)
 
 	if inclTx {
-		vv := raw["transactions"].([]interface{})
+		vv, ok := raw["transactions"].([]interface{})
+		if !ok {
+			return nil, nil, fmt.Errorf("unexpected type for transactions field in response")
+		}
 		txs = make([]common.Hash, len(vv))
 		for i, v := range vv {
-			txs[i] = common.HexToHash(v.(string))
+			s, ok := v.(string)
+			if !ok {
+				return nil, nil, fmt.Errorf("unexpected type for transaction hash at index %d", i)
+			}
+			txs[i] = common.HexToHash(s)
 		}
 	}
 

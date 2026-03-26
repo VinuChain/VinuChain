@@ -47,9 +47,13 @@ type testBackend struct {
 }
 
 func newTestBackend() *testBackend {
+	logIndex, err := topicsdb.New(memorydb.NewProducer(""))
+	if err != nil {
+		panic("failed to create test log index: " + err.Error())
+	}
 	return &testBackend{
 		db:         rawdb.NewMemoryDatabase(),
-		logIndex:   topicsdb.New(memorydb.NewProducer("")),
+		logIndex:   logIndex,
 		blocksFeed: new(notify.Feed),
 		txsFeed:    new(notify.Feed),
 		logsFeed:   new(notify.Feed),

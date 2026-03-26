@@ -50,6 +50,7 @@ func newEpochStore(epoch idx.Epoch, db kvdb.Store) *epochStore {
 	// wrap with skiperrors to skip errors on reading from a dropped DB
 	es.table.LastEvents = skiperrors.Wrap(es.table.LastEvents, errDBClosed)
 	es.table.Heads = skiperrors.Wrap(es.table.Heads, errDBClosed)
+	es.table.DagIndex = skiperrors.Wrap(es.table.DagIndex, errDBClosed)
 
 	// load the cache to avoid a race condition
 	es.GetHeads()

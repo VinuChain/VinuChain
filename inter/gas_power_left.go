@@ -1,6 +1,9 @@
 package inter
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 const (
 	ShortTermGas    = 0
@@ -14,10 +17,16 @@ type GasPowerLeft struct {
 }
 
 // Add add to all gas power lefts
-func (g GasPowerLeft) Add(diff uint64) {
-	for i := range g.Gas {
-		g.Gas[i] += diff
+func (g GasPowerLeft) Add(diff uint64) GasPowerLeft {
+	cp := g
+	for i := range cp.Gas {
+		sum := cp.Gas[i] + diff
+		if sum < cp.Gas[i] {
+			sum = math.MaxUint64
+		}
+		cp.Gas[i] = sum
 	}
+	return cp
 }
 
 // Min returns minimum within long-term gas power left and short-term gas power left
@@ -46,7 +55,11 @@ func (g GasPowerLeft) Max() uint64 {
 func (g GasPowerLeft) Sub(diff uint64) GasPowerLeft {
 	cp := g
 	for i := range cp.Gas {
-		cp.Gas[i] -= diff
+		if cp.Gas[i] < diff {
+			cp.Gas[i] = 0
+		} else {
+			cp.Gas[i] -= diff
+		}
 	}
 	return cp
 }

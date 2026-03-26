@@ -1,5 +1,7 @@
 package inter
 
+import "fmt"
+
 const SigSize = 64
 
 // Signature is a secp256k1 signature in R|S format
@@ -9,10 +11,10 @@ func (s Signature) Bytes() []byte {
 	return s[:]
 }
 
-func BytesToSignature(b []byte) (sig Signature) {
+func BytesToSignature(b []byte) (sig Signature, err error) {
 	if len(b) != SigSize {
-		panic("invalid signature length")
+		return sig, fmt.Errorf("invalid signature length: got %d, want %d", len(b), SigSize)
 	}
 	copy(sig[:], b)
-	return sig
+	return sig, nil
 }

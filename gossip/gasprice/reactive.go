@@ -171,15 +171,15 @@ func (gpo *Oracle) calcTxpoolStat() txpoolStat {
 	const maxTxsToIndex = 400
 
 	minGasPrice := gpo.backend.GetRules().Economy.MinGasPrice
-	// txs are sorted from large price to small
-	sorted := txs
+	sorted := make(types.Transactions, len(txs))
+	copy(sorted, txs)
 	sort.Slice(sorted, func(i, j int) bool {
 		a, b := sorted[i], sorted[j]
 		return a.EffectiveGasTipCmp(b, minGasPrice) < 0
 	})
 
-	if len(txs) > maxTxsToIndex {
-		txs = txs[:maxTxsToIndex]
+	if len(sorted) > maxTxsToIndex {
+		sorted = sorted[:maxTxsToIndex]
 	}
 	sortedDown := make(types.Transactions, len(sorted))
 	for i, tx := range sorted {

@@ -1,6 +1,8 @@
 package topicsdb
 
 import (
+	"fmt"
+
 	"github.com/Fantom-foundation/lachesis-base/kvdb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -41,6 +43,11 @@ func (rec *logrec) fetch(
 	)
 	buf, rec.err = logrecTable.Get(rec.ID.Bytes())
 	if rec.err != nil {
+		return
+	}
+	expectedLen := int(rec.topicsCount)*common.HashLength + common.HashLength + common.AddressLength
+	if len(buf) < expectedLen {
+		rec.err = fmt.Errorf("logrec buffer too short: got %d, need at least %d", len(buf), expectedLen)
 		return
 	}
 

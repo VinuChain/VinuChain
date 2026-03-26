@@ -46,6 +46,7 @@ type Config struct {
 	MinEnsuredAlloc    uint64
 	StartupAllocPeriod inter.Timestamp
 	MinStartupGas      uint64
+	Podgorica          bool
 }
 
 // Checker which checks gas power
@@ -123,11 +124,17 @@ func CalcValidatorGasPower(e inter.EventI, eTime, prevTime inter.Timestamp, prev
 	mul(gasPowerAllocatedBn, gasPowerPerSec)
 	div(gasPowerAllocatedBn, uint64(time.Second))
 
-	gasPower := gasPowerAllocatedBn.Uint64() + prevGasPowerLeft
+	if config.Podgorica && !gasPowerAllocatedBn.IsUint64() {
+		return maxGasPower
+	}
+	gasPower := gasPowerAllocatedBn.Uint64()
+	if config.Podgorica && gasPower > maxGasPower-prevGasPowerLeft {
+		return maxGasPower
+	}
+	gasPower += prevGasPowerLeft
 	if gasPower > maxGasPower {
 		gasPower = maxGasPower
 	}
-
 	return gasPower
 }
 

@@ -3,6 +3,7 @@ package topicsdb
 import (
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 type (
@@ -20,7 +21,7 @@ type (
 		mu        sync.Mutex
 		threads   sync.WaitGroup
 		positions map[int]*posCounter
-		goNext    bool
+		goNext    int32
 		minBlock  uint64
 		blocks    map[uint64]*blockCounter
 	}
@@ -29,16 +30,16 @@ type (
 func newSynchronizator() *synchronizator {
 	s := &synchronizator{
 		positions: make(map[int]*posCounter),
-		goNext:    true,
 		minBlock:  0,
 		blocks:    make(map[uint64]*blockCounter),
 	}
+	atomic.StoreInt32(&s.goNext, 1)
 
 	return s
 }
 
 func (s *synchronizator) Halt() {
-	s.goNext = false
+	atomic.StoreInt32(&s.goNext, 0)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -51,7 +52,7 @@ func (s *synchronizator) Halt() {
 }
 
 func (s *synchronizator) GoNext(n uint64) (prev uint64, gonext bool) {
-	if !s.goNext {
+	if atomic.LoadInt32(&s.goNext) == 0 {
 		return
 	}
 
@@ -66,7 +67,7 @@ func (s *synchronizator) GoNext(n uint64) (prev uint64, gonext bool) {
 		<-wait
 	}
 
-	gonext = s.goNext
+	gonext = atomic.LoadInt32(&s.goNext) != 0
 	return
 }
 
@@ -112,7 +113,7 @@ func (s *synchronizator) dequeueBlock() {
 
 		for _, pos := range s.positions {
 			if pos.count < 1 {
-				s.goNext = false
+				atomic.StoreInt32(&s.goNext, 0)
 				break
 			}
 		}

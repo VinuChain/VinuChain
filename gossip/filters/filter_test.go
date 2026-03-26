@@ -65,9 +65,13 @@ func BenchmarkFilters(b *testing.B) {
 		b.Fatal(err)
 	}
 	backend.db = rawdb.NewTable(ldb, "a")
-	backend.logIndex = topicsdb.New(leveldb.NewProducer(dir, func(string) (int, int) {
+	logIndex, err := topicsdb.New(leveldb.NewProducer(dir, func(string) (int, int) {
 		return 100 * opt.MiB, 1000
 	}))
+	if err != nil {
+		b.Fatal(err)
+	}
+	backend.logIndex = logIndex
 	defer backend.logIndex.Close()
 
 	var (

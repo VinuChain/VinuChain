@@ -25,5 +25,7 @@ func (c *Checker) Enqueue(e dag.Event, checked func(error)) {
 	}
 
 	// Run heavy check in parallel
-	_ = c.HeavyCheck.Enqueue(e, checked)
+	if err := c.HeavyCheck.Enqueue(e, checked); err != nil {
+		checked(err)
+	}
 }

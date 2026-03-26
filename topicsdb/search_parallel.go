@@ -107,7 +107,10 @@ func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64
 	it := tt.table.Topic.NewIterator(prefix, uintToBytes(start))
 	defer it.Release()
 	for it.Next() {
-		id := extractLogrecID(it.Key())
+		id, err := extractLogrecID(it.Key())
+		if err != nil {
+			continue
+		}
 		topicCount := bytesToPos(it.Value())
 		rec := newLogrec(id, topicCount)
 

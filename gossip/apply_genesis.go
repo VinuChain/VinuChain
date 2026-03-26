@@ -5,6 +5,7 @@ import (
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/kvdb/batched"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/inter/ibr"
@@ -85,8 +86,12 @@ func (s *Store) WrapTablesAsBatched() (unwrap func()) {
 	unwrapEVM := s.evm.WrapTablesAsBatched()
 	return func() {
 		unwrapEVM()
-		_ = batchedBlocks.Flush()
-		_ = batchedBlockHashes.Flush()
+		if err := batchedBlocks.Flush(); err != nil {
+			log.Error("Failed to flush batched blocks during genesis", "err", err)
+		}
+		if err := batchedBlockHashes.Flush(); err != nil {
+			log.Error("Failed to flush batched block hashes during genesis", "err", err)
+		}
 		s.table = origTables
 	}
 }

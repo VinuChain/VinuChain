@@ -38,7 +38,11 @@ func TestEventPayloadSerialization(t *testing.T) {
 	h := hash.BytesToEvent(bytes.Repeat([]byte{math.MaxUint8}, 32))
 	max.SetParents(hash.Events{hash.Event(h), hash.Event(h), hash.Event(h)})
 	max.SetPayloadHash(hash.Hash(h))
-	max.SetSig(BytesToSignature(bytes.Repeat([]byte{math.MaxUint8}, SigSize)))
+	sig, err := BytesToSignature(bytes.Repeat([]byte{math.MaxUint8}, SigSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	max.SetSig(sig)
 	max.SetExtra(bytes.Repeat([]byte{math.MaxUint8}, 100))
 	max.SetCreationTime(math.MaxUint64)
 	max.SetMedianTime(math.MaxUint64)

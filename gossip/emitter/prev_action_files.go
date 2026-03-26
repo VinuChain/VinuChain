@@ -19,7 +19,7 @@ func openPrevActionFile(path string, isSyncMode bool) *os.File {
 	if isSyncMode {
 		sync = os.O_SYNC
 	}
-	fh, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|sync, 0666)
+	fh, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|sync, 0600)
 	if err != nil {
 		log.Crit("Failed to open event file", "file", path, "err", err)
 	}

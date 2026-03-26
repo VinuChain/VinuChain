@@ -94,9 +94,6 @@ var errInvalidPercentile = errors.New("invalid reward percentile")
 
 func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	res := &feeHistoryResult{}
-	res.Reward = make([][]*hexutil.Big, 0, blockCount)
-	res.BaseFee = make([]*hexutil.Big, 0, blockCount)
-	res.GasUsedRatio = make([]float64, 0, blockCount)
 	res.OldestBlock = (*hexutil.Big)(new(big.Int))
 
 	// validate input parameters
@@ -106,6 +103,9 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.Decim
 	if blockCount > 1024 {
 		blockCount = 1024
 	}
+	res.Reward = make([][]*hexutil.Big, 0, blockCount)
+	res.BaseFee = make([]*hexutil.Big, 0, blockCount)
+	res.GasUsedRatio = make([]float64, 0, blockCount)
 	for i, p := range rewardPercentiles {
 		if p < 0 || p > 100 {
 			return nil, fmt.Errorf("%w: %f", errInvalidPercentile, p)
@@ -567,9 +567,11 @@ func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Byt
 	if sig[crypto.RecoveryIDOffset] != 27 && sig[crypto.RecoveryIDOffset] != 28 {
 		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
 	}
-	sig[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
+	sigCopy := make([]byte, len(sig))
+	copy(sigCopy, sig)
+	sigCopy[crypto.RecoveryIDOffset] -= 27 // Transform yellow paper V from 27/28 to 0/1
 
-	rpk, err := crypto.SigToPub(accounts.TextHash(data), sig)
+	rpk, err := crypto.SigToPub(accounts.TextHash(data), sigCopy)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -710,6 +712,9 @@ type StorageResult struct {
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
 func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
+	if len(storageKeys) > 256 {
+		return nil, fmt.Errorf("too many storage keys: %d > 256", len(storageKeys))
+	}
 	state, _, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
@@ -1504,7 +1509,12 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 	if args.AccessList != nil {
 		prevTracer = vm.NewAccessListTracer(*args.AccessList, args.from(), to, precompiles)
 	}
-	for {
+	const maxAccessListIterations = 10
+	for i := 0; ; i++ {
+		if i >= maxAccessListIterations {
+			accessList := prevTracer.AccessList()
+			return accessList, 0, nil, fmt.Errorf("access list creation did not converge after %d iterations", maxAccessListIterations)
+		}
 		// Retrieve the current access list to expand
 		accessList := prevTracer.AccessList()
 		log.Trace("Creating access list", "input", accessList)
@@ -1650,7 +1660,12 @@ func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, has
 			return nil, err
 		}
 
-		feeRefund := receipt["feeRefund"].(*hexutil.Big)
+		var feeRefund *hexutil.Big
+		if receipt != nil {
+			if fr, ok := receipt["feeRefund"]; ok && fr != nil {
+				feeRefund, _ = fr.(*hexutil.Big)
+			}
+		}
 
 		return newRPCTransaction(tx, header.Hash, blockNumber, index, header.BaseFee, feeRefund), nil
 	}
@@ -1726,10 +1741,10 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	// Assign the effective gas price paid
 	if header.BaseFee == nil {
-		fields["effectiveGasPrice"] = hexutil.Uint64(tx.GasPrice().Uint64())
+		fields["effectiveGasPrice"] = (*hexutil.Big)(tx.GasPrice())
 	} else {
 		gasPrice := new(big.Int).Add(header.BaseFee, tx.EffectiveGasTipValue(header.BaseFee))
-		fields["effectiveGasPrice"] = hexutil.Uint64(gasPrice.Uint64())
+		fields["effectiveGasPrice"] = (*hexutil.Big)(gasPrice)
 	}
 	// Assign receipt status or post state.
 	if len(receipt.PostState) > 0 {
@@ -2051,6 +2066,9 @@ func (api *PublicDebugAPI) SeedHash(ctx context.Context, number uint64) (string,
 // BlocksTransactionTimes returns the map time => number of transactions
 // This data may be used to draw a histogram to calculate a peak TPS of a range of blocks
 func (api *PublicDebugAPI) BlocksTransactionTimes(ctx context.Context, untilBlock rpc.BlockNumber, maxBlocks hexutil.Uint64) (map[hexutil.Uint64]hexutil.Uint, error) {
+	if maxBlocks > 10000 {
+		maxBlocks = 10000
+	}
 
 	until, err := api.b.HeaderByNumber(ctx, untilBlock)
 	if until == nil || err != nil {

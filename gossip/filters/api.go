@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -59,7 +60,7 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		IndexedLogsBlockRangeLimit:   999999999999999999,
+		IndexedLogsBlockRangeLimit:   100000,
 		UnindexedLogsBlockRangeLimit: 100,
 	}
 }
@@ -133,6 +134,12 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	)
 
 	api.filtersMu.Lock()
+	if len(api.filters) >= 1000 {
+		api.filtersMu.Unlock()
+		pendingTxSub.Unsubscribe()
+		log.Warn("Filter limit reached", "limit", 1000)
+		return rpc.ID("")
+	}
 	api.filters[pendingTxSub.ID] = &filter{typ: PendingTransactionsSubscription, deadline: time.NewTimer(deadline), hashes: make([]common.Hash, 0), s: pendingTxSub}
 	api.filtersMu.Unlock()
 
@@ -142,7 +149,9 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 			case ph := <-pendingTxs:
 				api.filtersMu.Lock()
 				if f, found := api.filters[pendingTxSub.ID]; found {
-					f.hashes = append(f.hashes, ph...)
+					if len(f.hashes)+len(ph) <= 10000 {
+						f.hashes = append(f.hashes, ph...)
+					}
 				}
 				api.filtersMu.Unlock()
 			case <-pendingTxSub.Err():
@@ -203,6 +212,12 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	)
 
 	api.filtersMu.Lock()
+	if len(api.filters) >= 1000 {
+		api.filtersMu.Unlock()
+		headerSub.Unsubscribe()
+		log.Warn("Filter limit reached", "limit", 1000)
+		return rpc.ID("")
+	}
 	api.filters[headerSub.ID] = &filter{typ: BlocksSubscription, deadline: time.NewTimer(deadline), hashes: make([]common.Hash, 0), s: headerSub}
 	api.filtersMu.Unlock()
 
@@ -212,7 +227,9 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 			case h := <-headers:
 				api.filtersMu.Lock()
 				if f, found := api.filters[headerSub.ID]; found {
-					f.hashes = append(f.hashes, h.Hash())
+					if len(f.hashes) < 10000 {
+						f.hashes = append(f.hashes, h.Hash())
+					}
 				}
 				api.filtersMu.Unlock()
 			case <-headerSub.Err():
@@ -320,6 +337,11 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 	}
 
 	api.filtersMu.Lock()
+	if len(api.filters) >= 1000 {
+		api.filtersMu.Unlock()
+		logsSub.Unsubscribe()
+		return rpc.ID(""), fmt.Errorf("filter limit reached")
+	}
 	api.filters[logsSub.ID] = &filter{typ: LogsSubscription, crit: crit, deadline: time.NewTimer(deadline), logs: make([]*types.Log, 0), s: logsSub}
 	api.filtersMu.Unlock()
 
@@ -329,7 +351,9 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 			case l := <-logs:
 				api.filtersMu.Lock()
 				if f, found := api.filters[logsSub.ID]; found {
-					f.logs = append(f.logs, l...)
+					if len(f.logs)+len(l) <= 10000 {
+						f.logs = append(f.logs, l...)
+					}
 				}
 				api.filtersMu.Unlock()
 			case <-logsSub.Err():

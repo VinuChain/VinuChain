@@ -1,6 +1,7 @@
 package valkeystore
 
 import (
+	"crypto/ecdsa"
 	"errors"
 
 	"github.com/Fantom-foundation/go-opera/inter/validatorpk"
@@ -65,4 +66,20 @@ func (c *CachedKeystore) Add(pubkey validatorpk.PubKey, key []byte, auth string)
 
 func (c *CachedKeystore) Get(pubkey validatorpk.PubKey, auth string) (*encryption.PrivateKey, error) {
 	return c.backend.Get(pubkey, auth)
+}
+
+func (c *CachedKeystore) Lock(pubkey validatorpk.PubKey) {
+	idx := c.idxOf(pubkey)
+	if key, ok := c.cache[idx]; ok {
+		if key != nil {
+			for i := range key.Bytes {
+				key.Bytes[i] = 0
+			}
+			if ecKey, ok := key.Decoded.(*ecdsa.PrivateKey); ok && ecKey != nil {
+				ecKey.D.SetInt64(0)
+			}
+			key.Decoded = nil
+		}
+		delete(c.cache, idx)
+	}
 }

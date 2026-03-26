@@ -151,7 +151,7 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 	if err != nil {
 		panic(err)
 	}
-	pc.ContractABI = &abi
+	pc.SetContractABI(&abi)
 
 	sealer := blockProc.SealerModule.Start(blockCtx, bs, es)
 	sealing := true

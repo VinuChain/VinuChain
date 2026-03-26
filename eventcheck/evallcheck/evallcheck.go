@@ -30,5 +30,7 @@ func (c *Checker) Enqueue(evs inter.LlrSignedEpochVote, checked func(error)) {
 	}
 
 	// Run heavy check in parallel
-	_ = c.HeavyCheck.Enqueue(evs, checked)
+	if err := c.HeavyCheck.Enqueue(evs, checked); err != nil {
+		checked(err)
+	}
 }

@@ -1,6 +1,7 @@
 package valkeystore
 
 import (
+	"crypto/subtle"
 	"errors"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -50,7 +51,7 @@ func (m *MemKeystore) Get(pubkey validatorpk.PubKey, auth string) (*encryption.P
 	if !m.Has(pubkey) {
 		return nil, ErrNotFound
 	}
-	if m.auth[m.idxOf(pubkey)] != auth {
+	if subtle.ConstantTimeCompare([]byte(m.auth[m.idxOf(pubkey)]), []byte(auth)) != 1 {
 		return nil, errors.New("could not decrypt key with given password")
 	}
 	return m.mem[m.idxOf(pubkey)], nil

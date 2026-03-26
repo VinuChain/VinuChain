@@ -49,6 +49,7 @@ func (em *Emitter) maxGasPowerToUse(e *inter.MutableEventPayload) uint64 {
 			MinEnsuredAlloc:    0,
 			StartupAllocPeriod: 0,
 			MinStartupGas:      0,
+			Podgorica:          rules.Upgrades.Podgorica,
 		})
 
 		gasPowerLeft := e.GasPowerLeft().Min() + estimatedAlloc

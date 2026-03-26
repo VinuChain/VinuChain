@@ -3,6 +3,7 @@ package evmstore
 import (
 	"github.com/Fantom-foundation/lachesis-base/kvdb"
 	"github.com/Fantom-foundation/lachesis-base/kvdb/batched"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 )
@@ -48,9 +49,15 @@ func (s *Store) WrapTablesAsBatched() (unwrap func()) {
 	batchedReceipts := batched.Wrap(s.table.Receipts)
 	s.table.Receipts = batchedReceipts
 	return func() {
-		_ = batchedTxs.Flush()
-		_ = batchedTxPositions.Flush()
-		_ = batchedReceipts.Flush()
+		if err := batchedTxs.Flush(); err != nil {
+			log.Error("Failed to flush batched txs during genesis", "err", err)
+		}
+		if err := batchedTxPositions.Flush(); err != nil {
+			log.Error("Failed to flush batched tx positions during genesis", "err", err)
+		}
+		if err := batchedReceipts.Flush(); err != nil {
+			log.Error("Failed to flush batched receipts during genesis", "err", err)
+		}
 		unwrapLogs()
 		s.table = origTables
 	}

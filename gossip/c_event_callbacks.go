@@ -130,7 +130,8 @@ func (s *Service) switchEpochTo(newEpoch idx.Epoch) {
 		return s.store.GetEvent(id)
 	})
 	// notify event checkers about new validation data
-	s.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(s.store, s.store.GetValidators(), newEpoch, s.store.GetRules().Economy)) // read gaspower check data from disk
+	rules := s.store.GetRules()
+	s.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(s.store, s.store.GetValidators(), newEpoch, rules.Economy, rules.Upgrades.Podgorica)) // read gaspower check data from disk
 	s.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(s.store, newEpoch))
 	// notify about new epoch
 	for _, em := range s.emitters {
