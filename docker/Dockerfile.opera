@@ -13,10 +13,17 @@ RUN make opera
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates && \
+    addgroup -g 1000 opera && \
+    adduser -D -u 1000 -G opera -h /home/opera opera && \
+    mkdir -p /home/opera/.vinuchain && \
+    chown -R opera:opera /home/opera
 
-COPY --from=builder /go/go-opera/build/opera /
+COPY --from=builder /go/go-opera/build/opera /usr/local/bin/opera
 
 EXPOSE 5050 18545 18546 18547 19090
 
-ENTRYPOINT ["/opera"]
+USER opera
+WORKDIR /home/opera
+
+ENTRYPOINT ["opera"]
