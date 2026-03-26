@@ -1,2 +1,5 @@
-opera*.datadir
+*.datadir
 *.log
+password.txt
+pass.txt
+custom_validator_pass.txt
