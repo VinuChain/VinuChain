@@ -1,7 +1,8 @@
 package brstreamleecher
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/big"
 	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/gossip/basestream/basestreamleecher"
@@ -144,7 +145,8 @@ func getSessionID(block idx.Block, try uint32) uint32 {
 }
 
 func (d *Leecher) startSession(candidates []string) {
-	peer := candidates[rand.Intn(len(candidates))]
+	randIdx, _ := crand.Int(crand.Reader, big.NewInt(int64(len(candidates))))
+	peer := candidates[randIdx.Int64()]
 
 	start := d.callback.LowestBlockToFill()
 	end := d.callback.MaxBlockToFill()

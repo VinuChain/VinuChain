@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver"
@@ -76,6 +77,10 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		acc := common.BytesToAddress(input[12:32])
 		input = input[32:]
 		value := new(big.Int).SetBytes(input[:32])
+
+		if value.Cmp(new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)) > 0 {
+			log.Warn("EvmWriter setBalance: unusually large balance", "addr", acc, "value", value)
+		}
 
 		if acc == txCtx.Origin {
 			// Origin balance shouldn't decrease during his transaction

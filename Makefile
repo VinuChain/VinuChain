@@ -26,8 +26,8 @@ test:
 
 .PHONY: coverage
 coverage:
-	go test -coverprofile=cover.prof $$(go list ./... | grep -v '/gossip/contract/' | grep -v '/gossip/emitter/mock' | xargs)
-	go tool cover -func cover.prof | grep -e "^total:"
+	go test -coverprofile=cover.prof $$(go list ./... | grep -v '/gossip/contract/' | grep -v '/gossip/emitter/mock')
+	go tool cover -func cover.prof | tail -n 1
 
 .PHONY: fuzz
 fuzz:

@@ -78,7 +78,10 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		}
 		statedb, err := s.store.evm.StateDB(prev.Root)
 		if err != nil {
-			log.Crit("Failue to re-execute blocks", "err", err)
+			// log.Crit exits without flush — acceptable here because a
+			// corrupt state root during re-execution means the database is
+			// unrecoverable; continuing would produce wrong chain state.
+			log.Crit("Failure to re-execute blocks", "err", err)
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
 
@@ -122,7 +125,10 @@ func spillBlockEvents(store *Store, block *inter.Block, network opera.Rules) (*i
 		id := block.Events[i]
 		e := store.GetEventPayload(id)
 		if e == nil {
-			log.Crit("Block event not found", "event", id.String())
+			// log.Crit exits without flush — acceptable here because a missing
+		// confirmed event indicates store corruption; block assembly cannot
+		// continue with incomplete data.
+		log.Crit("Block event not found", "event", id.String())
 		}
 		fullEvents[i] = e
 		gasPowerUsedSum += e.GasPowerUsed()

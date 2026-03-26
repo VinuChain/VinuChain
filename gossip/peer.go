@@ -56,6 +56,8 @@ type peer struct {
 
 	version uint // Protocol version negotiated
 
+	// knownTxs and knownEvents MUST be created with mapset.NewSet() (thread-safe),
+	// NOT mapset.NewThreadUnsafeSet(), as they are accessed from multiple goroutines.
 	knownTxs            mapset.Set         // Set of transaction hashes known to be known by this peer
 	knownEvents         mapset.Set         // Set of event hashes known to be known by this peer
 	queue               chan broadcastItem // queue of items to send
@@ -86,6 +88,14 @@ func (p *peer) SetProgress(x PeerProgress) {
 	defer p.Unlock()
 
 	p.progress = x
+}
+
+// GetProgress returns a copy of the peer's progress under read lock.
+func (p *peer) GetProgress() PeerProgress {
+	p.RLock()
+	defer p.RUnlock()
+
+	return p.progress
 }
 
 func (p *peer) InterestedIn(h hash.Event) bool {
@@ -150,10 +160,11 @@ func (p *peer) Close() {
 
 // Info gathers and returns a collection of metadata known about a peer.
 func (p *peer) Info() *PeerInfo {
+	progress := p.GetProgress()
 	return &PeerInfo{
 		Version:     p.version,
-		Epoch:       p.progress.Epoch,
-		NumOfBlocks: p.progress.LastBlockIdx,
+		Epoch:       progress.Epoch,
+		NumOfBlocks: progress.LastBlockIdx,
 	}
 }
 

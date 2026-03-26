@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	// FakePassword is used only for fakenet and test validator key encryption. Not used in production.
 	FakePassword = "fakepassword"
 )
 

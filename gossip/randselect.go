@@ -1,8 +1,9 @@
 package gossip
 
 import (
+	crand "crypto/rand"
 	"errors"
-	"math/rand"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -71,7 +72,7 @@ func (w *weightedRandomSelect) choose() wrsItem {
 		if w.root.sumWeight == 0 {
 			return nil
 		}
-		val := rand.Int63n(w.root.sumWeight)
+		val := cryptoRandInt63n(w.root.sumWeight)
 		choice, lastWeight, err := w.root.choose(val)
 		if err != nil {
 			return nil
@@ -80,10 +81,19 @@ func (w *weightedRandomSelect) choose() wrsItem {
 		if weight != lastWeight {
 			w.setWeight(choice, weight)
 		}
-		if weight >= lastWeight || rand.Int63n(lastWeight) < weight {
+		if weight >= lastWeight || cryptoRandInt63n(lastWeight) < weight {
 			return choice
 		}
 	}
+}
+
+func cryptoRandInt63n(n int64) int64 {
+	max := new(big.Int).SetInt64(n)
+	val, err := crand.Int(crand.Reader, max)
+	if err != nil {
+		return 0
+	}
+	return val.Int64()
 }
 
 const wrsBranches = 8 // max number of branches in the wrsNode tree

@@ -1,8 +1,7 @@
 package launcher
 
 import (
-	"crypto/rand"
-	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -76,7 +75,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
-	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
+	port := strconv.Itoa(freePort(t))
 	cli := exec(t,
 		"--fakenet", "0/1", "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
 		"--http", "--http.port", port)
@@ -90,7 +89,7 @@ func TestHTTPAttachWelcome(t *testing.T) {
 }
 
 func TestWSAttachWelcome(t *testing.T) {
-	port := strconv.Itoa(trulyRandInt(1024, 65536)) // Yeah, sometimes this will fail, sorry :P
+	port := strconv.Itoa(freePort(t))
 
 	cli := exec(t,
 		"--fakenet", "0/1", "--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
@@ -135,11 +134,17 @@ To exit, press ctrl-d
 	attach.ExpectExit()
 }
 
-// trulyRandInt generates a crypto random integer used by the console tests to
-// not clash network ports with other tests running cocurrently.
-func trulyRandInt(lo, hi int) int {
-	num, _ := rand.Int(rand.Reader, big.NewInt(int64(hi-lo)))
-	return int(num.Int64()) + lo
+// freePort asks the OS for an available port by binding to :0, reading the
+// assigned port, and closing the listener before returning.
+func freePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to find free port: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port
 }
 
 func genesisStart() string {

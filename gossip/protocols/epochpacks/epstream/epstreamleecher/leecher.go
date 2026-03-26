@@ -1,7 +1,8 @@
 package epstreamleecher
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/big"
 	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/gossip/basestream/basestreamleecher"
@@ -127,7 +128,8 @@ func getSessionID(epoch idx.Epoch, try uint32) uint32 {
 }
 
 func (d *Leecher) startSession(candidates []string) {
-	peer := candidates[rand.Intn(len(candidates))]
+	randIdx, _ := crand.Int(crand.Reader, big.NewInt(int64(len(candidates))))
+	peer := candidates[randIdx.Int64()]
 
 	start := d.callback.LowestEpochToFetch()
 	end := d.callback.MaxEpochToFetch()

@@ -89,8 +89,9 @@ func NewEmitter(
 	config Config,
 	world World,
 ) *Emitter {
-	// Randomize event time to decrease chance of 2 parallel instances emitting event at the same time
-	// It increases the chance of detecting parallel instances
+	// Randomize event time to decrease chance of 2 parallel instances emitting event at the same time.
+	// It increases the chance of detecting parallel instances.
+	// math/rand is acceptable here: this is non-security jitter, not peer selection.
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	config.EmitIntervals = config.EmitIntervals.RandomizeEmitTime(r)
 

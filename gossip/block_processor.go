@@ -97,9 +97,38 @@ func newBlockProcessor(
 	}
 }
 
+// reset zeroes all per-block mutable state so that no field from the previous
+// block leaks into the next invocation. Fields that Begin() unconditionally
+// reassigns (e.g. cBlock, bs, es, statedb) are still reset here for defence
+// in depth — a future refactor that reorders Begin() must not silently inherit
+// stale values.
+func (bp *BlockProcessor) reset() {
+	bp.cBlock = nil
+	bp.bs = iblockproc.BlockState{}
+	bp.es = iblockproc.EpochState{}
+	bp.statedb = nil
+	bp.evmStateReader = nil
+	bp.eventProcessor = nil
+	bp.start = time.Time{}
+	bp.atroposTime = 0
+	bp.atroposDegenerate = false
+	bp.confirmedEvents = nil
+	bp.mpsCheatersMap = nil
+	bp.blockCtx = iblockproc.BlockCtx{}
+	bp.skipBlock = false
+	bp.sealer = nil
+	bp.sealing = false
+	bp.txListener = nil
+	bp.evmProcessor = nil
+	bp.executionStart = time.Time{}
+	bp.preInternalTxs = nil
+	bp.newValidators = nil
+}
+
 // Begin initializes per-block state and returns the ApplyEvent/EndBlock callbacks.
 func (bp *BlockProcessor) Begin(cBlock *lachesis.Block) lachesis.BlockCallbacks {
 	bp.wg.Wait()
+	bp.reset()
 	bp.start = time.Now()
 	bp.cBlock = cBlock
 
@@ -115,6 +144,9 @@ func (bp *BlockProcessor) Begin(cBlock *lachesis.Block) lachesis.BlockCallbacks 
 	// Get stateDB
 	statedb, err := bp.store.evm.StateDB(bp.bs.FinalizedStateRoot)
 	if err != nil {
+		// log.Crit exits without flush — acceptable here because a missing
+		// state root means the on-disk state is corrupted and no further
+		// blocks can be processed; an unclean exit is the safest outcome.
 		log.Crit("Failed to open StateDB", "err", err)
 	}
 	bp.statedb = statedb
@@ -303,7 +335,23 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 			Height:   bp.blockCtx.Idx + 1,
 		})
 	}
-	// Apply SFC V2 bytecode upgrade when the flag activates
+	// SFC V2 bytecode upgrade ordering
+	//
+	// This upgrade runs after pre-internal txs (which executed against V1)
+	// but before post-internal txs and user txs in the same block. Within
+	// a single epoch-sealing block the execution timeline is:
+	//
+	//   1. Pre-internal txs   → executed against SFC V1 bytecode
+	//   2. SealEpoch          → new rules take effect, V2 bytecode installed here
+	//   3. Post-internal txs  → executed against SFC V2 bytecode
+	//   4. User txs           → executed against SFC V2 bytecode
+	//
+	// This is safe provided V2 is backward-compatible with the state left by
+	// V1 pre-internal calls in step 1. Specifically, V2 must not reinterpret
+	// storage slots written by V1, must accept the same delegation/staking
+	// state shape, and must not change function selectors used by the driver
+	// in post-internal transactions. Any V2 candidate that breaks these
+	// invariants would corrupt in-block state.
 	if bp.es.Rules.Upgrades.SfcV2 && !prevUpg.SfcV2 {
 		log.Info("Applying SFC V2 bytecode upgrade", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
@@ -482,12 +530,18 @@ func (bp *BlockProcessor) dispatchBlock() {
 			defer bp.wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
+					// log.Crit exits without flush — acceptable here because a panic
+				// in block processing indicates corrupted consensus state; the
+				// node cannot safely continue.
+				log.Crit("Panic in block processing", "err", r, "stack", string(debug.Stack()))
 				}
 			}()
 			bp.processBlock()
 		})
 		if err != nil {
+			// log.Crit exits without flush — acceptable here because the
+			// worker pool is full or shut down; block processing cannot
+			// proceed and the node must terminate.
 			log.Crit("Failed to enqueue block processing", "err", err)
 		}
 	} else {

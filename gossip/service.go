@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/protocols/snap"
-	"github.com/ethereum/go-ethereum/event"
 	notify "github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -136,7 +135,7 @@ type Service struct {
 	eventBusyFlag uint32
 
 	feed     ServiceFeed
-	eventMux *event.TypeMux
+	eventMux *notify.TypeMux
 
 	gpo *gasprice.Oracle
 
@@ -187,9 +186,12 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 }
 
 func cryptoRandIntn(n int) int {
+	if n <= 0 {
+		return 0
+	}
 	var b [8]byte
 	if _, err := crand.Read(b[:]); err != nil {
-		panic("crypto/rand unavailable: " + err.Error())
+		log.Crit("crypto/rand unavailable", "err", err)
 	}
 	return int(binary.BigEndian.Uint64(b[:])>>1) % n
 }

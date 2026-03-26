@@ -1,34 +1,23 @@
 package gossip
 
 import (
-	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/gossip/dagprocessor"
 	"github.com/Fantom-foundation/lachesis-base/gossip/itemsfetcher"
-	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/dag"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/utils/datasemaphore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	notify "github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover/discfilter"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 
 	"github.com/Fantom-foundation/go-opera/eventcheck"
-	"github.com/Fantom-foundation/go-opera/eventcheck/bvallcheck"
-	"github.com/Fantom-foundation/go-opera/eventcheck/epochcheck"
-	"github.com/Fantom-foundation/go-opera/eventcheck/evallcheck"
-	"github.com/Fantom-foundation/go-opera/eventcheck/heavycheck"
-	"github.com/Fantom-foundation/go-opera/eventcheck/parentlesscheck"
 	"github.com/Fantom-foundation/go-opera/evmcore"
 	"github.com/Fantom-foundation/go-opera/gossip/protocols/blockrecords/brprocessor"
 	"github.com/Fantom-foundation/go-opera/gossip/protocols/blockrecords/brstream"
@@ -171,7 +160,7 @@ type handler struct {
 	emittedEventsSub     notify.Subscription
 	newEpochsCh          chan idx.Epoch
 	newEpochsSub         notify.Subscription
-	quitProgressBradcast chan struct{}
+	quitProgressBroadcast chan struct{}
 
 	// channels for syncer, txsyncLoop
 	txsyncCh chan *txsync
@@ -214,7 +203,7 @@ func newHandler(
 		engineMu:             c.engineMu,
 		txsyncCh:             make(chan *txsync),
 		quitSync:             make(chan struct{}),
-		quitProgressBradcast: make(chan struct{}),
+		quitProgressBroadcast: make(chan struct{}),
 
 		snapState: snapsyncState{
 			updatesCh: make(chan snapsyncStateUpd, 128),
@@ -285,7 +274,7 @@ func newHandler(
 			if p == nil || p.Useless() {
 				return 0
 			}
-			return p.progress.Epoch
+			return p.GetProgress().Epoch
 		},
 	})
 	h.dagSeeder = dagstreamseeder.New(h.config.Protocol.DagStreamSeeder, dagstreamseeder.Callbacks{
@@ -321,7 +310,7 @@ func newHandler(
 			if p == nil || p.Useless() {
 				return 0
 			}
-			return p.progress.LastBlockIdx
+			return p.GetProgress().LastBlockIdx
 		},
 	})
 	h.bvSeeder = bvstreamseeder.New(h.config.Protocol.BvStreamSeeder, bvstreamseeder.Callbacks{
@@ -362,7 +351,7 @@ func newHandler(
 			if p == nil || p.Useless() {
 				return 0
 			}
-			return p.progress.LastBlockIdx
+			return p.GetProgress().LastBlockIdx
 		},
 	})
 	h.brSeeder = brstreamseeder.New(h.config.Protocol.BrStreamSeeder, brstreamseeder.Callbacks{
@@ -400,7 +389,7 @@ func newHandler(
 			if p == nil || p.Useless() {
 				return 0
 			}
-			return p.progress.Epoch
+			return p.GetProgress().Epoch
 		},
 	})
 	h.epSeeder = epstreamseeder.New(h.config.Protocol.EpStreamSeeder, epstreamseeder.Callbacks{
@@ -417,213 +406,6 @@ func (h *handler) peerMisbehaviour(peer string, err error) bool {
 		return true
 	}
 	return false
-}
-
-func (h *handler) makeDagProcessor(checkers *eventcheck.Checkers) *dagprocessor.Processor {
-	// checkers
-	lightCheck := func(e dag.Event) (retErr error) {
-		defer func() {
-			if r := recover(); r != nil {
-				retErr = fmt.Errorf("type assertion failed in lightCheck: %v", r)
-			}
-		}()
-		if h.store.GetEpoch() != e.ID().Epoch() {
-			return epochcheck.ErrNotRelevant
-		}
-		if h.dagProcessor.IsBuffered(e.ID()) {
-			return eventcheck.ErrDuplicateEvent
-		}
-		if h.store.HasEvent(e.ID()) {
-			return eventcheck.ErrAlreadyConnectedEvent
-		}
-		if err := checkers.Basiccheck.Validate(e.(inter.EventPayloadI)); err != nil {
-			return err
-		}
-		if err := checkers.Epochcheck.Validate(e.(inter.EventPayloadI)); err != nil {
-			return err
-		}
-		return nil
-	}
-	bufferedCheck := func(_e dag.Event, _parents dag.Events) (retErr error) {
-		defer func() {
-			if r := recover(); r != nil {
-				retErr = fmt.Errorf("type assertion failed in bufferedCheck: %v", r)
-			}
-		}()
-		e := _e.(inter.EventI)
-		parents := make(inter.EventIs, len(_parents))
-		for i := range _parents {
-			parents[i] = _parents[i].(inter.EventI)
-		}
-		var selfParent inter.EventI
-		if e.SelfParent() != nil {
-			selfParent = parents[0].(inter.EventI)
-		}
-		if err := checkers.Parentscheck.Validate(e, parents); err != nil {
-			return err
-		}
-		if err := checkers.Gaspowercheck.Validate(e, selfParent); err != nil {
-			return err
-		}
-		return nil
-	}
-	parentlessChecker := parentlesscheck.Checker{
-		HeavyCheck: &heavycheck.EventsOnly{Checker: checkers.Heavycheck},
-		LightCheck: lightCheck,
-	}
-	newProcessor := dagprocessor.New(datasemaphore.New(h.config.Protocol.EventsSemaphoreLimit, getSemaphoreWarningFn("DAG events")), h.config.Protocol.DagProcessor, dagprocessor.Callback{
-		// DAG callbacks
-		Event: dagprocessor.EventCallback{
-			Process: func(_e dag.Event) error {
-				e := _e.(*inter.EventPayload)
-				preStart := time.Now()
-				h.engineMu.Lock()
-				defer h.engineMu.Unlock()
-
-				err := h.process.Event(e)
-				if err != nil {
-					return err
-				}
-
-				// event is connected, announce it
-				passedSinceEvent := preStart.Sub(e.CreationTime().Time())
-				h.BroadcastEvent(e, passedSinceEvent)
-
-				return nil
-			},
-			Released: func(e dag.Event, peer string, err error) {
-				if eventcheck.IsBan(err) {
-					log.Warn("Incoming event rejected", "event", e.ID().String(), "creator", e.Creator(), "err", err)
-					h.removePeer(peer)
-				}
-			},
-
-			Exists: func(id hash.Event) bool {
-				return h.store.HasEvent(id)
-			},
-
-			Get: func(id hash.Event) dag.Event {
-				e := h.store.GetEventPayload(id)
-				if e == nil {
-					return nil
-				}
-				return e
-			},
-
-			CheckParents:    bufferedCheck,
-			CheckParentless: parentlessChecker.Enqueue,
-		},
-		HighestLamport: h.store.GetHighestLamport,
-	})
-
-	return newProcessor
-}
-
-func (h *handler) makeBvProcessor(checkers *eventcheck.Checkers) *bvprocessor.Processor {
-	// checkers
-	lightCheck := func(bvs inter.LlrSignedBlockVotes) error {
-		if h.store.HasBlockVotes(bvs.Val.Epoch, bvs.Val.LastBlock(), bvs.Signed.Locator.ID()) {
-			return eventcheck.ErrAlreadyProcessedBVs
-		}
-		return checkers.Basiccheck.ValidateBVs(bvs)
-	}
-	allChecker := bvallcheck.Checker{
-		HeavyCheck: &heavycheck.BVsOnly{Checker: checkers.Heavycheck},
-		LightCheck: lightCheck,
-	}
-	return bvprocessor.New(datasemaphore.New(h.config.Protocol.BVsSemaphoreLimit, getSemaphoreWarningFn("BVs")), h.config.Protocol.BvProcessor, bvprocessor.Callback{
-		// DAG callbacks
-		Item: bvprocessor.ItemCallback{
-			Process: h.process.BVs,
-			Released: func(bvs inter.LlrSignedBlockVotes, peer string, err error) {
-				if eventcheck.IsBan(err) {
-					log.Warn("Incoming BVs rejected", "BVs", bvs.Signed.Locator.ID(), "creator", bvs.Signed.Locator.Creator, "err", err)
-					h.removePeer(peer)
-				}
-			},
-			Check: allChecker.Enqueue,
-		},
-	})
-}
-
-func (h *handler) makeBrProcessor() *brprocessor.Processor {
-	// checkers
-	return brprocessor.New(datasemaphore.New(h.config.Protocol.BVsSemaphoreLimit, getSemaphoreWarningFn("BR")), h.config.Protocol.BrProcessor, brprocessor.Callback{
-		// DAG callbacks
-		Item: brprocessor.ItemCallback{
-			Process: h.process.BR,
-			Released: func(br ibr.LlrIdxFullBlockRecord, peer string, err error) {
-				if eventcheck.IsBan(err) {
-					log.Warn("Incoming BR rejected", "block", br.Idx, "err", err)
-					h.removePeer(peer)
-				}
-			},
-		},
-	})
-}
-
-func (h *handler) makeEpProcessor(checkers *eventcheck.Checkers) *epprocessor.Processor {
-	// checkers
-	lightCheck := func(ev inter.LlrSignedEpochVote) error {
-		if h.store.HasEpochVote(ev.Val.Epoch, ev.Signed.Locator.ID()) {
-			return eventcheck.ErrAlreadyProcessedEV
-		}
-		return checkers.Basiccheck.ValidateEV(ev)
-	}
-	allChecker := evallcheck.Checker{
-		HeavyCheck: &heavycheck.EVOnly{Checker: checkers.Heavycheck},
-		LightCheck: lightCheck,
-	}
-	// checkers
-	return epprocessor.New(datasemaphore.New(h.config.Protocol.BVsSemaphoreLimit, getSemaphoreWarningFn("BR")), h.config.Protocol.EpProcessor, epprocessor.Callback{
-		// DAG callbacks
-		Item: epprocessor.ItemCallback{
-			ProcessEV: h.process.EV,
-			ProcessER: h.process.ER,
-			ReleasedEV: func(ev inter.LlrSignedEpochVote, peer string, err error) {
-				if eventcheck.IsBan(err) {
-					log.Warn("Incoming EV rejected", "event", ev.Signed.Locator.ID(), "creator", ev.Signed.Locator.Creator, "err", err)
-					h.removePeer(peer)
-				}
-			},
-			ReleasedER: func(er ier.LlrIdxFullEpochRecord, peer string, err error) {
-				if eventcheck.IsBan(err) {
-					log.Warn("Incoming ER rejected", "epoch", er.Idx, "err", err)
-					h.removePeer(peer)
-				}
-			},
-			CheckEV: allChecker.Enqueue,
-		},
-	})
-}
-
-func (h *handler) isEventInterested(id hash.Event, epoch idx.Epoch) bool {
-	if id.Epoch() != epoch {
-		return false
-	}
-
-	if h.dagProcessor.IsBuffered(id) || h.store.HasEvent(id) {
-		return false
-	}
-	return true
-}
-
-func (h *handler) onlyInterestedEventsI(ids []interface{}) []interface{} {
-	if len(ids) == 0 {
-		return ids
-	}
-	epoch := h.store.GetEpoch()
-	interested := make([]interface{}, 0, len(ids))
-	for _, id := range ids {
-		eid, ok := id.(hash.Event)
-		if !ok {
-			continue
-		}
-		if h.isEventInterested(eid, epoch) {
-			interested = append(interested, id)
-		}
-	}
-	return interested
 }
 
 func (h *handler) removePeer(id string) {
@@ -735,7 +517,7 @@ func (h *handler) Stop() {
 	h.txFetcher.Stop()
 	h.dagFetcher.Stop()
 
-	close(h.quitProgressBradcast)
+	close(h.quitProgressBroadcast)
 	close(h.snapState.quit)
 	h.txsSub.Unsubscribe() // quits txBroadcastLoop
 	if h.notifier != nil {
@@ -774,17 +556,6 @@ func (h *handler) myProgress() PeerProgress {
 	}
 }
 
-func (h *handler) highestPeerProgress() PeerProgress {
-	peers := h.peers.List()
-	max := h.myProgress()
-	for _, peer := range peers {
-		if max.LastBlockIdx < peer.progress.LastBlockIdx {
-			max = peer.progress
-		}
-	}
-	return max
-}
-
 // handle is the callback invoked to manage the life cycle of a peer. When
 // this function terminates, the peer is disconnected.
 func (h *handler) handle(p *peer) error {
@@ -799,10 +570,6 @@ func (h *handler) handle(p *peer) error {
 	if !useless && (!eligibleForSnap(p.Peer) || !strings.Contains(strings.ToLower(p.Name()), "opera")) {
 		useless = true
 		discfilter.Ban(p.ID())
-	}
-	if !p.Peer.Info().Network.Trusted && useless && h.peers.UselessNum() >= h.maxPeers/10 {
-		// don't allow more than 10% of useless peers
-		return p2p.DiscTooManyPeers
 	}
 	if !p.Peer.Info().Network.Trusted && useless {
 		if h.peers.UselessNum() >= h.maxPeers/10 {
@@ -874,659 +641,6 @@ func (h *handler) handle(p *peer) error {
 		if err := h.handleMsg(p); err != nil {
 			p.Log().Debug("Message handling failed", "err", err)
 			return err
-		}
-	}
-}
-
-func interfacesToEventIDs(ids []interface{}) hash.Events {
-	res := make(hash.Events, 0, len(ids))
-	for _, id := range ids {
-		eid, ok := id.(hash.Event)
-		if !ok {
-			continue
-		}
-		res = append(res, eid)
-	}
-	return res
-}
-
-func eventIDsToInterfaces(ids hash.Events) []interface{} {
-	res := make([]interface{}, len(ids))
-	for i, id := range ids {
-		res[i] = id
-	}
-	return res
-}
-
-func interfacesToTxids(ids []interface{}) []common.Hash {
-	res := make([]common.Hash, 0, len(ids))
-	for _, id := range ids {
-		txid, ok := id.(common.Hash)
-		if !ok {
-			continue
-		}
-		res = append(res, txid)
-	}
-	return res
-}
-
-func txidsToInterfaces(ids []common.Hash) []interface{} {
-	res := make([]interface{}, len(ids))
-	for i, id := range ids {
-		res[i] = id
-	}
-	return res
-}
-
-func (h *handler) handleTxHashes(p *peer, announces []common.Hash) {
-	// Mark the hashes as present at the remote node
-	for _, id := range announces {
-		p.MarkTransaction(id)
-	}
-	// Schedule all the unknown hashes for retrieval
-	requestTransactions := func(ids []interface{}) error {
-		return p.RequestTransactions(interfacesToTxids(ids))
-	}
-	_ = h.txFetcher.NotifyAnnounces(p.id, txidsToInterfaces(announces), time.Now(), requestTransactions)
-}
-
-func (h *handler) handleTxs(p *peer, txs types.Transactions) {
-	// Mark the hashes as present at the remote node
-	for _, tx := range txs {
-		p.MarkTransaction(tx.Hash())
-	}
-	h.txpool.AddRemotes(txs)
-}
-
-func (h *handler) handleEventHashes(p *peer, announces hash.Events) {
-	// Mark the hashes as present at the remote node
-	for _, id := range announces {
-		p.MarkEvent(id)
-	}
-	// filter too high IDs
-	notTooHigh := make(hash.Events, 0, len(announces))
-	sessionCfg := h.config.Protocol.DagStreamLeecher.Session
-	for _, id := range announces {
-		maxLamport := h.store.GetHighestLamport() + idx.Lamport(sessionCfg.DefaultChunkItemsNum+1)*idx.Lamport(sessionCfg.ParallelChunksDownload)
-		if id.Lamport() <= maxLamport {
-			notTooHigh = append(notTooHigh, id)
-		}
-	}
-	if len(announces) != len(notTooHigh) {
-		h.dagLeecher.ForceSyncing()
-	}
-	if len(notTooHigh) == 0 {
-		return
-	}
-	// Schedule all the unknown hashes for retrieval
-	requestEvents := func(ids []interface{}) error {
-		return p.RequestEvents(interfacesToEventIDs(ids))
-	}
-	_ = h.dagFetcher.NotifyAnnounces(p.id, eventIDsToInterfaces(notTooHigh), time.Now(), requestEvents)
-}
-
-func (h *handler) handleEvents(p *peer, events dag.Events, ordered bool) {
-	// Mark the hashes as present at the remote node
-	for _, e := range events {
-		p.MarkEvent(e.ID())
-	}
-	// filter too high events
-	notTooHigh := make(dag.Events, 0, len(events))
-	sessionCfg := h.config.Protocol.DagStreamLeecher.Session
-	now := time.Now()
-	for _, e := range events {
-		maxLamport := h.store.GetHighestLamport() + idx.Lamport(sessionCfg.DefaultChunkItemsNum+1)*idx.Lamport(sessionCfg.ParallelChunksDownload)
-		if e.Lamport() <= maxLamport {
-			notTooHigh = append(notTooHigh, e)
-		}
-		if ei, ok := e.(inter.EventI); ok {
-			if now.Sub(ei.CreationTime().Time()) < 10*time.Minute {
-				h.syncStatus.MarkMaybeSynced()
-			}
-		}
-	}
-	if len(events) != len(notTooHigh) {
-		h.dagLeecher.ForceSyncing()
-	}
-	if len(notTooHigh) == 0 {
-		return
-	}
-	// Schedule all the events for connection
-	peer := *p
-	requestEvents := func(ids []interface{}) error {
-		return peer.RequestEvents(interfacesToEventIDs(ids))
-	}
-	notifyAnnounces := func(ids hash.Events) {
-		_ = h.dagFetcher.NotifyAnnounces(peer.id, eventIDsToInterfaces(ids), now, requestEvents)
-	}
-	_ = h.dagProcessor.Enqueue(peer.id, notTooHigh, ordered, notifyAnnounces, nil)
-}
-
-// handleMsg is invoked whenever an inbound message is received from a remote
-// peer. The remote connection is torn down upon returning any error.
-func (h *handler) handleMsg(p *peer) error {
-	// Read the next message from the remote peer, and ensure it's fully consumed
-	msg, err := p.rw.ReadMsg()
-	if err != nil {
-		return err
-	}
-	if msg.Size > protocolMaxMsgSize {
-		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
-	}
-	defer msg.Discard()
-	// Acquire semaphore for serialized messages
-	eventsSizeEst := dag.Metric{
-		Num:  1,
-		Size: uint64(msg.Size),
-	}
-	if !h.msgSemaphore.Acquire(eventsSizeEst, h.config.Protocol.MsgsSemaphoreTimeout) {
-		h.Log.Warn("Failed to acquire semaphore for p2p message", "size", msg.Size, "peer", p.id)
-		return nil
-	}
-	defer h.msgSemaphore.Release(eventsSizeEst)
-
-	// Handle the message depending on its contents
-	switch {
-	case msg.Code == HandshakeMsg:
-		// Status messages should never arrive after the handshake
-		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
-
-	case msg.Code == ProgressMsg:
-		var progress PeerProgress
-		if err := msg.Decode(&progress); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		p.SetProgress(progress)
-
-	case msg.Code == EvmTxsMsg:
-		// Transactions arrived, make sure we have a valid and fresh graph to handle them
-		if !h.syncStatus.AcceptTxs() {
-			break
-		}
-		// Transactions can be processed, parse all of them and deliver to the pool
-		var txs types.Transactions
-		if err := msg.Decode(&txs); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(txs), txs); err != nil {
-			return err
-		}
-		txids := make([]interface{}, txs.Len())
-		for i, tx := range txs {
-			txids[i] = tx.Hash()
-		}
-		_ = h.txFetcher.NotifyReceived(txids)
-		h.handleTxs(p, txs)
-
-	case msg.Code == NewEvmTxHashesMsg:
-		// Transactions arrived, make sure we have a valid and fresh graph to handle them
-		if !h.syncStatus.AcceptTxs() {
-			break
-		}
-		// Transactions can be processed, parse all of them and deliver to the pool
-		var txHashes []common.Hash
-		if err := msg.Decode(&txHashes); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(txHashes), txHashes); err != nil {
-			return err
-		}
-		h.handleTxHashes(p, txHashes)
-
-	case msg.Code == GetEvmTxsMsg:
-		var requests []common.Hash
-		if err := msg.Decode(&requests); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(requests), requests); err != nil {
-			return err
-		}
-
-		txs := make(types.Transactions, 0, len(requests))
-		for _, txid := range requests {
-			tx := h.txpool.Get(txid)
-			if tx == nil {
-				continue
-			}
-			txs = append(txs, tx)
-		}
-		SplitTransactions(txs, func(batch types.Transactions) {
-			p.EnqueueSendTransactions(batch, p.queue)
-		})
-
-	case msg.Code == EventsMsg:
-		if !h.syncStatus.AcceptEvents() {
-			break
-		}
-
-		var events inter.EventPayloads
-		if err := msg.Decode(&events); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(events), events); err != nil {
-			return err
-		}
-		_ = h.dagFetcher.NotifyReceived(eventIDsToInterfaces(events.IDs()))
-		h.handleEvents(p, events.Bases(), events.Len() > 1)
-
-	case msg.Code == NewEventIDsMsg:
-		// Fresh events arrived, make sure we have a valid and fresh graph to handle them
-		if !h.syncStatus.AcceptEvents() {
-			break
-		}
-		var announces hash.Events
-		if err := msg.Decode(&announces); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(announces), announces); err != nil {
-			return err
-		}
-		h.handleEventHashes(p, announces)
-
-	case msg.Code == GetEventsMsg:
-		var requests hash.Events
-		if err := msg.Decode(&requests); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(requests), requests); err != nil {
-			return err
-		}
-
-		rawEvents := make([]rlp.RawValue, 0, len(requests))
-		ids := make(hash.Events, 0, len(requests))
-		size := 0
-		for _, id := range requests {
-			if raw := h.store.GetEventPayloadRLP(id); raw != nil {
-				rawEvents = append(rawEvents, raw)
-				ids = append(ids, id)
-				size += len(raw)
-			} else {
-				h.Log.Debug("requested event not found", "hash", id)
-			}
-			if size >= softResponseLimitSize {
-				break
-			}
-		}
-		if len(rawEvents) != 0 {
-			p.EnqueueSendEventsRLP(rawEvents, ids, p.queue)
-		}
-
-	case msg.Code == RequestEventsStream:
-		var request dagstream.Request
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if request.Limit.Num > hardLimitItems-1 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-		if request.Limit.Size > protocolMaxMsgSize*2/3 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-
-		pid := p.id
-		_, peerErr := h.dagSeeder.NotifyRequestReceived(dagstreamseeder.Peer{
-			ID:        pid,
-			SendChunk: p.SendEventsStream,
-			Misbehaviour: func(err error) {
-				h.peerMisbehaviour(pid, err)
-			},
-		}, request)
-		if peerErr != nil {
-			return peerErr
-		}
-
-	case msg.Code == EventsStreamResponse:
-		if !h.syncStatus.AcceptEvents() {
-			break
-		}
-
-		var chunk dagChunk
-		if err := msg.Decode(&chunk); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(chunk.Events)+len(chunk.IDs)+1, chunk); err != nil {
-			return err
-		}
-
-		if (len(chunk.Events) != 0) && (len(chunk.IDs) != 0) {
-			return errors.New("expected either events or event hashes")
-		}
-		var last hash.Event
-		if len(chunk.IDs) != 0 {
-			h.handleEventHashes(p, chunk.IDs)
-			last = chunk.IDs[len(chunk.IDs)-1]
-		}
-		if len(chunk.Events) != 0 {
-			h.handleEvents(p, chunk.Events.Bases(), true)
-			last = chunk.Events[len(chunk.Events)-1].ID()
-		}
-
-		_ = h.dagLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
-
-	case msg.Code == RequestBVsStream:
-		var request bvstream.Request
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if request.Limit.Num > hardLimitItems-1 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-		if request.Limit.Size > protocolMaxMsgSize*2/3 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-
-		pid := p.id
-		_, peerErr := h.bvSeeder.NotifyRequestReceived(bvstreamseeder.Peer{
-			ID:        pid,
-			SendChunk: p.SendBVsStream,
-			Misbehaviour: func(err error) {
-				h.peerMisbehaviour(pid, err)
-			},
-		}, request)
-		if peerErr != nil {
-			return peerErr
-		}
-
-	case msg.Code == BVsStreamResponse:
-		var chunk bvsChunk
-		if err := msg.Decode(&chunk); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(chunk.BVs)+1, chunk); err != nil {
-			return err
-		}
-
-		var last bvstreamleecher.BVsID
-		if len(chunk.BVs) != 0 {
-			_ = h.bvProcessor.Enqueue(p.id, chunk.BVs, nil)
-			last = bvstreamleecher.BVsID{
-				Epoch:     chunk.BVs[len(chunk.BVs)-1].Val.Epoch,
-				LastBlock: chunk.BVs[len(chunk.BVs)-1].Val.LastBlock(),
-				ID:        chunk.BVs[len(chunk.BVs)-1].Signed.Locator.ID(),
-			}
-		}
-
-		_ = h.bvLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
-
-	case msg.Code == RequestBRsStream:
-		var request brstream.Request
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if request.Limit.Num > hardLimitItems-1 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-		if request.Limit.Size > protocolMaxMsgSize*2/3 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-
-		pid := p.id
-		_, peerErr := h.brSeeder.NotifyRequestReceived(brstreamseeder.Peer{
-			ID:        pid,
-			SendChunk: p.SendBRsStream,
-			Misbehaviour: func(err error) {
-				h.peerMisbehaviour(pid, err)
-			},
-		}, request)
-		if peerErr != nil {
-			return peerErr
-		}
-
-	case msg.Code == BRsStreamResponse:
-		if !h.syncStatus.AcceptBlockRecords() {
-			break
-		}
-
-		msgSize := uint64(msg.Size)
-		var chunk brsChunk
-		if err := msg.Decode(&chunk); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(chunk.BRs)+1, chunk); err != nil {
-			return err
-		}
-
-		var last idx.Block
-		if len(chunk.BRs) != 0 {
-			_ = h.brProcessor.Enqueue(p.id, chunk.BRs, msgSize, nil)
-			last = chunk.BRs[len(chunk.BRs)-1].Idx
-		}
-
-		_ = h.brLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
-
-	case msg.Code == RequestEPsStream:
-		var request epstream.Request
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if request.Limit.Num > hardLimitItems-1 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-		if request.Limit.Size > protocolMaxMsgSize*2/3 {
-			return errResp(ErrMsgTooLarge, "%v", msg)
-		}
-
-		pid := p.id
-		_, peerErr := h.epSeeder.NotifyRequestReceived(epstreamseeder.Peer{
-			ID:        pid,
-			SendChunk: p.SendEPsStream,
-			Misbehaviour: func(err error) {
-				h.peerMisbehaviour(pid, err)
-			},
-		}, request)
-		if peerErr != nil {
-			return peerErr
-		}
-
-	case msg.Code == EPsStreamResponse:
-		msgSize := uint64(msg.Size)
-		var chunk epsChunk
-		if err := msg.Decode(&chunk); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if err := checkLenLimits(len(chunk.EPs)+1, chunk); err != nil {
-			return err
-		}
-
-		var last idx.Epoch
-		if len(chunk.EPs) != 0 {
-			_ = h.epProcessor.Enqueue(p.id, chunk.EPs, msgSize, nil)
-			last = chunk.EPs[len(chunk.EPs)-1].Record.Idx
-		}
-
-		_ = h.epLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
-
-	default:
-		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
-	}
-	return nil
-}
-
-func (h *handler) decideBroadcastAggressiveness(size int, passed time.Duration, peersNum int) int {
-	percents := 100
-	maxPercents := 1000000 * percents
-	latencyVsThroughputTradeoff := maxPercents
-	cfg := h.config.Protocol
-	if cfg.ThroughputImportance != 0 {
-		latencyVsThroughputTradeoff = (cfg.LatencyImportance * percents) / cfg.ThroughputImportance
-	}
-
-	broadcastCost := passed * time.Duration(128+size) / 128
-	broadcastAllCostTarget := time.Duration(latencyVsThroughputTradeoff) * (700 * time.Millisecond) / time.Duration(percents)
-	broadcastSqrtCostTarget := broadcastAllCostTarget * 10
-
-	fullRecipients := 0
-	if latencyVsThroughputTradeoff >= maxPercents {
-		// edge case
-		fullRecipients = peersNum
-	} else if latencyVsThroughputTradeoff <= 0 {
-		// edge case
-		fullRecipients = 0
-	} else if broadcastCost <= broadcastAllCostTarget {
-		// if event is small or was created recently, always send to everyone full event
-		fullRecipients = peersNum
-	} else if broadcastCost <= broadcastSqrtCostTarget || passed == 0 {
-		// if event is big but was created recently, send full event to subset of peers
-		fullRecipients = int(math.Sqrt(float64(peersNum)))
-		if fullRecipients < 4 {
-			fullRecipients = 4
-		}
-	}
-	if fullRecipients > peersNum {
-		fullRecipients = peersNum
-	}
-	return fullRecipients
-}
-
-// BroadcastEvent will either propagate a event to a subset of it's peers, or
-// will only announce it's availability (depending what's requested).
-func (h *handler) BroadcastEvent(event *inter.EventPayload, passed time.Duration) int {
-	if passed < 0 {
-		passed = 0
-	}
-	id := event.ID()
-	peers := h.peers.PeersWithoutEvent(id)
-	if len(peers) == 0 {
-		log.Trace("Event is already known to all peers", "hash", id)
-		return 0
-	}
-
-	fullRecipients := h.decideBroadcastAggressiveness(event.Size(), passed, len(peers))
-
-	// Exclude low quality peers from fullBroadcast
-	var fullBroadcast = make([]*peer, 0, fullRecipients)
-	var hashBroadcast = make([]*peer, 0, len(peers))
-	for _, p := range peers {
-		if !p.Useless() && len(fullBroadcast) < fullRecipients {
-			fullBroadcast = append(fullBroadcast, p)
-		} else {
-			hashBroadcast = append(hashBroadcast, p)
-		}
-	}
-	for _, peer := range fullBroadcast {
-		peer.AsyncSendEvents(inter.EventPayloads{event}, peer.queue)
-	}
-	// Broadcast of event hash to the rest peers
-	for _, peer := range hashBroadcast {
-		peer.AsyncSendEventIDs(hash.Events{event.ID()}, peer.queue)
-	}
-	log.Trace("Broadcast event", "hash", id, "fullRecipients", len(fullBroadcast), "hashRecipients", len(hashBroadcast))
-	return len(peers)
-}
-
-// BroadcastTxs will propagate a batch of transactions to all peers which are not known to
-// already have the given transaction.
-func (h *handler) BroadcastTxs(txs types.Transactions) {
-	totalSize := common.StorageSize(0)
-	for _, tx := range txs {
-		totalSize += tx.Size()
-	}
-
-	peers := h.peers.List()
-	fullRecipients := h.decideBroadcastAggressiveness(int(totalSize), time.Second, len(peers))
-	fullSent := 0
-	for _, p := range peers {
-		var peerTxs types.Transactions
-		for _, tx := range txs {
-			if !p.knownTxs.Contains(tx.Hash()) {
-				peerTxs = append(peerTxs, tx)
-			}
-		}
-		if len(peerTxs) == 0 {
-			continue
-		}
-		sendFull := fullSent < fullRecipients
-		SplitTransactions(peerTxs, func(batch types.Transactions) {
-			if sendFull {
-				p.AsyncSendTransactions(batch, p.queue)
-			} else {
-				txids := make([]common.Hash, batch.Len())
-				for j, tx := range batch {
-					txids[j] = tx.Hash()
-				}
-				p.AsyncSendTransactionHashes(txids, p.queue)
-			}
-		})
-		if sendFull {
-			fullSent++
-		}
-	}
-}
-
-// Mined broadcast loop
-func (h *handler) emittedBroadcastLoop() {
-	defer h.loopsWg.Done()
-	for {
-		select {
-		case emitted := <-h.emittedEventsCh:
-			h.BroadcastEvent(emitted, 0)
-		// Err() channel will be closed when unsubscribing.
-		case <-h.emittedEventsSub.Err():
-			return
-		}
-	}
-}
-
-func (h *handler) broadcastProgress() {
-	progress := h.myProgress()
-	for _, peer := range h.peers.List() {
-		peer.AsyncSendProgress(progress, peer.queue)
-	}
-}
-
-// Progress broadcast loop
-func (h *handler) progressBroadcastLoop() {
-	ticker := time.NewTicker(h.config.Protocol.ProgressBroadcastPeriod)
-	defer ticker.Stop()
-	defer h.loopsWg.Done()
-	// automatically stops if unsubscribe
-	for {
-		select {
-		case <-ticker.C:
-			h.broadcastProgress()
-		case <-h.quitProgressBradcast:
-			return
-		}
-	}
-}
-
-func (h *handler) onNewEpochLoop() {
-	defer h.loopsWg.Done()
-	for {
-		select {
-		case myEpoch := <-h.newEpochsCh:
-			h.dagProcessor.Clear()
-			h.dagLeecher.OnNewEpoch(myEpoch)
-		// Err() channel will be closed when unsubscribing.
-		case <-h.newEpochsSub.Err():
-			return
-		}
-	}
-}
-
-func (h *handler) txBroadcastLoop() {
-	ticker := time.NewTicker(h.config.Protocol.RandomTxHashesSendPeriod)
-	defer ticker.Stop()
-	defer h.loopsWg.Done()
-	for {
-		select {
-		case notify := <-h.txsCh:
-			h.BroadcastTxs(notify.Txs)
-
-		// Err() channel will be closed when unsubscribing.
-		case <-h.txsSub.Err():
-			return
-
-		case <-ticker.C:
-			if !h.syncStatus.AcceptTxs() {
-				break
-			}
-			peers := h.peers.List()
-			if len(peers) == 0 {
-				continue
-			}
-			randPeer := peers[cryptoRandIntn(len(peers))]
-			h.syncTransactions(randPeer, h.txpool.SampleHashes(h.config.Protocol.MaxRandomTxHashesSend))
 		}
 	}
 }

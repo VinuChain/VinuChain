@@ -95,6 +95,9 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 		p.onNewLog(l)
 	}, p.paybackCache)
 	if err != nil {
+		// log.Crit exits without flush — acceptable here because an EVM
+		// internal error (distinct from a reverted tx) signals a consensus-
+		// breaking fault; the node must halt to avoid a chain split.
 		log.Crit("EVM internal error", "err", err)
 	}
 
@@ -125,6 +128,9 @@ func (p *OperaEVMProcessor) Finalize() (evmBlock *evmcore.EvmBlock, skippedTxs [
 	// Get state root
 	newStateHash, err := p.statedb.Commit(true)
 	if err != nil {
+		// log.Crit exits without flush — acceptable here because a failed
+		// state commit means the trie is inconsistent; persisting partial
+		// state would corrupt the database.
 		log.Crit("Failed to commit state", "err", err)
 	}
 	evmBlock.Root = newStateHash

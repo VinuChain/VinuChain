@@ -111,7 +111,6 @@ func (s *Store) WriteFullBlockRecord(br ibr.LlrIdxFullBlockRecord) {
 	txHashes := make([]common.Hash, 0, len(br.Txs))
 	for _, tx := range br.Txs {
 		txHashes = append(txHashes, tx.Hash())
-		s.EvmStore().SetTx(tx.Hash(), tx)
 	}
 
 	if len(br.Receipts) != 0 {

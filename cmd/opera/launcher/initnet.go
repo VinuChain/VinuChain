@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"time"
 
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
 	"github.com/Fantom-foundation/go-opera/integration"
@@ -20,8 +19,8 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	cli "gopkg.in/urfave/cli.v1"
-	// "github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
 )
 
 // FakeNetFlag enables special testnet, where validators are automatically created
@@ -62,8 +61,8 @@ func getValidatorsNum(ctx *cli.Context) (num idx.Validator, err error) {
 		return
 	}
 	num = idx.Validator(u32)
-	if num < 0 {
-		err = fmt.Errorf("key-num should be in range from 1 to validators (<key-num>/<validators>), or should be zero for non-validator node")
+	if num == 0 {
+		err = fmt.Errorf("validator count must be at least 1")
 		return
 	}
 	return
@@ -78,7 +77,7 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	if err != nil {
-		utils.Fatalf("Failed to create account: %v", err)
+		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
 	publicKey := validatorpk.PubKey{
@@ -100,13 +99,12 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 	valKeystore := valkeystore.NewDefaultFileRawKeystore(path.Join(getValKeystoreDir(cfg.Node), "validator"))
 	err = valKeystore.Add(publicKey, privateKey, password)
 	if err != nil {
-		utils.Fatalf("Failed to create account: %v", err)
+		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 
-	// Sanity check
 	_, err = valKeystore.Get(publicKey, password)
 	if err != nil {
-		utils.Fatalf("Failed to decrypt the account: %v", err)
+		return nil, fmt.Errorf("failed to decrypt the account: %w", err)
 	}
 
 	fmt.Printf("\nYour new key was generated\n\n")
@@ -177,15 +175,13 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 			PubKey: val.PubKey,
 		}
 
-		fmt.Println("make node with config: ", tmpCfg)
-		time.Sleep(5 * time.Second)
+		log.Debug("creating node", "validator", val.ID)
 		node, _, nodeCloser := makeNode(ctx, tmpCfg, genesisStore)
 
 		defer nodeCloser()
 		fmt.Printf("Node %s created (validator %d)\n", node.Config().P2P.ListenAddr, val.ID)
 		node.Close()
 		node.Wait()
-		time.Sleep(5 * time.Second)
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/inter/dag"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/utils/cachescale"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	"github.com/Fantom-foundation/go-opera/eventcheck/heavycheck"
@@ -99,6 +100,10 @@ type (
 
 		// RPCTimeout is a global time limit for RPC methods execution.
 		RPCTimeout time.Duration
+
+		// MaxConcurrentRPC limits the number of concurrent RPC requests; 0 = unlimited.
+		// For per-IP rate limiting, use a reverse proxy (e.g., nginx, HAProxy).
+		MaxConcurrentRPC int
 
 		// AllowUnprotectedTxs permits pre-EIP-155 transactions without chain ID
 		// protection. Enabling this creates a cross-chain replay vulnerability
@@ -233,6 +238,9 @@ func DefaultConfig(scale cachescale.Func) Config {
 }
 
 func (c *Config) Validate() error {
+	if c.AllowUnprotectedTxs {
+		log.Warn("AllowUnprotectedTxs is enabled — this allows replay-vulnerable transactions")
+	}
 	p := c.Protocol
 	defaultChunkSize := dag.Metric{idx.Event(p.DagStreamLeecher.Session.DefaultChunkItemsNum), p.DagStreamLeecher.Session.DefaultChunkItemsSize}
 	if defaultChunkSize.Num > hardLimitItems-1 {

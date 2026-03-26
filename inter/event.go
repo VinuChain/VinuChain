@@ -284,6 +284,8 @@ func (e *MutableEventPayload) calcHashes() (locator hash.Hash, base hash.Hash) {
 	return calcEventHashes(b, e)
 }
 
+// size panics if the event cannot be encoded. This is acceptable because
+// an unencodable event indicates data corruption that cannot be recovered.
 func (e *MutableEventPayload) size() int {
 	b, err := e.immutable().MarshalBinary()
 	if err != nil {

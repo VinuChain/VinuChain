@@ -140,11 +140,11 @@ func compact(ctx *cli.Context) error {
 func compactDB(typ multidb.TypeName, name string, producer kvdb.DBProducer) error {
 	humanName := path.Join(string(typ), name)
 	db, err := producer.OpenDB(name)
-	defer db.Close()
 	if err != nil {
 		log.Error("Cannot open db or db does not exists", "db", humanName)
 		return err
 	}
+	defer db.Close()
 
 	log.Info("Stats before compaction", "db", humanName)
 	showDbStats(db)

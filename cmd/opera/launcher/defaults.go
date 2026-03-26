@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -70,7 +71,15 @@ func DefaultDataDir() string {
 			}
 			return filepath.Join(appdata, "VinuChain")
 		default:
-			return filepath.Join(home, ".opera")
+			legacyDir := filepath.Join(home, ".opera")
+			newDir := filepath.Join(home, ".vinuchain")
+			if _, err := os.Stat(legacyDir); err == nil {
+				if _, err := os.Stat(newDir); os.IsNotExist(err) {
+					log.Printf("WARNING: using legacy data directory %s — consider migrating to %s", legacyDir, newDir)
+					return legacyDir
+				}
+			}
+			return newDir
 		}
 	}
 	return ""
@@ -79,10 +88,11 @@ func DefaultDataDir() string {
 func windowsAppData() string {
 	v := os.Getenv("LOCALAPPDATA")
 	if v == "" {
-		// Windows XP and below don't have LocalAppData. Crash here because
-		// we don't support Windows XP and undefining the variable will cause
-		// other issues.
-		panic("environment variable LocalAppData is undefined")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(home, "AppData", "Local")
 	}
 	return v
 }

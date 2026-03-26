@@ -208,7 +208,7 @@ func loadAllConfigs(file string, cfg *config) error {
 			"Use 'dumpconfig' command to get an example config file.\n"+
 			"If node was recently upgraded and a previous network config file is used, then check updates for the config file.", err))
 	}
-	return err
+	return nil
 }
 
 func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
@@ -427,7 +427,10 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 	}
 
 	if ctx.GlobalIsSet(FakeNetFlag.Name) {
-		_, num, _ := parseFakeGen(ctx.GlobalString(FakeNetFlag.Name))
+		_, num, err := parseFakeGen(ctx.GlobalString(FakeNetFlag.Name))
+		if err != nil {
+			log.Warn("Failed to parse fakegen config", "err", err)
+		}
 		cfg.Emitter = emitter.FakeConfig(num)
 		setBootnodes(ctx, []string{}, &cfg.Node)
 	} else {

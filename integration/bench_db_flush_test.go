@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -67,7 +66,7 @@ func BenchmarkFlushDBs(b *testing.B) {
 }
 
 func tmpDir(name string) string {
-	dir, err := ioutil.TempDir("", name)
+	dir, err := os.MkdirTemp("", name)
 	if err != nil {
 		panic(err)
 	}

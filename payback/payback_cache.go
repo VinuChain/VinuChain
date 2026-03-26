@@ -154,7 +154,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 
 			stakes := pc.StakesMap[epoch].StakesByAddress[sender]
 			stakes = append(stakes, StakeInfo{
-				Amount:    tx.Value(),
+				Amount:    new(big.Int).Set(tx.Value()),
 				Timestamp: blockTime,
 			})
 			pc.StakesMap[epoch].StakesByAddress[sender] = stakes
@@ -253,6 +253,10 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 
 // GetAvailablePaybackByAddress calculates the available quota for a given address.
 // The evm parameter is passed directly to avoid storing a mutable pointer on the cache.
+//
+// Must be called during block processing (inBlockProcessing invariant). The epoch
+// and PaybackUsedMap are stable during this period, so the single lock section
+// below is safe and free from TOCTOU races.
 func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm *vm.EVM) *big.Int {
 	payback := big.NewInt(0)
 
@@ -294,6 +298,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 		log.Warn("GetAvailablePaybackByAddress: currentEpoch is 0, cannot compute payback")
 		return payback
 	}
+	// currentEpoch is validated above (< 1 returns early), so currentEpoch - 1 is safe from underflow.
 	prevEpoch := currentEpoch - 1
 
 	if pc.StakesMap[currentEpoch] == nil {
@@ -304,11 +309,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 	}
 
 	quotaUsed := pc.getQuotaUsedLocked(address)
-	pc.mu.Unlock()
-
 	prevEpochState := pc.store.GetHistoryEpochState(prevEpoch)
-
-	pc.mu.Lock()
 	fullDuration := pc.calculateFullDurationLocked(address, currentEpoch, prevEpochState)
 	pc.mu.Unlock()
 
@@ -460,9 +461,9 @@ func (pc *PaybackCache) calculateStakeDetails(address common.Address, evm *vm.EV
 }
 
 // calculateFullDurationLocked calculates the effective duration of stakes for
-// quota calculations. Caller must hold pc.mu. The prevEpochState parameter
-// must be fetched outside the lock to avoid blocking readers on store I/O.
+// quota calculations. Caller must hold pc.mu.
 func (pc *PaybackCache) calculateFullDurationLocked(address common.Address, currentEpoch idx.Epoch, prevEpochState *iblockproc.EpochState) int64 {
+	// Caller (GetAvailablePaybackByAddress) guarantees currentEpoch >= 1, so this is safe from underflow.
 	prevEpoch := currentEpoch - 1
 	sumCurrent, sumPrev := pc.getSumStakeByAddressSplitLocked(address, currentEpoch, prevEpoch)
 
@@ -626,6 +627,7 @@ func (pc *PaybackCache) cleanupOldEpochsLocked() {
 	}
 
 	currentEpoch := pc.getEpochLocked()
+	// Guard: currentEpoch <= 2 returns early, so currentEpoch - 2 below is safe from underflow.
 	if currentEpoch <= 2 {
 		pc.PaybackUsedMap = make(map[common.Address]*big.Int)
 		return

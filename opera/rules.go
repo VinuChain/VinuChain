@@ -20,7 +20,7 @@ const (
 	FakeNetworkID     uint64 = 0xfa3
 	VinuChainTestNetworkID        = 0xce // 206
 	VinuChainMainNetworkID        = 0xcf // 207
-	VinuChainNewNetworkId         = 0x1b
+	VinuChainNewNetworkID         = 0x1b
 	DefaultEventGas   uint64 = 28000
 	berlinBit                = 1 << 0
 	londonBit                = 1 << 1
@@ -124,12 +124,20 @@ type BlocksRules struct {
 // the EvmChainConfig mapping, and the network rule constructors. A fork
 // registry pattern would reduce this coupling, but for now all four sites
 // must be kept in sync when introducing new upgrades.
+//
+// Upgrade flags are protected from on-chain governance changes by UpdateRules.
+// Activating a new upgrade on an existing network requires shipping a new
+// binary with the flag set in the corresponding hardcoded rule constructor
+// (e.g. VinuChainMainNetRules, VinuChainTestNetRules).
 type Upgrades struct {
 	Berlin    bool
 	London    bool
 	Llr       bool
 	Podgorica bool
-	SfcV2     bool
+	// SfcV2 enables the V2 SFC bytecode upgrade and the 30% fee burn mechanism.
+	// Activation requires a new binary release with SfcV2 set to true in the
+	// network's hardcoded rule constructor; governance cannot toggle it.
+	SfcV2 bool
 }
 
 type UpgradeHeight struct {
@@ -196,7 +204,7 @@ func TestNetRules() Rules {
 func FakeNetRules() Rules {
 	return Rules{
 		Name:      "vinuchain",
-		NetworkID: VinuChainNewNetworkId,
+		NetworkID: VinuChainNewNetworkID,
 		Dag:       DefaultDagRules(),
 		Epochs:    VinuChainNetEpochsRules(),
 		Economy:   DefaultEconomyRules(),
@@ -208,6 +216,7 @@ func FakeNetRules() Rules {
 			Berlin: true,
 			London: true,
 			Llr:    true,
+			SfcV2:  true,
 		},
 	}
 }
@@ -215,7 +224,7 @@ func FakeNetRules() Rules {
 func LegacyFakeNetRules() Rules {
 	return Rules{
 		Name:      "vinuchain",
-		NetworkID: VinuChainNewNetworkId,
+		NetworkID: VinuChainNewNetworkID,
 		Dag:       DefaultDagRules(),
 		Epochs:    FakeNetEpochsRules(),
 		Economy:   FakeEconomyRules(),
@@ -227,6 +236,7 @@ func LegacyFakeNetRules() Rules {
 			Berlin: true,
 			London: true,
 			Llr:    true,
+			SfcV2:  true,
 		},
 	}
 }
@@ -371,7 +381,9 @@ func FakeShortGasPowerRules() GasPowerRules {
 
 func (r Rules) Copy() Rules {
 	cp := r
-	cp.Economy.MinGasPrice = new(big.Int).Set(r.Economy.MinGasPrice)
+	if r.Economy.MinGasPrice != nil {
+		cp.Economy.MinGasPrice = new(big.Int).Set(r.Economy.MinGasPrice)
+	}
 	return cp
 }
 

@@ -256,6 +256,8 @@ func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules o
 	var owner common.Address
 	if len(validators) != 0 {
 		owner = validators[0].Address
+	} else {
+		owner = crypto.PubkeyToAddress(FakeKey(1).PublicKey)
 	}
 
 	blockProc := makegenesis.DefaultBlockProc()

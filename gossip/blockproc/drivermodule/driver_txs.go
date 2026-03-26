@@ -181,7 +181,8 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	}
 
 	originated := p.bs.ValidatorStates[originatorIdx].Originated
-	originated.Add(originated, new(big.Int).Sub(validatorFee, burnAmount))
+	delta := new(big.Int).Sub(validatorFee, burnAmount)
+	p.bs.ValidatorStates[originatorIdx].Originated = new(big.Int).Add(originated, delta)
 
 	if feeRefund.Sign() > 0 {
 		log.Debug("Payback fee refund", "tx", tx.Hash().Hex(), "fee", txFee, "refund", feeRefund)

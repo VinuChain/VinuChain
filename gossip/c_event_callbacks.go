@@ -10,6 +10,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/inter/dag"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/eventcheck"
 	"github.com/Fantom-foundation/go-opera/eventcheck/epochcheck"
@@ -284,7 +285,9 @@ func (s *Service) commit(epochSealing bool) {
 	if !s.store.cfg.EVM.Cache.TrieDirtyDisabled && s.handler.syncStatus.AcceptEvents() {
 		s.store.cleanCommitEVM()
 	}
-	_ = s.store.Commit()
+	if err := s.store.Commit(); err != nil {
+		log.Crit("Failed to commit store", "err", err)
+	}
 	if epochSealing {
 		s.store.CaptureEvmKvdbSnapshot()
 	}
