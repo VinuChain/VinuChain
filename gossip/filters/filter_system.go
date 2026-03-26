@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -88,7 +89,8 @@ type subscription struct {
 // EventSystem creates subscriptions, processes events and broadcasts them to the
 // subscription which match the subscription criteria.
 type EventSystem struct {
-	backend Backend
+	backend  Backend
+	subCount int32 // atomic; tracks active WebSocket subscriptions
 
 	// Subscriptions
 	txsSub    notify.Subscription // Subscription for new transaction notify
@@ -388,10 +390,17 @@ func (es *EventSystem) eventLoop() {
 			es.broadcast(index, ev)
 
 		case f := <-es.install:
+			if atomic.LoadInt32(&es.subCount) >= 1000 {
+				f.err <- errors.New("subscription limit reached")
+				close(f.err)
+				break
+			}
+			atomic.AddInt32(&es.subCount, 1)
 			index[f.typ][f.id] = f
 			close(f.installed)
 
 		case f := <-es.uninstall:
+			atomic.AddInt32(&es.subCount, -1)
 			delete(index[f.typ], f.id)
 			close(f.err)
 

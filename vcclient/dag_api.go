@@ -25,6 +25,12 @@ func (ec *Client) GetEvent(ctx context.Context, h hash.Event) (e inter.EventI, e
 	}
 
 	e = inter.RPCUnmarshalEvent(raw)
+	if e.Epoch() == 0 {
+		return nil, fmt.Errorf("invalid event from RPC: zero epoch")
+	}
+	if e.Seq() == 0 {
+		return nil, fmt.Errorf("invalid event from RPC: zero sequence")
+	}
 	return
 }
 
@@ -40,6 +46,12 @@ func (ec *Client) GetEventPayload(ctx context.Context, h hash.Event, inclTx bool
 	}
 
 	e = inter.RPCUnmarshalEvent(raw)
+	if e.Epoch() == 0 {
+		return nil, nil, fmt.Errorf("invalid event from RPC: zero epoch")
+	}
+	if e.Seq() == 0 {
+		return nil, nil, fmt.Errorf("invalid event from RPC: zero sequence")
+	}
 
 	if inclTx {
 		vv, ok := raw["transactions"].([]interface{})

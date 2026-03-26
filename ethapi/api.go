@@ -16,6 +16,10 @@
 
 package ethapi
 
+// NOTE: This package does not implement per-IP or per-method RPC rate limiting.
+// Production deployments should use a reverse proxy (nginx, traefik, HAProxy)
+// with rate limiting configured per endpoint to prevent API abuse.
+
 import (
 	"context"
 	"errors"
@@ -533,6 +537,9 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args Transactio
 //
 // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
+	if s.b.ExtRPCEnabled() {
+		return nil, fmt.Errorf("method not available over external RPC")
+	}
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
 
@@ -581,6 +588,9 @@ func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Byt
 // SignAndSendTransaction was renamed to SendTransaction. This method is deprecated
 // and will be removed in the future. It primary goal is to give clients time to update.
 func (s *PrivateAccountAPI) SignAndSendTransaction(ctx context.Context, args TransactionArgs, passwd string) (common.Hash, error) {
+	if s.b.ExtRPCEnabled() {
+		return common.Hash{}, fmt.Errorf("method not available over external RPC")
+	}
 	return s.SendTransaction(ctx, args, passwd)
 }
 
@@ -2048,7 +2058,12 @@ func (api *PublicDebugAPI) PrintBlock(ctx context.Context, number uint64) (strin
 	if block == nil {
 		return "", fmt.Errorf("block #%d not found", number)
 	}
-	return spew.Sdump(block), nil
+	stateAndBlock := spew.Sdump(block)
+	const maxDebugOutput = 10 * 1024 * 1024
+	if len(stateAndBlock) > maxDebugOutput {
+		stateAndBlock = stateAndBlock[:maxDebugOutput] + "\n... (output truncated)"
+	}
+	return stateAndBlock, nil
 }
 
 // SeedHash retrieves the seed hash of a block.
@@ -2077,6 +2092,9 @@ func (api *PublicDebugAPI) BlocksTransactionTimes(ctx context.Context, untilBloc
 	untilN := until.Number.Uint64()
 	times := map[hexutil.Uint64]hexutil.Uint{}
 	for i := untilN; i >= 1 && i+uint64(maxBlocks) > untilN; i-- {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		b, err := api.b.BlockByNumber(ctx, rpc.BlockNumber(i))
 		if b == nil || err != nil {
 			return nil, err

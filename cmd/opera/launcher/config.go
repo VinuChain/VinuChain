@@ -386,6 +386,11 @@ func setDBConfig(ctx *cli.Context, cfg integration.DBsConfig, cacheRatio cachesc
 	}
 	if ctx.GlobalIsSet(DBMigrationModeFlag.Name) {
 		cfg.MigrationMode = ctx.GlobalString(DBMigrationModeFlag.Name)
+		switch cfg.MigrationMode {
+		case "reformat", "rebuild", "":
+		default:
+			utils.Fatalf("--%s must be 'reformat' or 'rebuild'", DBMigrationModeFlag.Name)
+		}
 	}
 	return cfg
 }

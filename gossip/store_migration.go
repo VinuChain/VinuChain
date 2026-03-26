@@ -116,7 +116,9 @@ func (s *Store) eraseGossipAsyncDB() error {
 		return fmt.Errorf("failed to open gossip-async to drop: %v", err)
 	}
 
-	_ = asyncDB.Close()
+	if err := asyncDB.Close(); err != nil {
+		log.Warn("Failed to close DB before drop", "err", err)
+	}
 	asyncDB.Drop()
 
 	return nil
@@ -128,7 +130,9 @@ func (s *Store) eraseGenesisDB() error {
 		return nil
 	}
 
-	_ = genesisDB.Close()
+	if err := genesisDB.Close(); err != nil {
+		log.Warn("Failed to close DB before drop", "err", err)
+	}
 	genesisDB.Drop()
 	return nil
 }

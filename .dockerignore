@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+build/
+docs/
+demo/*.datadir
+demo/password.txt
+demo/pass.txt
+*.prof
+*.test
+node_modules/

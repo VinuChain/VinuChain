@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -97,6 +98,7 @@ func validatorKeyCreate(ctx *cli.Context) error {
 		utils.Fatalf("Failed to create account: %v", err)
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
+	defer func() { for i := range privateKey { privateKey[i] = 0 } }()
 	publicKey := validatorpk.PubKey{
 		Raw:  crypto.FromECDSAPub(&privateKeyECDSA.PublicKey),
 		Type: validatorpk.Types.Secp256k1,
@@ -148,6 +150,11 @@ func validatorKeyConvert(ctx *cli.Context) error {
 		}
 	} else {
 		acckeypath = ctx.Args().First()
+		if info, err := os.Stat(acckeypath); err != nil {
+			utils.Fatalf("Cannot access key file %s: %v", acckeypath, err)
+		} else if info.IsDir() {
+			utils.Fatalf("Key path must be a file, not a directory: %s", acckeypath)
+		}
 	}
 
 	valkeypath := path.Join(keydir, "validator", common.Bytes2Hex(pubkey.Bytes()))

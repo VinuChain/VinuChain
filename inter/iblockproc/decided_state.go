@@ -79,6 +79,8 @@ func (bs *BlockState) GetValidatorState(id idx.ValidatorID, validators *pos.Vali
 	return &bs.ValidatorStates[validatorIdx]
 }
 
+// Hash computes a deterministic hash of the state. Panics if RLP encoding
+// fails, which indicates a programming error (corrupted state object).
 func (bs BlockState) Hash() hash.Hash {
 	hasher := sha256.New()
 	err := rlp.Encode(hasher, &bs)
@@ -113,6 +115,8 @@ func (es EpochState) Duration() inter.Timestamp {
 	return es.EpochStart - es.PrevEpochStart
 }
 
+// Hash computes a deterministic hash of the state. Panics if RLP encoding
+// fails, which indicates a programming error (corrupted state object).
 func (es EpochState) Hash() hash.Hash {
 	var hashed interface{}
 	if es.Rules.Upgrades.London {

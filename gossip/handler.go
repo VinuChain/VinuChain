@@ -150,7 +150,8 @@ type handler struct {
 
 	checkers *eventcheck.Checkers
 
-	msgSemaphore *datasemaphore.DataSemaphore
+	msgSemaphore  *datasemaphore.DataSemaphore
+	peerRateLimit *peerRateLimiter
 
 	store    *Store
 	engineMu sync.Locker
@@ -196,6 +197,7 @@ func newHandler(
 		notifier:             c.notifier,
 		txpool:               c.txpool,
 		msgSemaphore:         datasemaphore.New(c.config.Protocol.MsgsSemaphoreLimit, getSemaphoreWarningFn("P2P messages")),
+		peerRateLimit:        newPeerRateLimiter(),
 		store:                c.s,
 		process:              c.process,
 		checkers:             c.checkers,
@@ -436,6 +438,7 @@ func (h *handler) unregisterPeer(id string) {
 	if peer.snapExt != nil {
 		_ = h.snapLeecher.SnapSyncer.Unregister(id)
 	}
+	h.peerRateLimit.RemovePeer(id)
 	if err := h.peers.UnregisterPeer(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}

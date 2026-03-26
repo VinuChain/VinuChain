@@ -433,6 +433,11 @@ func (h *handler) handleMsg(p *peer) error {
 	}
 	defer h.msgSemaphore.Release(eventsSizeEst)
 
+	if !h.peerRateLimit.Allow(p.id) {
+		p.Log().Warn("Peer exceeded message rate limit")
+		return errResp(ErrDecode, "rate limit exceeded")
+	}
+
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == HandshakeMsg:

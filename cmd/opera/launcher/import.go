@@ -29,6 +29,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/utils/ioread"
 )
 
+const maxImportStreamSize = 600 * 1024 * 1024
+
 func importEvm(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
@@ -172,7 +174,7 @@ func importEventsFile(srv *gossip.Service, fn string) error {
 		return err
 	}
 
-	stream := rlp.NewStream(reader, 0)
+	stream := rlp.NewStream(reader, maxImportStreamSize)
 
 	start := time.Now()
 	last := hash.Event{}

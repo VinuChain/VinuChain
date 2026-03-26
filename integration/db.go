@@ -41,7 +41,11 @@ type DBsCacheConfig struct {
 
 func SupportedDBs(chaindataDir string, cfg DBsCacheConfig) (map[multidb.TypeName]kvdb.IterableDBProducer, map[multidb.TypeName]kvdb.FullDBProducer) {
 	if chaindataDir == "inmemory" || chaindataDir == "" {
-		chaindataDir, _ = os.MkdirTemp("", "opera-tmp")
+		var mkdirErr error
+		chaindataDir, mkdirErr = os.MkdirTemp("", "opera-tmp")
+		if mkdirErr != nil {
+			utils.Fatalf("Failed to create temp chaindata dir: %v", mkdirErr)
+		}
 	}
 	cacher, err := dbCacheFdlimit(cfg)
 	if err != nil {

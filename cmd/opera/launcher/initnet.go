@@ -80,6 +80,7 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
+	defer func() { for i := range privateKey { privateKey[i] = 0 } }()
 	publicKey := validatorpk.PubKey{
 		Raw:  crypto.FromECDSAPub(&privateKeyECDSA.PublicKey),
 		Type: validatorpk.Types.Secp256k1,
@@ -190,7 +191,7 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 func saveValidators(ctx *cli.Context, validators []gpos.Validator) error {
 	// Save validators to file for future use
 	if ctx.GlobalIsSet(ValidatorsFileFlag.Name) {
-		f, err := os.Create(ctx.GlobalString(ValidatorsFileFlag.Name))
+		f, err := os.OpenFile(ctx.GlobalString(ValidatorsFileFlag.Name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return err
 		}
