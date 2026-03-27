@@ -408,7 +408,17 @@ func (h *handler) handleEvents(p *peer, events dag.Events, ordered bool) {
 	notifyAnnounces := func(ids hash.Events) {
 		_ = h.dagFetcher.NotifyAnnounces(peerID, eventIDsToInterfaces(ids), now, requestEvents)
 	}
-	_ = h.dagProcessor.Enqueue(peerID, notTooHigh, ordered, notifyAnnounces, nil)
+	n := len(notTooHigh)
+	if !h.peerEventQuota.Acquire(peerID, n) {
+		p.Log().Warn("Peer exceeded event processing quota", "pending_events", n)
+		return
+	}
+	releaseQuota := func() {
+		h.peerEventQuota.Release(peerID, n)
+	}
+	if err := h.dagProcessor.Enqueue(peerID, notTooHigh, ordered, notifyAnnounces, releaseQuota); err != nil {
+		releaseQuota()
+	}
 }
 
 // handleMsg is invoked whenever an inbound message is received from a remote
