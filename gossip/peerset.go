@@ -126,7 +126,7 @@ func (ps *peerSet) WaitSnapExtension(p *peer) (*snap.Peer, error) {
 		return snap, nil
 	}
 	// Otherwise wait for `snap` to connect concurrently, with a timeout
-	wait := make(chan *snap.Peer)
+	wait := make(chan *snap.Peer, 1)
 	ps.snapWait[id] = wait
 	ps.lock.Unlock()
 

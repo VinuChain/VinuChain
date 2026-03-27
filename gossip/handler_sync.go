@@ -55,11 +55,12 @@ func (h *handler) validatePeerProgress(progress PeerProgress) error {
 		return errResp(ErrDecode, "peer progress with zero epoch")
 	}
 	localEpoch := h.store.GetEpoch()
-	if progress.Epoch > localEpoch+maxPeerEpochDrift {
+	// Skip drift check when syncing from near-genesis to allow catching up
+	if localEpoch > 1 && progress.Epoch > localEpoch+maxPeerEpochDrift {
 		return errResp(ErrDecode, "peer epoch %d too far ahead of local %d", progress.Epoch, localEpoch)
 	}
 	localBlock := h.store.GetLatestBlockIndex()
-	if progress.LastBlockIdx > localBlock+maxPeerBlockDrift {
+	if localBlock > 0 && progress.LastBlockIdx > localBlock+maxPeerBlockDrift {
 		return errResp(ErrDecode, "peer block %d too far ahead of local %d", progress.LastBlockIdx, localBlock)
 	}
 	return nil

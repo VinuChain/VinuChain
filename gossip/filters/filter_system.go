@@ -230,7 +230,7 @@ func (es *EventSystem) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs
 		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
-		err:       make(chan error),
+		err:       make(chan error, 1),
 	}
 	return es.subscribe(sub)
 }
@@ -247,7 +247,7 @@ func (es *EventSystem) subscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
-		err:       make(chan error),
+		err:       make(chan error, 1),
 	}
 	return es.subscribe(sub)
 }
@@ -264,7 +264,7 @@ func (es *EventSystem) subscribePendingLogs(crit ethereum.FilterQuery, logs chan
 		hashes:    make(chan []common.Hash),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
-		err:       make(chan error),
+		err:       make(chan error, 1),
 	}
 	return es.subscribe(sub)
 }
@@ -280,7 +280,7 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 		hashes:    make(chan []common.Hash),
 		headers:   headers,
 		installed: make(chan struct{}),
-		err:       make(chan error),
+		err:       make(chan error, 1),
 	}
 	return es.subscribe(sub)
 }
@@ -296,7 +296,7 @@ func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscript
 		hashes:    hashes,
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
-		err:       make(chan error),
+		err:       make(chan error, 1),
 	}
 	return es.subscribe(sub)
 }
@@ -392,7 +392,7 @@ func (es *EventSystem) eventLoop() {
 		case f := <-es.install:
 			if atomic.LoadInt32(&es.subCount) >= 1000 {
 				f.err <- errors.New("subscription limit reached")
-				close(f.err)
+				close(f.installed)
 				break
 			}
 			atomic.AddInt32(&es.subCount, 1)
