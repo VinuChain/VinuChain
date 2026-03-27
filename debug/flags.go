@@ -27,13 +27,19 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/metrics/exp"
-	"github.com/fjl/memsize/memsizeui"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/urfave/cli.v1"
 )
 
-var Memsize memsizeui.Handler
+type memsizeStub struct{}
+
+func (memsizeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "memsize profiling unavailable (removed for Go 1.24 compatibility)")
+}
+func (memsizeStub) Add(name string, v interface{}) {}
+
+var Memsize memsizeStub
 
 var (
 	verbosityFlag = cli.IntFlag{
