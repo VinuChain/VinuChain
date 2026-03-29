@@ -42,10 +42,6 @@ type stateReq struct {
 	dropped   bool                      // Flag whether the peer dropped off early
 }
 
-// timedOut returns if this request timed out.
-func (req *stateReq) timedOut() bool {
-	return req.response == nil
-}
 
 // stateSyncStats is a collection of progress stats to report during a state trie
 // sync to RPC requests as well as to display in user logs.

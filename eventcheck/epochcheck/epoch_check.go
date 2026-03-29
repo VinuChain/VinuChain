@@ -77,15 +77,6 @@ func CalcGasPowerUsed(e inter.EventPayloadI, rules opera.Rules) uint64 {
 		ersGas = gasCfg.EpochVoteGas
 	}
 
-	if rules.Upgrades.Podgorica {
-		total := safeAddU64(txsGas, parentsGas)
-		total = safeAddU64(total, extraGas)
-		total = safeAddU64(total, gasCfg.EventGas)
-		total = safeAddU64(total, mpsGas)
-		total = safeAddU64(total, bvsGas)
-		total = safeAddU64(total, ersGas)
-		return total
-	}
 	total := safeAddU64(txsGas, parentsGas)
 	total = safeAddU64(total, extraGas)
 	total = safeAddU64(total, gasCfg.EventGas)

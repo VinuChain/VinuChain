@@ -431,11 +431,3 @@ otherwise the entire database may be damaged!
 Check the command description "geth snapshot prune-state --help" for more details.
 `
 
-func deleteCleanTrieCache(path string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Warn(warningLog)
-		return
-	}
-	os.RemoveAll(path)
-	log.Info("Deleted trie clean cache", "path", path)
-}
