@@ -208,10 +208,12 @@ func (d *Leecher) ForceSyncing() {
 	d.forceSyncing = true
 }
 
-func (d *Leecher) IsValidSession(sessionID uint32) bool {
+func (d *Leecher) IsValidSession(sessionID uint32, peerID string) bool {
 	d.Mu.Lock()
 	defer d.Mu.Unlock()
-	return d.session.agent != nil && d.session.sessionID == sessionID
+	return d.session.agent != nil &&
+		d.session.peer == peerID &&
+		d.session.sessionID == sessionID
 }
 
 func (d *Leecher) NotifyChunkReceived(sessionID uint32, lastBlock idx.Block, done bool) error {

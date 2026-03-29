@@ -618,12 +618,19 @@ func (h *handler) handleMsg(p *peer) error {
 			return err
 		}
 		// Reject unsolicited responses from non-session peers
-		if !h.dagLeecher.IsValidSession(chunk.SessionID) {
+		if !h.dagLeecher.IsValidSession(chunk.SessionID, p.id) {
 			break
 		}
 
 		if (len(chunk.Events) != 0) && (len(chunk.IDs) != 0) {
 			return errors.New("expected either events or event hashes")
+		}
+		n := len(chunk.Events) + len(chunk.IDs)
+		if n > 0 {
+			if !h.peerStreamQuota.Acquire(p.id, n) {
+				break
+			}
+			h.peerStreamQuota.Release(p.id, n)
 		}
 		var last hash.Event
 		if len(chunk.IDs) != 0 {
@@ -676,7 +683,7 @@ func (h *handler) handleMsg(p *peer) error {
 			return err
 		}
 		// Reject unsolicited responses — only enqueue from the active session peer
-		if !h.bvLeecher.IsValidSession(chunk.SessionID) {
+		if !h.bvLeecher.IsValidSession(chunk.SessionID, p.id) {
 			break
 		}
 
@@ -739,7 +746,7 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := checkLenLimits(len(chunk.BRs)+1, chunk); err != nil {
 			return err
 		}
-		if !h.brLeecher.IsValidSession(chunk.SessionID) {
+		if !h.brLeecher.IsValidSession(chunk.SessionID, p.id) {
 			break
 		}
 
@@ -797,7 +804,7 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := checkLenLimits(len(chunk.EPs)+1, chunk); err != nil {
 			return err
 		}
-		if !h.epLeecher.IsValidSession(chunk.SessionID) {
+		if !h.epLeecher.IsValidSession(chunk.SessionID, p.id) {
 			break
 		}
 
