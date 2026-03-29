@@ -42,7 +42,7 @@ func TestFileKeystoreAdd(t *testing.T) {
 	testGet(t, keystore, pubkey2, key2, "auth2")
 
 	err = keystore.Add(pubkey2, key2, "auth1")
-	require.Error(err, ErrAlreadyExists.Error())
+	require.ErrorIs(err, ErrAlreadyExists)
 
 	testGet(t, keystore, pubkey2, key2, "auth2")
 }
@@ -61,6 +61,7 @@ func TestFileKeystoreRead(t *testing.T) {
 	require.NoError(err)
 	_, err = fd.Write(file1)
 	require.NoError(err)
+	fd.Close()
 
 	testGet(t, keystore, pubkey1, key1, "auth1")
 
@@ -68,6 +69,7 @@ func TestFileKeystoreRead(t *testing.T) {
 	require.NoError(err)
 	_, err = fd.Write(file2)
 	require.NoError(err)
+	fd.Close()
 
 	testGet(t, keystore, pubkey1, key1, "auth1")
 	testGet(t, keystore, pubkey2, key2, "auth2")
