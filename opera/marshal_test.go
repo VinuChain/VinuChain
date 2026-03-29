@@ -78,6 +78,25 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 	require.Error(err, "MisbehaviourProofGas > MaxEventGas/2 should be rejected")
 	require.Contains(err.Error(), "MisbehaviourProofGas")
 
+	// ShortGasPower.AllocPerSec exceeds upper bound
+	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"AllocPerSec":2000000000000}}}`))
+	require.Error(err, "ShortGasPower.AllocPerSec > 1e12 should be rejected")
+	require.Contains(err.Error(), "ShortGasPower.AllocPerSec")
+
+	// LongGasPower.AllocPerSec exceeds upper bound
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"AllocPerSec":2000000000000}}}`))
+	require.Error(err, "LongGasPower.AllocPerSec > 1e12 should be rejected")
+	require.Contains(err.Error(), "LongGasPower.AllocPerSec")
+
+	// MaxAllocPeriod exceeds upper bound (> 1 week in nanoseconds)
+	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"MaxAllocPeriod":700000000000000}}}`))
+	require.Error(err, "ShortGasPower.MaxAllocPeriod > 1 week should be rejected")
+	require.Contains(err.Error(), "ShortGasPower.MaxAllocPeriod")
+
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"MaxAllocPeriod":700000000000000}}}`))
+	require.Error(err, "LongGasPower.MaxAllocPeriod > 1 week should be rejected")
+	require.Contains(err.Error(), "LongGasPower.MaxAllocPeriod")
+
 	// Valid changes should still work
 	_, err = UpdateRules(base, []byte(`{"Dag":{"MaxParents":10}}`))
 	require.NoError(err, "valid MaxParents=10 should succeed")
