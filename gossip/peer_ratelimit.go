@@ -55,12 +55,22 @@ type peerEventQuota struct {
 	maxPerPeer int
 }
 
-const defaultMaxEventsPerPeer = 200
+const (
+	defaultMaxEventsPerPeer  = 200
+	defaultMaxStreamsPerPeer = 100
+)
 
 func newPeerEventQuota() *peerEventQuota {
 	return &peerEventQuota{
 		pending:    make(map[string]int),
 		maxPerPeer: defaultMaxEventsPerPeer,
+	}
+}
+
+func newPeerStreamQuota() *peerEventQuota {
+	return &peerEventQuota{
+		pending:    make(map[string]int),
+		maxPerPeer: defaultMaxStreamsPerPeer,
 	}
 }
 

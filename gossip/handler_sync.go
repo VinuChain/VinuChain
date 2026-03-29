@@ -678,7 +678,14 @@ func (h *handler) handleMsg(p *peer) error {
 
 		var last bvstreamleecher.BVsID
 		if len(chunk.BVs) != 0 {
-			_ = h.bvProcessor.Enqueue(p.id, chunk.BVs, nil)
+			n := len(chunk.BVs)
+			if !h.peerStreamQuota.Acquire(p.id, n) {
+				break
+			}
+			releaseQuota := func() { h.peerStreamQuota.Release(p.id, n) }
+			if err := h.bvProcessor.Enqueue(p.id, chunk.BVs, releaseQuota); err != nil {
+				releaseQuota()
+			}
 			last = bvstreamleecher.BVsID{
 				Epoch:     chunk.BVs[len(chunk.BVs)-1].Val.Epoch,
 				LastBlock: chunk.BVs[len(chunk.BVs)-1].Val.LastBlock(),
@@ -734,7 +741,14 @@ func (h *handler) handleMsg(p *peer) error {
 
 		var last idx.Block
 		if len(chunk.BRs) != 0 {
-			_ = h.brProcessor.Enqueue(p.id, chunk.BRs, msgSize, nil)
+			n := len(chunk.BRs)
+			if !h.peerStreamQuota.Acquire(p.id, n) {
+				break
+			}
+			releaseQuota := func() { h.peerStreamQuota.Release(p.id, n) }
+			if err := h.brProcessor.Enqueue(p.id, chunk.BRs, msgSize, releaseQuota); err != nil {
+				releaseQuota()
+			}
 			last = chunk.BRs[len(chunk.BRs)-1].Idx
 		}
 
@@ -785,7 +799,14 @@ func (h *handler) handleMsg(p *peer) error {
 
 		var last idx.Epoch
 		if len(chunk.EPs) != 0 {
-			_ = h.epProcessor.Enqueue(p.id, chunk.EPs, msgSize, nil)
+			n := len(chunk.EPs)
+			if !h.peerStreamQuota.Acquire(p.id, n) {
+				break
+			}
+			releaseQuota := func() { h.peerStreamQuota.Release(p.id, n) }
+			if err := h.epProcessor.Enqueue(p.id, chunk.EPs, msgSize, releaseQuota); err != nil {
+				releaseQuota()
+			}
 			last = chunk.EPs[len(chunk.EPs)-1].Record.Idx
 		}
 
