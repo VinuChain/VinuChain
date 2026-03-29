@@ -26,7 +26,7 @@ func TestMemKeystoreAdd(t *testing.T) {
 	testGet(t, keystore, pubkey2, key2, "auth2")
 
 	err = keystore.Add(pubkey2, key2, "auth1")
-	require.Error(err, ErrAlreadyExists.Error())
+	require.ErrorIs(err, ErrAlreadyExists)
 
 	testGet(t, keystore, pubkey2, key2, "auth2")
 }

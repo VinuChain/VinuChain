@@ -27,7 +27,11 @@ func (vi *Index) MedianTime(id hash.Event, defaultTime inter.Timestamp) inter.Ti
 	}
 	before := _before.(*HighestBefore)
 
-	honestTotalWeight := pos.Weight(0) // isn't equal to validators.TotalWeight(), because doesn't count cheaters
+	// honestTotalWeight sums only non-cheater validators. Bounded by
+	// validators.TotalWeight() which is capped at construction time by the
+	// SFC's validator set size and max-stake limits, so overflow is not
+	// possible under correct validator set construction.
+	honestTotalWeight := pos.Weight(0)
 	highests := make([]medianTimeIndex, 0, len(vi.validatorIdxs))
 	// convert []HighestBefore -> []medianTimeIndex
 	for creatorIdxI := range vi.validators.IDs() {
@@ -55,14 +59,28 @@ func (vi *Index) MedianTime(id hash.Event, defaultTime inter.Timestamp) inter.Ti
 		return defaultTime
 	}
 
-	// sort by claimed time (partial order is enough here, because we need only creationTime)
-	sort.Slice(highests, func(i, j int) bool {
-		a, b := highests[i], highests[j]
-		return a.creationTime < b.creationTime
-	})
+	// sort by claimed time
+	if vi.elemont {
+		// Post-Elemont: stable sort with weight tie-breaker for determinism
+		sort.SliceStable(highests, func(i, j int) bool {
+			a, b := highests[i], highests[j]
+			if a.creationTime != b.creationTime {
+				return a.creationTime < b.creationTime
+			}
+			return a.weight < b.weight
+		})
+	} else {
+		// Pre-Elemont: unstable sort by time only (legacy behavior)
+		sort.Slice(highests, func(i, j int) bool {
+			return highests[i].creationTime < highests[j].creationTime
+		})
+	}
 
 	// Calculate weighted median
 	halfWeight := honestTotalWeight / 2
+	if halfWeight == 0 {
+		halfWeight = 1
+	}
 	var currWeight pos.Weight
 	var median inter.Timestamp
 	for _, highest := range highests {

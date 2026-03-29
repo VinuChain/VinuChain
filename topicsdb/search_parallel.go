@@ -114,10 +114,14 @@ func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64
 		topicCount := bytesToPos(it.Value())
 		rec := newLogrec(id, topicCount)
 
-		gonext, _ := onMatched(rec)
-		if !gonext {
+		gonext, err := onMatched(rec)
+		if err != nil || !gonext {
 			break
 		}
+	}
+	if it.Error() != nil {
+		onMatched(nil)
+		return
 	}
 	onMatched(nil)
 }

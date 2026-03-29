@@ -51,6 +51,7 @@ import (
 	snapsync "github.com/Fantom-foundation/go-opera/gossip/protocols/snap"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/logger"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/evmwriter"
 	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/Fantom-foundation/go-opera/utils/signers/gsignercache"
 	"github.com/Fantom-foundation/go-opera/utils/wgmutex"
@@ -187,6 +188,13 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 
 	log.Debug("Payback cache initialized", "payback_cache", svc.paybackCache.String())
 
+	// Initialize the EvmWriter's payback proxy address from current rules
+	// so RPC calls (eth_call, eth_estimateGas) have the protection active
+	// before the first block is processed.
+	if pc, ok := opera.DefaultVMConfig.StatePrecompiles[evmwriter.ContractAddress].(*evmwriter.PreCompiledContract); ok {
+		pc.SetPaybackProxyAddr(store.GetRules().Economy.QuotaCacheAddress)
+	}
+
 	return svc, nil
 }
 
@@ -228,6 +236,7 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.dagIndexer.Reset(svc.store.GetValidators(), es.table.DagIndex, func(id hash.Event) dag.Event {
 		return svc.store.GetEvent(id)
 	})
+	svc.dagIndexer.SetElemont(store.GetRules().Upgrades.Elemont)
 
 	// load caches for mutable values to avoid race condition
 	svc.store.GetBlockEpochState()
@@ -250,6 +259,33 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.heavyCheckReader.Store = store
 	svc.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(svc.store, svc.store.GetEpoch()))                                          // read pub keys of current epoch from DB
 	svc.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(svc.store, svc.store.GetValidators(), svc.store.GetEpoch(), net.Economy, net.Upgrades.Podgorica)) // read gaspower check data from DB
+	types.FeeRefundActive.Store(net.Upgrades.Podgorica)                                                                                                  // gate FeeRefund in receipt encoding
+	// Propagate upgrade flags from hardcoded binary rules into stored epoch state.
+	// This activates SfcV2/Podgorica when a new binary ships with the flag enabled
+	// but the stored epoch state still has it disabled (no on-chain governance path exists).
+	if hardcoded := opera.MainNetRulesForNetwork(net.NetworkID); hardcoded != nil {
+		es := store.GetEpochState()
+		changed := false
+		if hardcoded.Upgrades.SfcV2 && !es.Rules.Upgrades.SfcV2 {
+			es.Rules.Upgrades.SfcV2 = true
+			changed = true
+			log.Info("Activated SfcV2 upgrade from binary rules")
+		}
+		if hardcoded.Upgrades.Podgorica && !es.Rules.Upgrades.Podgorica {
+			es.Rules.Upgrades.Podgorica = true
+			changed = true
+			log.Info("Activated Podgorica upgrade from binary rules")
+		}
+		if hardcoded.Upgrades.Elemont && !es.Rules.Upgrades.Elemont {
+			es.Rules.Upgrades.Elemont = true
+			changed = true
+			log.Info("Activated Elemont upgrade from binary rules")
+		}
+		if changed {
+			store.SetBlockEpochState(store.GetBlockState(), es)
+			store.FlushBlockEpochState()
+		}
+	}
 	svc.checkers = makeCheckers(config.HeavyCheck, txSigner, &svc.heavyCheckReader, &svc.gasPowerCheckReader, svc.store)
 
 	// create tx pool

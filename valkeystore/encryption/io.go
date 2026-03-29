@@ -24,6 +24,11 @@ func writeTemporaryKeyFile(file string, content []byte) (string, error) {
 		os.Remove(f.Name())
 		return "", err
 	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return "", err
+	}
 	f.Close()
 	return f.Name(), nil
 }

@@ -2,6 +2,7 @@ package inter
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
@@ -157,8 +158,8 @@ func eventUnmarshalCSER(r *cser.Reader, e *MutableEventPayload) (err error) {
 			return cser.ErrNonCanonicalEncoding
 		}
 	}
-	// extra
-	extra := r.SliceBytes(ProtocolMaxMsgSize)
+	// extra (MaxExtraData is 128 in practice, but allow up to 4KB for future compat)
+	extra := r.SliceBytes(4096)
 
 	if version == 0 && epoch < 256 {
 		return ErrTooLowEpoch
@@ -334,12 +335,26 @@ func (e *MutableEventPayload) UnmarshalCSER(r *cser.Reader) error {
 	mps := make([]MisbehaviourProof, 0)
 	if e.AnyMisbehaviourProofs() {
 		b := r.SliceBytes(ProtocolMaxMsgSize)
-		err := rlp.DecodeBytes(b, &mps)
+		// Pre-check list count before full RLP decode to prevent OOM
+		// from allocating thousands of MisbehaviourProof structs that
+		// would be rejected by the len>128 cap after decode.
+		listContent, _, err := rlp.SplitList(b)
+		if err != nil {
+			return fmt.Errorf("invalid misbehaviour proof RLP: %w", err)
+		}
+		count, err := rlp.CountValues(listContent)
+		if err != nil {
+			return fmt.Errorf("invalid misbehaviour proof RLP: %w", err)
+		}
+		if count > 128 {
+			return errors.New("too many misbehaviour proofs")
+		}
+		err = rlp.DecodeBytes(b, &mps)
 		if err != nil {
 			return err
 		}
-		if len(mps) > 128 {
-			return errors.New("too many misbehaviour proofs")
+		if err := validateMPVoteSizes(mps); err != nil {
+			return err
 		}
 	}
 	e.misbehaviourProofs = mps

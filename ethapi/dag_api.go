@@ -3,7 +3,6 @@ package ethapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,24 +25,30 @@ func NewPublicDAGChainAPI(b Backend) *PublicDAGChainAPI {
 
 // GetEvent returns the VinuChain event header by hash or short ID.
 func (s *PublicDAGChainAPI) GetEvent(ctx context.Context, shortEventID string) (map[string]interface{}, error) {
+	if len(shortEventID) > 128 {
+		return nil, errors.New("short event ID too long")
+	}
 	header, err := s.b.GetEvent(ctx, shortEventID)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("event not found or invalid ID")
 	}
 	if header == nil {
-		return nil, fmt.Errorf("event %s not found", shortEventID)
+		return nil, errors.New("event not found")
 	}
 	return inter.RPCMarshalEvent(header), nil
 }
 
 // GetEventPayload returns VinuChain event by hash or short ID.
 func (s *PublicDAGChainAPI) GetEventPayload(ctx context.Context, shortEventID string, inclTx bool) (map[string]interface{}, error) {
+	if len(shortEventID) > 128 {
+		return nil, errors.New("short event ID too long")
+	}
 	event, err := s.b.GetEventPayload(ctx, shortEventID)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("event not found or invalid ID")
 	}
 	if event == nil {
-		return nil, fmt.Errorf("event %s not found", shortEventID)
+		return nil, errors.New("event not found")
 	}
 	return inter.RPCMarshalEventPayload(event, inclTx, false)
 }

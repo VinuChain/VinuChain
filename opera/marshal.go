@@ -3,6 +3,10 @@ package opera
 import (
 	"encoding/json"
 	"errors"
+	"math/big"
+	"time"
+
+	"github.com/Fantom-foundation/go-opera/inter"
 )
 
 // UpdateRules applies a JSON diff to the current rules, returning the updated
@@ -52,20 +56,60 @@ func validateRulesBounds(r Rules) error {
 	if r.Epochs.MaxEpochGas == 0 {
 		return errors.New("Epochs.MaxEpochGas cannot be zero")
 	}
-	if r.Economy.MinGasPrice != nil && r.Economy.MinGasPrice.Sign() < 0 {
+	if r.Economy.MinGasPrice == nil {
+		return errors.New("Economy.MinGasPrice cannot be nil")
+	}
+	if r.Economy.MinGasPrice.Sign() < 0 {
 		return errors.New("Economy.MinGasPrice cannot be negative")
 	}
 	if r.Economy.ShortGasPower.AllocPerSec == 0 {
 		return errors.New("Economy.ShortGasPower.AllocPerSec cannot be zero")
 	}
+	if r.Economy.ShortGasPower.MaxAllocPeriod == 0 {
+		return errors.New("Economy.ShortGasPower.MaxAllocPeriod cannot be zero")
+	}
 	if r.Economy.LongGasPower.AllocPerSec == 0 {
 		return errors.New("Economy.LongGasPower.AllocPerSec cannot be zero")
+	}
+	if r.Economy.LongGasPower.MaxAllocPeriod == 0 {
+		return errors.New("Economy.LongGasPower.MaxAllocPeriod cannot be zero")
 	}
 	if r.Blocks.MaxBlockGas == 0 {
 		return errors.New("Blocks.MaxBlockGas cannot be zero")
 	}
 	if r.Economy.Gas.MisbehaviourProofGas > r.Economy.Gas.MaxEventGas/2 {
 		return errors.New("Economy.Gas.MisbehaviourProofGas must be less than half of MaxEventGas")
+	}
+	// Epoch duration bounds — prevent eternal epoch (MaxUint64) and per-block sealing (0)
+	if r.Epochs.MaxEpochDuration == 0 || r.Epochs.MaxEpochDuration < inter.Timestamp(time.Minute) {
+		return errors.New("Epochs.MaxEpochDuration must be at least 1 minute")
+	}
+	if r.Epochs.MaxEpochDuration > inter.Timestamp(7*24*time.Hour) {
+		return errors.New("Epochs.MaxEpochDuration cannot exceed 1 week")
+	}
+	// MaxEpochGas upper bound — prevent eternal epoch via unreachable gas target
+	if r.Epochs.MaxEpochGas > 1e15 {
+		return errors.New("Epochs.MaxEpochGas cannot exceed 1e15")
+	}
+	// MaxFreeParents must not exceed MaxParents — underflow causes mempool freeze
+	if r.Dag.MaxFreeParents > r.Dag.MaxParents {
+		return errors.New("Dag.MaxFreeParents cannot exceed Dag.MaxParents")
+	}
+	// MinGasPrice upper bound — astronomical values censor all transactions
+	maxMinGasPrice := new(big.Int).Exp(big.NewInt(10), big.NewInt(15), nil)
+	if r.Economy.MinGasPrice.Cmp(maxMinGasPrice) > 0 {
+		return errors.New("Economy.MinGasPrice cannot exceed 1e15 wei")
+	}
+	// BlockMissedSlack must not be zero — causes emitter flooding + mass deactivation
+	if r.Economy.BlockMissedSlack == 0 {
+		return errors.New("Economy.BlockMissedSlack cannot be zero")
+	}
+	// Vote gas params must not be zero — free votes enable unbounded storage inflation
+	if r.Economy.Gas.BlockVoteGas == 0 {
+		return errors.New("Economy.Gas.BlockVoteGas cannot be zero")
+	}
+	if r.Economy.Gas.EpochVoteGas == 0 {
+		return errors.New("Economy.Gas.EpochVoteGas cannot be zero")
 	}
 	return nil
 }

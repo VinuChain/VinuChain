@@ -60,12 +60,14 @@ func (es *epochStore) FlushLastEvents() {
 		return
 	}
 
-	// sort values for determinism
+	// snapshot under lock for thread-safe iteration
+	lasts.RLock()
 	sortedLastEvents := make([]sortedLastEvent, 0, len(lasts.Val))
 	for vid, val := range lasts.Val {
 		b := append(vid.Bytes(), val.Bytes()...)
 		sortedLastEvents = append(sortedLastEvents, b)
 	}
+	lasts.RUnlock()
 	sort.Slice(sortedLastEvents, func(i, j int) bool {
 		a, b := sortedLastEvents[i], sortedLastEvents[j]
 		return bytes.Compare(a, b) < 0

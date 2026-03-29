@@ -62,6 +62,9 @@ func (s *Store) ForEachHistoryBlockEpochState(fn func(iblockproc.BlockState, ibl
 		if err != nil {
 			s.Log.Crit("Failed to decode BlockEpochState", "err", err)
 		}
+		if bes.BlockState == nil || bes.EpochState == nil {
+			s.Log.Crit("BlockEpochState has nil fields", "key", it.Key())
+		}
 		if !fn(*bes.BlockState, *bes.EpochState) {
 			break
 		}

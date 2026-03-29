@@ -69,7 +69,11 @@ func (s *Service) buildEvent(e *inter.MutableEventPayload, onIndexed func()) err
 	return s.engine.Build(e)
 }
 
-// processSavedEvent performs processing which depends on event being saved in DB
+// processSavedEvent performs processing which depends on event being saved in DB.
+//
+// INVARIANT: dagIndexer.Add MUST succeed before engine.Process is called.
+// The engine assumes the DAG index is up-to-date for the event being processed.
+// Violating this ordering causes consensus divergence across validators.
 func (s *Service) processSavedEvent(e *inter.EventPayload, es *iblockproc.EpochState) error {
 	err := s.dagIndexer.Add(e)
 	if err != nil {
@@ -81,7 +85,7 @@ func (s *Service) processSavedEvent(e *inter.EventPayload, es *iblockproc.EpochS
 		return errWrongMedianTime
 	}
 
-	// aBFT processing
+	// aBFT processing (requires dagIndexer.Add to have succeeded above)
 	return s.engine.Process(e)
 }
 
@@ -131,6 +135,7 @@ func (s *Service) switchEpochTo(newEpoch idx.Epoch) {
 	})
 	// notify event checkers about new validation data
 	rules := s.store.GetRules()
+	s.dagIndexer.SetElemont(rules.Upgrades.Elemont)
 	s.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(s.store, s.store.GetValidators(), newEpoch, rules.Economy, rules.Upgrades.Podgorica)) // read gaspower check data from disk
 	s.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(s.store, newEpoch))
 	// notify about new epoch
@@ -244,6 +249,9 @@ func (s *Service) processEvent(e *inter.EventPayload) error {
 	}
 
 	if newEpoch != oldEpoch {
+		if newEpoch != oldEpoch+1 {
+			log.Crit("Epoch jump detected", "old", oldEpoch, "new", newEpoch)
+		}
 		s.switchEpochTo(newEpoch)
 	}
 

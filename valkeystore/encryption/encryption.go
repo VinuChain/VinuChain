@@ -61,7 +61,7 @@ func (ks Keystore) ReadKey(wantPubkey validatorpk.PubKey, filename, auth string)
 	}
 	gotPubkey := crypto.FromECDSAPub(&keySecp256k1.PublicKey)
 	if subtle.ConstantTimeCompare(wantPubkey.Raw, gotPubkey) != 1 {
-		return nil, fmt.Errorf("key content mismatch: have public key %X, want %X", gotPubkey, wantPubkey.Raw)
+		return nil, fmt.Errorf("key content mismatch: file contains a different key than the one requested")
 	}
 	return key, nil
 }

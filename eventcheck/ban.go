@@ -35,7 +35,8 @@ func IsBan(err error) bool {
 		err == ErrUnknownEpochEV ||
 		err == ErrUndecidedER ||
 		err == ErrSpilledEvent ||
-		err == ErrDuplicateEvent {
+		err == ErrDuplicateEvent ||
+		err == heavycheck.ErrTerminated {
 		return false
 	}
 	return err != nil

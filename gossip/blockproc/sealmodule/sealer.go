@@ -7,6 +7,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/inter/pos"
 	"github.com/Fantom-foundation/lachesis-base/lachesis"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/gossip/blockproc"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
@@ -54,7 +55,12 @@ func (s *OperaEpochsSealer) SealEpoch() (iblockproc.BlockState, iblockproc.Epoch
 	}
 	sort.Slice(validatorIDs, func(i, j int) bool { return validatorIDs[i] < validatorIDs[j] })
 	for _, v := range validatorIDs {
-		builder.Set(v, s.bs.NextValidatorProfiles[v].Weight)
+		profile := s.bs.NextValidatorProfiles[v]
+		if s.es.Rules.Upgrades.Elemont && len(profile.PubKey.Raw) == 0 {
+			log.Warn("Skipping validator with empty pubkey at epoch seal", "id", v)
+			continue
+		}
+		builder.Set(v, profile.Weight)
 	}
 	newValidators := builder.Build()
 	s.es.Validators = newValidators
@@ -77,7 +83,9 @@ func (s *OperaEpochsSealer) SealEpoch() (iblockproc.BlockState, iblockproc.Epoch
 			continue
 		}
 		oldValIdx := oldValidators.GetIdx(valID)
-		newValidatorBlockStates[newValIdx] = s.bs.ValidatorStates[oldValIdx]
+		src := s.bs.ValidatorStates[oldValIdx]
+		src.Originated = new(big.Int).Set(src.Originated)
+		newValidatorBlockStates[newValIdx] = src
 		newValidatorBlockStates[newValIdx].DirtyGasRefund = 0
 		newValidatorBlockStates[newValIdx].Uptime = 0
 		newValidatorEpochStates[newValIdx].GasRefund = s.bs.ValidatorStates[oldValIdx].DirtyGasRefund

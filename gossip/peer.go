@@ -83,6 +83,7 @@ func (p *peer) SetUseless() {
 	atomic.StoreUint32(&p.useless, 1)
 }
 
+
 func (p *peer) SetProgress(x PeerProgress) {
 	p.Lock()
 	defer p.Unlock()

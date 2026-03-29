@@ -1,6 +1,8 @@
 package inter
 
 import (
+	"errors"
+
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 )
@@ -21,7 +23,14 @@ type BlockVoteDoublesign struct {
 }
 
 func (p BlockVoteDoublesign) GetVote(i int) hash.Hash {
-	return p.Pair[i].Val.Votes[p.Block-p.Pair[i].Val.Start]
+	if p.Block < p.Pair[i].Val.Start {
+		return hash.Hash{}
+	}
+	off := p.Block - p.Pair[i].Val.Start
+	if off >= idx.Block(len(p.Pair[i].Val.Votes)) {
+		return hash.Hash{}
+	}
+	return p.Pair[i].Val.Votes[off]
 }
 
 type WrongBlockVote struct {
@@ -31,7 +40,14 @@ type WrongBlockVote struct {
 }
 
 func (p WrongBlockVote) GetVote(i int) hash.Hash {
-	return p.Pals[i].Val.Votes[p.Block-p.Pals[i].Val.Start]
+	if p.Block < p.Pals[i].Val.Start {
+		return hash.Hash{}
+	}
+	off := p.Block - p.Pals[i].Val.Start
+	if off >= idx.Block(len(p.Pals[i].Val.Votes)) {
+		return hash.Hash{}
+	}
+	return p.Pals[i].Val.Votes[off]
 }
 
 type EpochVoteDoublesign struct {
@@ -40,6 +56,29 @@ type EpochVoteDoublesign struct {
 
 type WrongEpochVote struct {
 	Pals [MinAccomplicesForProof]LlrSignedEpochVote
+}
+
+const maxMPVotesPerBV = 128 // cap on Votes slice length inside misbehaviour proofs (2x MaxBlockVotesPerEvent)
+
+func validateMPVoteSizes(mps []MisbehaviourProof) error {
+	for i := range mps {
+		mp := &mps[i]
+		if mp.BlockVoteDoublesign != nil {
+			for j := range mp.BlockVoteDoublesign.Pair {
+				if len(mp.BlockVoteDoublesign.Pair[j].Val.Votes) > maxMPVotesPerBV {
+					return errors.New("misbehaviour proof has too many block votes")
+				}
+			}
+		}
+		if mp.WrongBlockVote != nil {
+			for j := range mp.WrongBlockVote.Pals {
+				if len(mp.WrongBlockVote.Pals[j].Val.Votes) > maxMPVotesPerBV {
+					return errors.New("misbehaviour proof has too many block votes")
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type MisbehaviourProof struct {

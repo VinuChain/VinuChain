@@ -46,6 +46,16 @@ type Index struct {
 	}
 
 	cfg IndexConfig
+
+	// Elemont gates consensus-critical behavioral fixes in NoCheaters,
+	// GatherFrom, and MedianTime. Set from opera.Upgrades.Elemont via
+	// SetElemont after each epoch reset.
+	elemont bool
+}
+
+// SetElemont enables/disables the Elemont upgrade behavioral fixes.
+func (vi *Index) SetElemont(enabled bool) {
+	vi.elemont = enabled
 }
 
 // DefaultConfig returns default index config
@@ -127,7 +137,9 @@ func (vi *Index) GetEngineCallbacks() vecengine.Callbacks {
 			vi.baseCallbacks.SetLowestAfter(event, i)
 		},
 		NewHighestBefore: func(size idx.Validator) vecengine.HighestBeforeI {
-			return NewHighestBefore(size)
+			hb := NewHighestBefore(size)
+			hb.elemont = vi.elemont
+			return hb
 		},
 		NewLowestAfter: func(size idx.Validator) vecengine.LowestAfterI {
 			return vi.baseCallbacks.NewLowestAfter(size)

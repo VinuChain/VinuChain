@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -98,7 +99,12 @@ func validatorKeyCreate(ctx *cli.Context) error {
 		utils.Fatalf("Failed to create account: %v", err)
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
-	defer func() { for i := range privateKey { privateKey[i] = 0 } }()
+	defer func() {
+		for i := range privateKey { privateKey[i] = 0 }
+		if privateKeyECDSA.D != nil {
+			privateKeyECDSA.D.SetUint64(0)
+		}
+	}()
 	publicKey := validatorpk.PubKey{
 		Raw:  crypto.FromECDSAPub(&privateKeyECDSA.PublicKey),
 		Type: validatorpk.Types.Secp256k1,
@@ -110,10 +116,16 @@ func validatorKeyCreate(ctx *cli.Context) error {
 		utils.Fatalf("Failed to create account: %v", err)
 	}
 
-	// Sanity check
-	_, err = valKeystore.Get(publicKey, password)
+	// Sanity check — wipe decrypted key immediately after verification
+	sanityKey, err := valKeystore.Get(publicKey, password)
 	if err != nil {
 		utils.Fatalf("Failed to decrypt the account: %v", err)
+	}
+	if sanityKey != nil {
+		for i := range sanityKey.Bytes {
+			sanityKey.Bytes[i] = 0
+		}
+		sanityKey.Decoded = nil
 	}
 
 	fmt.Printf("\nYour new key was generated\n\n")
@@ -150,15 +162,26 @@ func validatorKeyConvert(ctx *cli.Context) error {
 		}
 	} else {
 		acckeypath = ctx.Args().First()
-		if info, err := os.Stat(acckeypath); err != nil {
+		// Use Lstat to detect symlinks (Stat follows them silently)
+		info, err := os.Lstat(acckeypath)
+		if err != nil {
 			utils.Fatalf("Cannot access key file %s: %v", acckeypath, err)
-		} else if info.IsDir() {
+		}
+		if info.IsDir() {
 			utils.Fatalf("Key path must be a file, not a directory: %s", acckeypath)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			utils.Fatalf("Key path must not be a symlink: %s", acckeypath)
+		}
+		// Resolve to absolute path and verify it's within a reasonable location
+		acckeypath, err = filepath.Abs(acckeypath)
+		if err != nil {
+			utils.Fatalf("Cannot resolve key file path %s: %v", acckeypath, err)
 		}
 	}
 
 	valkeypath := path.Join(keydir, "validator", common.Bytes2Hex(pubkey.Bytes()))
-	err = encryption.MigrateAccountToValidatorKey(acckeypath, valkeypath, pubkey)
+	err = encryption.MigrateAccountToValidatorKey(acckeypath, valkeypath, pubkey, false)
 	if err != nil {
 		utils.Fatalf("Failed to migrate the account key: %v", err)
 	}

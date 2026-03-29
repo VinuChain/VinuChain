@@ -16,9 +16,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/valkeystore"
 )
 
-func addFakeValidatorKey(ctx *cli.Context, key *ecdsa.PrivateKey, pubkey validatorpk.PubKey, valKeystore valkeystore.RawKeystoreI) {
-	crypto.PubkeyToAddress(key.PublicKey).String()
-
+func addFakeValidatorKey(_ *cli.Context, key *ecdsa.PrivateKey, pubkey validatorpk.PubKey, valKeystore valkeystore.RawKeystoreI) {
 	// add fake validator key
 	if key != nil && !valKeystore.Has(pubkey) {
 		err := valKeystore.Add(pubkey, crypto.FromECDSA(key), validatorpk.FakePassword)

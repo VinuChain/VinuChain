@@ -39,11 +39,15 @@ func eventMetric(orig ancestor.Metric, seq idx.Event) ancestor.Metric {
 }
 
 func (em *Emitter) isAllowedToEmit(e inter.EventI, eTxs bool, metric ancestor.Metric, selfParent *inter.Event) bool {
-	passedTime := e.CreationTime().Time().Sub(em.prevEmittedAtTime)
+	// Use wall clock for throttle calculations, not event CreationTime.
+	// CreationTime can be inflated when selfParentTime is in the future,
+	// which would bypass the emit interval throttle.
+	now := time.Now()
+	passedTime := now.Sub(em.prevEmittedAtTime)
 	if passedTime < 0 {
 		passedTime = 0
 	}
-	passedTimeIdle := e.CreationTime().Time().Sub(em.prevIdleTime)
+	passedTimeIdle := now.Sub(em.prevIdleTime)
 	if passedTimeIdle < 0 {
 		passedTimeIdle = 0
 	}

@@ -96,7 +96,10 @@ func (r *HeavyCheckReader) GetEpochPubKeysOf(epoch idx.Epoch) map[idx.ValidatorI
 	return auth.PubKeys
 }
 
-// GetEpochBlockStart is safe for concurrent use
+// GetEpochBlockStart is safe for concurrent use.
+// NOTE: Returns LastBlock.Idx of the requested epoch (not the first block).
+// The BVs range check in heavycheck uses this with MaxBlocksPerEpoch to bound
+// the valid range. See audit finding V-03 for the semantic concern.
 func (r *HeavyCheckReader) GetEpochBlockStart(epoch idx.Epoch) idx.Block {
 	bs, _ := r.Store.GetHistoryBlockEpochState(epoch)
 	if bs == nil {

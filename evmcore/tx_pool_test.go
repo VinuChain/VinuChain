@@ -450,7 +450,10 @@ func TestTransactionChainFork(t *testing.T) {
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
-		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
+		// Mutate the existing testBlockChain's statedb instead of replacing
+		// pool.chain, which races with the pool's loop() goroutine.
+		bc := pool.chain.(*testBlockChain)
+		bc.statedb = statedb
 		<-pool.requestReset(nil, nil)
 	}
 	resetState()
@@ -479,7 +482,8 @@ func TestTransactionDoubleNonce(t *testing.T) {
 		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
-		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
+		bc := pool.chain.(*testBlockChain)
+		bc.statedb = statedb
 		<-pool.requestReset(nil, nil)
 	}
 	resetState()

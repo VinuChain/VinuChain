@@ -354,7 +354,10 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 		log.Debug("refundGas: FeeRefund", "address", st.msg.From().String(), "feeRefund", feeRefund.String())
 	}
 
-	if feeRefund.Cmp(big.NewInt(0)) > 0 {
+	if feeRefund.Cmp(fee) > 0 {
+		feeRefund = new(big.Int).Set(fee)
+	}
+	if feeRefund.Sign() > 0 {
 		st.feeRefund = feeRefund
 		remaining = remaining.Add(remaining, feeRefund)
 	}

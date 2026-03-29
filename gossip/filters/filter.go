@@ -36,6 +36,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/topicsdb"
 )
 
+const maxFilterResults = 10000
+
 type Backend interface {
 	ChainDb() ethdb.Database
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*evmcore.EvmHeader, error)
@@ -160,6 +162,9 @@ func (f *Filter) indexedLogs(ctx context.Context, begin, end idx.Block) ([]*type
 	logs, err := f.backend.EvmLogIndex().FindInBlocks(ctx, begin, end, pattern)
 	if err != nil {
 		return nil, err
+	}
+	if len(logs) > maxFilterResults {
+		return nil, fmt.Errorf("query returned too many results (%d), the limit is %d", len(logs), maxFilterResults)
 	}
 
 	for _, l := range logs {

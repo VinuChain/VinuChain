@@ -33,8 +33,8 @@ var (
 
 	vinuChainTestMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xb1b0e08cb0d53d0fb1067658c5af0b3d3ff334d574679f5f74eee2b3448394ce"),
-		NetworkID:   205,
-		NetworkName: "VinuChain Mainnet",
+		NetworkID:   opera.VinuChainStagingNetworkID,
+		NetworkName: "VinuChain Staging Mainnet",
 	}
 
 	vinuChainMainnetHeader = genesis.Header{

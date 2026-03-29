@@ -71,8 +71,7 @@ func DefaultBlockProc() BlockProc {
 
 func (b *GenesisBuilder) GetStateDB() *state.StateDB {
 	if b.tmpStateDB == nil {
-		tmpEvmStore := evmstore.NewStore(b.dbs, evmstore.LiteStoreConfig())
-		b.tmpStateDB, _ = tmpEvmStore.StateDB(hash.Zero)
+		panic("GetStateDB called before NewGenesisBuilder initialized tmpStateDB")
 	}
 	return b.tmpStateDB
 }
@@ -117,7 +116,10 @@ func (b *GenesisBuilder) CurrentHash() hash.Hash {
 
 func NewGenesisBuilder(dbs kvdb.DBProducer) *GenesisBuilder {
 	tmpEvmStore := evmstore.NewStore(dbs, evmstore.LiteStoreConfig())
-	statedb, _ := tmpEvmStore.StateDB(hash.Zero)
+	statedb, err := tmpEvmStore.StateDB(hash.Zero)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create genesis StateDB: %v", err))
+	}
 	return &GenesisBuilder{
 		dbs:         dbs,
 		tmpEvmStore: tmpEvmStore,
@@ -147,11 +149,11 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 		StakesMap:      make(map[idx.Epoch]*payback.EpochStakes),
 	}
 
-	abi, err := abi.JSON(strings.NewReader(sfc.ContractABI)) // TODO: switch to quota-contract ABI
+	sfcABI, err := abi.JSON(strings.NewReader(sfc.ContractABI))
 	if err != nil {
 		panic(err)
 	}
-	pc.SetContractABI(&abi)
+	pc.SetContractABI(&sfcABI)
 
 	sealer := blockProc.SealerModule.Start(blockCtx, bs, es)
 	sealing := true
@@ -163,7 +165,7 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 			Upgrades: es.Rules.Upgrades,
 			Height:   0,
 		},
-	}), &pc)
+	}), &pc, es.Epoch)
 
 	// Execute genesis transactions
 	evmProcessor.Execute(genesisTxs)
@@ -252,27 +254,39 @@ func (b *GenesisBuilder) Build(head genesis.Header) *genesisstore.Store {
 		buf := &memFile{bytes.NewBuffer(nil)}
 		if name == genesisstore.BlocksSection(0) {
 			for i := len(b.blocks) - 1; i >= 0; i-- {
-				_ = rlp.Encode(buf, b.blocks[i])
+				if err := rlp.Encode(buf, b.blocks[i]); err != nil {
+					return nil, fmt.Errorf("failed to encode genesis block %d: %w", i, err)
+				}
 			}
 			return buf, nil
 		}
 		if name == genesisstore.EpochsSection(0) {
 			for i := len(b.epochs) - 1; i >= 0; i-- {
-				_ = rlp.Encode(buf, b.epochs[i])
+				if err := rlp.Encode(buf, b.epochs[i]); err != nil {
+					return nil, fmt.Errorf("failed to encode genesis epoch %d: %w", i, err)
+				}
 			}
 			return buf, nil
 		}
 		if name == genesisstore.EvmSection(0) {
 			it := b.tmpEvmStore.EvmDb.NewIterator(nil, nil)
 			defer it.Release()
-			_ = iodb.Write(buf, it)
+			if err := iodb.Write(buf, it); err != nil {
+				return nil, fmt.Errorf("failed to write genesis EVM data: %w", err)
+			}
 		}
 		if buf.Len() == 0 {
 			return nil, errors.New("not found")
 		}
 		return buf, nil
 	}, head, func() error {
-		*b = GenesisBuilder{}
+		b.blocks = nil
+		b.epochs = nil
+		b.tmpStateDB = nil
+		if b.tmpEvmStore != nil {
+			b.tmpEvmStore.Close()
+			b.tmpEvmStore = nil
+		}
 		return nil
 	})
 }

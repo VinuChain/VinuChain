@@ -18,8 +18,9 @@ type (
 	HighestBeforeTime []byte
 
 	HighestBefore struct {
-		VSeq  *vecfc.HighestBeforeSeq
-		VTime *HighestBeforeTime
+		VSeq    *vecfc.HighestBeforeSeq
+		VTime   *HighestBeforeTime
+		elemont bool // gates tie-breaking and fork-time fixes in GatherFrom
 	}
 )
 
@@ -39,7 +40,7 @@ func NewHighestBeforeTime(size idx.Validator) *HighestBeforeTime {
 
 // Get i's position in the byte-encoded vector clock
 func (b HighestBeforeTime) Get(i idx.Validator) inter.Timestamp {
-	for i >= b.Size() {
+	if i >= b.Size() {
 		return 0
 	}
 	return inter.Timestamp(binary.LittleEndian.Uint64(b[i*8 : (i+1)*8]))
@@ -48,7 +49,6 @@ func (b HighestBeforeTime) Get(i idx.Validator) inter.Timestamp {
 // Set i's position in the byte-encoded vector clock
 func (b *HighestBeforeTime) Set(i idx.Validator, time inter.Timestamp) {
 	for i >= b.Size() {
-		// append zeros if exceeds size
 		*b = append(*b, []byte{0, 0, 0, 0, 0, 0, 0, 0}...)
 	}
 	binary.LittleEndian.PutUint64((*b)[i*8:(i+1)*8], uint64(time))

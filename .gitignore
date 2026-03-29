@@ -11,3 +11,5 @@ gitignore/
 CLAUDE.md
 docs/
 cover.prof
+claude-progress.txt
+feature-progress.json

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -111,6 +112,9 @@ func OpenGenesisStore(rawReader ReadAtSeekerCloser) (*Store, genesis.Hashes, err
 			return nil, hashes, err
 		}
 		dataCompressedSize := bigendian.BytesToUint64(numB[:])
+		if dataCompressedSize > math.MaxInt64 {
+			return nil, hashes, fmt.Errorf("genesis unit compressed size %d exceeds max", dataCompressedSize)
+		}
 
 		err = ioread.ReadAll(headerReader, numB[:])
 		if err != nil {
@@ -123,8 +127,12 @@ func OpenGenesisStore(rawReader ReadAtSeekerCloser) (*Store, genesis.Hashes, err
 			return nil, hashes, err
 		}
 
-		unitReader := io.NewSectionReader(rawReader, offset+headerSize, offset+headerSize+int64(dataCompressedSize))
-		offset += headerSize + int64(dataCompressedSize)
+		compressedSize := int64(dataCompressedSize)
+		if compressedSize > math.MaxInt64-offset-headerSize {
+			return nil, hashes, fmt.Errorf("genesis unit offset overflow: offset=%d header=%d compressed=%d", offset, headerSize, compressedSize)
+		}
+		unitReader := io.NewSectionReader(rawReader, offset+headerSize, offset+headerSize+compressedSize)
+		offset += headerSize + compressedSize
 
 		gzipReader, err := gzip.NewReader(unitReader)
 		if err != nil {
@@ -135,6 +143,9 @@ func OpenGenesisStore(rawReader ReadAtSeekerCloser) (*Store, genesis.Hashes, err
 		// human-readable name
 		name := unit.UnitName
 		scanfName := strings.ReplaceAll(name, "-", "")
+		if len(scanfName) == 0 {
+			scanfName = "unknown0"
+		}
 		if scanfName[len(scanfName)-1] < '0' || scanfName[len(scanfName)-1] > '9' {
 			scanfName += "0"
 		}

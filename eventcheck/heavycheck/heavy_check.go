@@ -27,7 +27,7 @@ var (
 	ErrUnknownEpochBVs          = errors.New("BVs are unprocessable yet")
 	ErrUnknownEpochEV           = errors.New("EV is unprocessable yet")
 
-	errTerminated = errors.New("terminated") // internal err
+	ErrTerminated = errors.New("terminated")
 )
 
 const (
@@ -94,6 +94,15 @@ func (v *Checker) Start() {
 func (v *Checker) Stop() {
 	close(v.quit)
 	v.wg.Wait()
+	// Drain remaining tasks so callers waiting for onValidated are unblocked.
+	for {
+		select {
+		case op := <-v.tasksQ:
+			op.onValidated(ErrTerminated)
+		default:
+			return
+		}
+	}
 }
 
 func (v *Checker) Overloaded() bool {
@@ -109,7 +118,7 @@ func (v *Checker) EnqueueEvent(e inter.EventPayloadI, onValidated func(error)) e
 	case v.tasksQ <- op:
 		return nil
 	case <-v.quit:
-		return errTerminated
+		return ErrTerminated
 	}
 }
 
@@ -122,7 +131,7 @@ func (v *Checker) EnqueueBVs(bvs inter.LlrSignedBlockVotes, onValidated func(err
 	case v.tasksQ <- op:
 		return nil
 	case <-v.quit:
-		return errTerminated
+		return ErrTerminated
 	}
 }
 
@@ -135,7 +144,7 @@ func (v *Checker) EnqueueEV(ev inter.LlrSignedEpochVote, onValidated func(error)
 	case v.tasksQ <- op:
 		return nil
 	case <-v.quit:
-		return errTerminated
+		return ErrTerminated
 	}
 }
 

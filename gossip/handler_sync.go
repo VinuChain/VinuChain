@@ -234,7 +234,7 @@ func (h *handler) makeEpProcessor(checkers *eventcheck.Checkers) *epprocessor.Pr
 		LightCheck: lightCheck,
 	}
 	// checkers
-	return epprocessor.New(datasemaphore.New(h.config.Protocol.BVsSemaphoreLimit, getSemaphoreWarningFn("BR")), h.config.Protocol.EpProcessor, epprocessor.Callback{
+	return epprocessor.New(datasemaphore.New(h.config.Protocol.BVsSemaphoreLimit, getSemaphoreWarningFn("EP")), h.config.Protocol.EpProcessor, epprocessor.Callback{
 		// DAG callbacks
 		Item: epprocessor.ItemCallback{
 			ProcessEV: h.process.EV,
@@ -589,6 +589,9 @@ func (h *handler) handleMsg(p *peer) error {
 		if request.Limit.Size > protocolMaxMsgSize*2/3 {
 			return errResp(ErrMsgTooLarge, "%v", msg)
 		}
+		if request.MaxChunks > maxStreamChunks {
+			return errResp(ErrMsgTooLarge, "%v", msg)
+		}
 
 		pid := p.id
 		_, peerErr := h.dagSeeder.NotifyRequestReceived(dagstreamseeder.Peer{
@@ -641,6 +644,9 @@ func (h *handler) handleMsg(p *peer) error {
 		if request.Limit.Size > protocolMaxMsgSize*2/3 {
 			return errResp(ErrMsgTooLarge, "%v", msg)
 		}
+		if request.MaxChunks > maxStreamChunks {
+			return errResp(ErrMsgTooLarge, "%v", msg)
+		}
 
 		pid := p.id
 		_, peerErr := h.bvSeeder.NotifyRequestReceived(bvstreamseeder.Peer{
@@ -655,6 +661,9 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == BVsStreamResponse:
+		if !h.syncStatus.AcceptBlockRecords() {
+			break
+		}
 		var chunk bvsChunk
 		if err := msg.Decode(&chunk); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -684,6 +693,9 @@ func (h *handler) handleMsg(p *peer) error {
 			return errResp(ErrMsgTooLarge, "%v", msg)
 		}
 		if request.Limit.Size > protocolMaxMsgSize*2/3 {
+			return errResp(ErrMsgTooLarge, "%v", msg)
+		}
+		if request.MaxChunks > maxStreamChunks {
 			return errResp(ErrMsgTooLarge, "%v", msg)
 		}
 
@@ -732,6 +744,9 @@ func (h *handler) handleMsg(p *peer) error {
 		if request.Limit.Size > protocolMaxMsgSize*2/3 {
 			return errResp(ErrMsgTooLarge, "%v", msg)
 		}
+		if request.MaxChunks > maxStreamChunks {
+			return errResp(ErrMsgTooLarge, "%v", msg)
+		}
 
 		pid := p.id
 		_, peerErr := h.epSeeder.NotifyRequestReceived(epstreamseeder.Peer{
@@ -746,6 +761,9 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == EPsStreamResponse:
+		if !h.syncStatus.AcceptBlockRecords() {
+			break
+		}
 		msgSize := uint64(msg.Size)
 		var chunk epsChunk
 		if err := msg.Decode(&chunk); err != nil {

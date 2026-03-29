@@ -107,6 +107,9 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.Decim
 	if blockCount > 1024 {
 		blockCount = 1024
 	}
+	if len(rewardPercentiles) > 100 {
+		return nil, errors.New("rewardPercentiles list exceeds maximum length of 100")
+	}
 	res.Reward = make([][]*hexutil.Big, 0, blockCount)
 	res.BaseFee = make([]*hexutil.Big, 0, blockCount)
 	res.GasUsedRatio = make([]float64, 0, blockCount)
@@ -182,6 +185,8 @@ func NewPublicTxPoolAPI(b Backend) *PublicTxPoolAPI {
 
 // Content returns the transactions contained within the transaction pool.
 func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransaction {
+	const maxTxs = 10000
+
 	content := map[string]map[string]map[string]*RPCTransaction{
 		"pending": make(map[string]map[string]*RPCTransaction),
 		"queued":  make(map[string]map[string]*RPCTransaction),
@@ -189,21 +194,36 @@ func (s *PublicTxPoolAPI) Content() map[string]map[string]map[string]*RPCTransac
 	pending, queue := s.b.TxPoolContent()
 
 	curHeader := s.b.CurrentBlock().Header()
+	count := 0
 	// Flatten the pending transactions
 	for account, txs := range pending {
 		dump := make(map[string]*RPCTransaction)
 		for _, tx := range txs {
+			if count >= maxTxs {
+				break
+			}
 			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx, curHeader.BaseFee)
+			count++
 		}
 		content["pending"][account.Hex()] = dump
+		if count >= maxTxs {
+			break
+		}
 	}
 	// Flatten the queued transactions
 	for account, txs := range queue {
 		dump := make(map[string]*RPCTransaction)
 		for _, tx := range txs {
+			if count >= maxTxs {
+				break
+			}
 			dump[fmt.Sprintf("%d", tx.Nonce())] = newRPCPendingTransaction(tx, curHeader.BaseFee)
+			count++
 		}
 		content["queued"][account.Hex()] = dump
+		if count >= maxTxs {
+			break
+		}
 	}
 	return content
 }
@@ -243,6 +263,8 @@ func (s *PublicTxPoolAPI) Status() map[string]hexutil.Uint {
 // Inspect retrieves the content of the transaction pool and flattens it into an
 // easily inspectable list.
 func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
+	const maxTxs = 10000
+
 	content := map[string]map[string]map[string]string{
 		"pending": make(map[string]map[string]string),
 		"queued":  make(map[string]map[string]string),
@@ -256,21 +278,36 @@ func (s *PublicTxPoolAPI) Inspect() map[string]map[string]map[string]string {
 		}
 		return fmt.Sprintf("contract creation: %v wei + %v gas × %v wei", tx.Value(), tx.Gas(), tx.GasPrice())
 	}
+	count := 0
 	// Flatten the pending transactions
 	for account, txs := range pending {
 		dump := make(map[string]string)
 		for _, tx := range txs {
+			if count >= maxTxs {
+				break
+			}
 			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
+			count++
 		}
 		content["pending"][account.Hex()] = dump
+		if count >= maxTxs {
+			break
+		}
 	}
 	// Flatten the queued transactions
 	for account, txs := range queue {
 		dump := make(map[string]string)
 		for _, tx := range txs {
+			if count >= maxTxs {
+				break
+			}
 			dump[fmt.Sprintf("%d", tx.Nonce())] = format(tx)
+			count++
 		}
 		content["queued"][account.Hex()] = dump
+		if count >= maxTxs {
+			break
+		}
 	}
 	return content
 }
@@ -477,6 +514,9 @@ func (s *PrivateAccountAPI) signTransaction(ctx context.Context, args *Transacti
 // tries to sign it with the key associated with args.From. If the given
 // passwd isn't able to decrypt the key it fails.
 func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args TransactionArgs, passwd string) (common.Hash, error) {
+	if s.b.ExtRPCEnabled() {
+		return common.Hash{}, errors.New("personal_sendTransaction is not available over external RPC")
+	}
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
@@ -931,6 +971,9 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 	if diff == nil {
 		return nil
 	}
+	if len(*diff) > 256 {
+		return errors.New("state override exceeds maximum of 256 accounts")
+	}
 	for addr, account := range *diff {
 		// Override account nonce.
 		if account.Nonce != nil {
@@ -1133,7 +1176,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 	executable := func(gas uint64) (bool, *evmcore.ExecutionResult, error) {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
-		result, err := DoCall(ctx, b, args, blockNrOrHash, nil, 0, gasCap)
+		result, err := DoCall(ctx, b, args, blockNrOrHash, nil, 5*time.Second, gasCap)
 		if err != nil {
 			if errors.Is(err, evmcore.ErrIntrinsicGas) {
 				return true, nil, nil // Special case, raise gas limit

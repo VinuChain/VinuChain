@@ -53,7 +53,6 @@ func version(ctx *cli.Context) error {
 }
 
 func license(_ *cli.Context) error {
-	// TODO: license text
-	fmt.Println(``)
+	fmt.Println(`VinuChain is based on go-opera by Fantom Foundation, licensed under the GNU Lesser General Public License v3.0.`)
 	return nil
 }

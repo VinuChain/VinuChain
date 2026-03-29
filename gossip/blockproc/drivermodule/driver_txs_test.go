@@ -34,10 +34,15 @@ func newTestListener(rules opera.Rules) (*DriverTxListener, *state.StateDB) {
 		Validators: validators,
 		Rules:      rules,
 	}
+	var minGasPrice *big.Int
+	if rules.Economy.MinGasPrice != nil {
+		minGasPrice = new(big.Int).Set(rules.Economy.MinGasPrice)
+	}
 	return &DriverTxListener{
-		es:      es,
-		bs:      bs,
-		statedb: statedb,
+		es:               es,
+		bs:               bs,
+		statedb:          statedb,
+		blockMinGasPrice: minGasPrice,
 	}, statedb
 }
 

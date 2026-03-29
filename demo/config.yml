@@ -38,7 +38,7 @@ AllowUnprotectedTxs = false
 RPCBlockExt = true
 
 [Opera.FilterAPI]
-IndexedLogsBlockRangeLimit = 999999999999999999
+IndexedLogsBlockRangeLimit = 100000
 UnindexedLogsBlockRangeLimit = 100
 
 [Opera.Protocol]

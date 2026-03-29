@@ -127,7 +127,7 @@ func (c *circularTxpoolStats) getGasPriceForGasAbove(gas uint64) *big.Int {
 	}
 	p0 := gas * uint64(len(avg.percentiles)) / maxGasToIndex
 	if p0 >= uint64(len(avg.percentiles))-1 {
-		return avg.percentiles[len(avg.percentiles)-1]
+		return new(big.Int).Set(avg.percentiles[len(avg.percentiles)-1])
 	}
 	// interpolate linearly
 	p1 := p0 + 1

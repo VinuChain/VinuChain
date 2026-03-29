@@ -24,7 +24,6 @@ import (
 	"github.com/Fantom-foundation/go-opera/evmcore"
 	"github.com/Fantom-foundation/go-opera/gossip"
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
-	"github.com/Fantom-foundation/go-opera/gossip/gasprice"
 	"github.com/Fantom-foundation/go-opera/integration"
 	"github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
@@ -191,12 +190,22 @@ func (c *config) AppConfigs() integration.Configs {
 	}
 }
 
+const maxConfigFileSize = 10 << 20 // 10 MB
+
 func loadAllConfigs(file string, cfg *config) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() > maxConfigFileSize {
+		return fmt.Errorf("config file %s exceeds maximum size of %d bytes", file, maxConfigFileSize)
+	}
 
 	err = tomlSettings.NewDecoder(bufio.NewReader(f)).Decode(cfg)
 	// Add file name to errors that have a line number.
@@ -246,7 +255,7 @@ func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
 				}
 			}
 			if ctx.GlobalBool(ExperimentalGenesisFlag.Name) {
-				log.Warn("Genesis file doesn't refer to any trusted preset")
+				log.Warn("SECURITY WARNING: Genesis file doesn't refer to any trusted preset — node may join a different network")
 			} else {
 				utils.Fatalf("Genesis file doesn't refer to any trusted preset. Enable experimental genesis with --genesis.allowExperimental")
 			}
@@ -286,8 +295,6 @@ func setDataDir(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(defaultDataDir, fmt.Sprintf("fakenet-%d", num))
 	}
 }
-
-func setGPO(ctx *cli.Context, cfg *gasprice.Config) {}
 
 func setTxPool(ctx *cli.Context, cfg *evmcore.TxPoolConfig) {
 	if ctx.GlobalIsSet(utils.TxPoolLocalsFlag.Name) {
@@ -334,8 +341,6 @@ func setTxPool(ctx *cli.Context, cfg *evmcore.TxPoolConfig) {
 
 func gossipConfigWithFlags(ctx *cli.Context, src gossip.Config) (gossip.Config, error) {
 	cfg := src
-
-	setGPO(ctx, &cfg.GPO)
 
 	if ctx.GlobalIsSet(RPCGlobalGasCapFlag.Name) {
 		cfg.RPCGasCap = ctx.GlobalUint64(RPCGlobalGasCapFlag.Name)
@@ -544,7 +549,7 @@ func dumpConfig(ctx *cli.Context) error {
 
 	dump := os.Stdout
 	if ctx.NArg() > 0 {
-		dump, err = os.OpenFile(ctx.Args().Get(0), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		dump, err = os.OpenFile(ctx.Args().Get(0), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}

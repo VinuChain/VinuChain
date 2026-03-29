@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/driverauth"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/netinit"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 )
 
 var (
@@ -54,9 +58,28 @@ func init() {
 	}
 }
 
-type PreCompiledContract struct{}
+type PreCompiledContract struct {
+	// paybackProxyAddr stores the payback proxy contract address (common.Address)
+	// set from Rules.Economy.QuotaCacheAddress at block processing time.
+	// Accessed atomically since RPC and block processing run concurrently.
+	paybackProxyAddr atomic.Value
+}
 
-func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm.TxContext, caller common.Address, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
+// SetPaybackProxyAddr updates the payback proxy address used by isSystemContract.
+// Called when rules are loaded or change (epoch boundaries, governance).
+func (c *PreCompiledContract) SetPaybackProxyAddr(addr common.Address) {
+	c.paybackProxyAddr.Store(addr)
+}
+
+func (c *PreCompiledContract) getPaybackProxyAddr() common.Address {
+	v := c.paybackProxyAddr.Load()
+	if v == nil {
+		return common.Address{}
+	}
+	return v.(common.Address)
+}
+
+func (c *PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm.TxContext, caller common.Address, input []byte, suppliedGas uint64) ([]byte, uint64, error) {
 	if caller != driver.ContractAddress {
 		return nil, 0, vm.ErrExecutionReverted
 	}
@@ -118,7 +141,11 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		if code == nil {
 			code = []byte{}
 		}
-		cost := uint64(len(code)) * (params.CreateDataGas + params.MemoryGas)
+		perByte := params.CreateDataGas + params.MemoryGas
+		if uint64(len(code)) > math.MaxUint64/perByte {
+			return nil, 0, vm.ErrOutOfGas
+		}
+		cost := uint64(len(code)) * perByte
 		if suppliedGas < cost {
 			return nil, 0, vm.ErrOutOfGas
 		}
@@ -143,6 +170,9 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		acc1 := common.BytesToAddress(input[12:32])
 
 		if acc0 == txCtx.Origin || acc1 == txCtx.Origin {
+			return nil, 0, vm.ErrExecutionReverted
+		}
+		if c.isSystemContract(acc0) || c.isSystemContract(acc1) {
 			return nil, 0, vm.ErrExecutionReverted
 		}
 		code0 := stateDB.GetCode(acc0)
@@ -183,7 +213,7 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		input = input[32:]
 		value := common.BytesToHash(input[:32])
 
-		if acc == txCtx.Origin {
+		if acc == txCtx.Origin || c.isSystemContract(acc) {
 			return nil, 0, vm.ErrExecutionReverted
 		}
 
@@ -203,8 +233,9 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		input = input[32:]
 		value := new(big.Int).SetBytes(input[:32])
 
-		if acc == txCtx.Origin {
-			// Origin nonce shouldn't change during his transaction
+		if acc == txCtx.Origin || acc == (common.Address{}) {
+			// Origin nonce shouldn't change during his transaction.
+			// Zero address is the internal tx sequencer — nonce inflation halts the chain.
 			return nil, 0, vm.ErrExecutionReverted
 		}
 
@@ -226,4 +257,14 @@ func (_ PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx vm
 		return nil, 0, vm.ErrExecutionReverted
 	}
 	return nil, suppliedGas, nil
+}
+
+func (c *PreCompiledContract) isSystemContract(addr common.Address) bool {
+	proxyAddr := c.getPaybackProxyAddr()
+	return addr == ContractAddress ||
+		addr == driver.ContractAddress ||
+		addr == driverauth.ContractAddress ||
+		addr == netinit.ContractAddress ||
+		addr == sfc.ContractAddress ||
+		(proxyAddr != (common.Address{}) && addr == proxyAddr)
 }

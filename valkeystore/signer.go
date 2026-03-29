@@ -42,6 +42,7 @@ func (s *Signer) Sign(pubkey validatorpk.PubKey, digest []byte) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	sigRS := sigRSV[:64]
-	return sigRS, err
+	sigRS := make([]byte, 64)
+	copy(sigRS, sigRSV[:64])
+	return sigRS, nil
 }

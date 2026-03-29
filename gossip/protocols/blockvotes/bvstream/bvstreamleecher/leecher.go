@@ -83,8 +83,12 @@ func (d *Leecher) shouldTerminateSession() bool {
 		return true
 	}
 
-	noProgress := time.Since(d.session.lastReceived) >= d.cfg.BaseProgressWatchdog*time.Duration(d.session.try+5)/5
-	stuck := time.Since(d.session.startTime) >= d.cfg.BaseSessionWatchdog*time.Duration(d.session.try+5)/5
+	tryFactor := d.session.try
+	if tryFactor > 100 {
+		tryFactor = 100
+	}
+	noProgress := time.Since(d.session.lastReceived) >= d.cfg.BaseProgressWatchdog*time.Duration(tryFactor+5)/5
+	stuck := time.Since(d.session.startTime) >= d.cfg.BaseSessionWatchdog*time.Duration(tryFactor+5)/5
 	return stuck || noProgress
 }
 

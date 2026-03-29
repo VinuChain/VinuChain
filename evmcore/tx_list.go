@@ -21,6 +21,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -478,9 +479,10 @@ func (h *priceHeap) Pop() interface{} {
 // better candidates for inclusion while in other cases (at the top of the baseFee peak)
 // the floating heap is better. When baseFee is decreasing they behave similarly.
 type txPricedList struct {
-	all              *txLookup // Pointer to the map of all transactions
-	urgent, floating priceHeap // Heaps of prices of all the stored **remote** transactions
-	stales           int       // Number of stale price points to (re-heap trigger)
+	all              *txLookup  // Pointer to the map of all transactions
+	urgent, floating priceHeap  // Heaps of prices of all the stored **remote** transactions
+	stales           int        // Number of stale price points to (re-heap trigger)
+	mu               sync.Mutex // Protects stales, urgent.list, floating.list from concurrent access
 }
 
 const (
@@ -509,13 +511,15 @@ func (l *txPricedList) Put(tx *types.Transaction, local bool) {
 // from the pool. The list will just keep a counter of stale objects and update
 // the heap if a large enough ratio of transactions go stale.
 func (l *txPricedList) Removed(count int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	// Bump the stale counter, but exit if still too low (< 25%)
 	l.stales += count
 	if l.stales <= (len(l.urgent.list)+len(l.floating.list))/4 {
 		return
 	}
 	// Seems we've reached a critical number of stale transactions, reheap
-	l.Reheap()
+	l.reheap()
 }
 
 // Underpriced checks whether a transaction is cheaper than (or as cheap as) the
@@ -594,6 +598,12 @@ func (l *txPricedList) Discard(slots int, force bool) (types.Transactions, bool)
 
 // Reheap forcibly rebuilds the heap based on the current remote transaction set.
 func (l *txPricedList) Reheap() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.reheap()
+}
+
+func (l *txPricedList) reheap() {
 	start := time.Now()
 	l.stales = 0
 	l.urgent.list = make([]*types.Transaction, 0, l.all.RemoteCount())
@@ -620,8 +630,10 @@ func (l *txPricedList) Reheap() {
 // SetBaseFee updates the base fee and triggers a re-heap. Note that Removed is not
 // necessary to call right before SetBaseFee when processing a new block.
 func (l *txPricedList) SetBaseFee(baseFee *big.Int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.urgent.baseFee == nil || l.urgent.baseFee.Cmp(baseFee) != 0 {
 		l.urgent.baseFee = baseFee
-		l.Reheap()
+		l.reheap()
 	}
 }

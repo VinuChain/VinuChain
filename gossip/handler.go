@@ -45,7 +45,7 @@ const (
 	softResponseLimitSize = 2 * 1024 * 1024    // Target maximum size of returned events, or other data.
 	softLimitItems        = 250                // Target maximum number of events or transactions to request/response
 	hardLimitItems        = softLimitItems * 4 // Maximum number of events or transactions to request/response
-
+	maxStreamChunks       = uint32(12)         // Maximum chunks per stream request (matches seeder MaxResponseChunks)
 	// txChanSize is the size of channel listening to NewTxsNotify.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
@@ -55,6 +55,9 @@ func errResp(code errCode, format string, v ...interface{}) error {
 	return fmt.Errorf("%v - %v", code, fmt.Sprintf(format, v...))
 }
 
+// checkLenLimits validates message size is within bounds.
+// Stream chunk callers pass len(items)+1 to count metadata overhead,
+// making the effective item limit hardLimitItems-1 (conservative).
 func checkLenLimits(size int, v interface{}) error {
 	if size <= 0 {
 		return errResp(ErrEmptyMessage, "%v", v)
@@ -474,7 +477,11 @@ func (h *handler) Start(maxPeers int) {
 	}
 
 	// start sync handlers
-	go h.txsyncLoop()
+	h.wg.Add(1)
+	go func() {
+		defer h.wg.Done()
+		h.txsyncLoop()
+	}()
 	h.loopsWg.Add(2)
 	go h.snapsyncStateLoop()
 	go h.snapsyncStageLoop()

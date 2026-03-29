@@ -73,7 +73,6 @@ func (hb *HighestBefore) CollectFrom(_other vecengine.HighestBeforeI, num idx.Va
 
 func (hb *HighestBefore) GatherFrom(to idx.Validator, _other vecengine.HighestBeforeI, from []idx.Validator) {
 	other := _other.(*HighestBefore)
-	// read all branches to find highest event
 	highestBranchSeq := vecfc.BranchSeq{}
 	highestBranchTime := inter.Timestamp(0)
 	for _, branchID := range from {
@@ -81,10 +80,15 @@ func (hb *HighestBefore) GatherFrom(to idx.Validator, _other vecengine.HighestBe
 		vtime := other.VTime.Get(branchID)
 		if vseq.IsForkDetected() {
 			highestBranchSeq = vseq
+			if hb.elemont {
+				highestBranchTime = 0 // fork-detected: time is irrelevant
+			}
 			break
 		}
 		if vseq.Seq > highestBranchSeq.Seq {
 			highestBranchSeq = vseq
+			highestBranchTime = vtime
+		} else if hb.elemont && vseq.Seq == highestBranchSeq.Seq && vtime > highestBranchTime {
 			highestBranchTime = vtime
 		}
 	}

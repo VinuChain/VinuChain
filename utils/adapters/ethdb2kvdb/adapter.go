@@ -3,6 +3,7 @@ package ethdb2kvdb
 import (
 	"github.com/Fantom-foundation/lachesis-base/kvdb"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type Adapter struct {
@@ -16,7 +17,7 @@ func Wrap(v ethdb.KeyValueStore) *Adapter {
 }
 
 func (db *Adapter) Drop() {
-	panic("called Drop on ethdb")
+	log.Error("Drop is unsupported on ethdb adapter")
 }
 
 // batch is a write-only memory batch that commits changes to its host
@@ -37,8 +38,7 @@ func (db *Adapter) NewBatch() kvdb.Batch {
 }
 
 func (db *Adapter) GetSnapshot() (kvdb.Snapshot, error) {
-	panic("called GetSnapshot on ethdb")
-	return nil, nil
+	return nil, kvdb.ErrUnsupportedOp
 }
 
 // NewIterator creates a binary-alphabetical iterator over a subset

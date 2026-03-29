@@ -17,7 +17,12 @@ import (
 func (s *Store) ApplyGenesis(g genesis.Genesis) (genesisHash hash.Hash, err error) {
 	// use batching wrapper for hot tables
 	unwrap := s.WrapTablesAsBatched()
-	defer unwrap()
+	success := false
+	defer func() {
+		if success {
+			unwrap()
+		}
+	}()
 
 	// write epochs
 	var topEr *ier.LlrIdxFullEpochRecord
@@ -71,6 +76,8 @@ func (s *Store) ApplyGenesis(g genesis.Genesis) (genesisHash hash.Hash, err erro
 	s.SetGenesisID(g.GenesisID)
 	s.SetGenesisBlockIndex(topEr.BlockState.LastBlock.Idx)
 
+	genesisHash = hash.Of(g.GenesisID.Bytes())
+	success = true
 	return genesisHash, err
 }
 

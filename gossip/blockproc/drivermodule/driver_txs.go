@@ -25,6 +25,7 @@ import (
 
 const (
 	maxAdvanceEpochs       = 1 << 16
+	maxValidators          = 500
 	baseFeeBurnPercentage  = 30
 	baseFeeBurnDenominator = 100
 )
@@ -41,19 +42,29 @@ func NewDriverTxListenerModule() *DriverTxListenerModule {
 }
 
 func (m *DriverTxListenerModule) Start(block iblockproc.BlockCtx, bs iblockproc.BlockState, es iblockproc.EpochState, statedb *state.StateDB) blockproc.TxListener {
+	// Snapshot MinGasPrice at block start so fee calculations are
+	// consistent for the entire block, even if governance updates
+	// DirtyRules mid-block (which wouldn't affect es.Rules today,
+	// but this makes the invariant explicit and refactor-proof).
+	var minGasPrice *big.Int
+	if es.Rules.Economy.MinGasPrice != nil {
+		minGasPrice = new(big.Int).Set(es.Rules.Economy.MinGasPrice)
+	}
 	return &DriverTxListener{
-		block:   block,
-		es:      es,
-		bs:      bs,
-		statedb: statedb,
+		block:            block,
+		es:               es,
+		bs:               bs,
+		statedb:          statedb,
+		blockMinGasPrice: minGasPrice,
 	}
 }
 
 type DriverTxListener struct {
-	block   iblockproc.BlockCtx
-	es      iblockproc.EpochState
-	bs      iblockproc.BlockState
-	statedb *state.StateDB
+	block          iblockproc.BlockCtx
+	es             iblockproc.EpochState
+	bs             iblockproc.BlockState
+	statedb        *state.StateDB
+	blockMinGasPrice *big.Int // snapshotted at block start; governance DirtyRules cannot change this mid-block
 }
 
 type DriverTxTransactor struct{}
@@ -115,10 +126,20 @@ func (p *DriverTxPreTransactor) PopInternalTxs(block iblockproc.BlockCtx, bs ibl
 				prevOnlineTime := inter.MaxTimestamp(info.LastOnlineTime, es.EpochStart)
 				uptime += inter.MaxTimestamp(block.Time, prevOnlineTime) - prevOnlineTime
 			}
+			originatedFee := info.Originated
+			if es.Rules.Upgrades.Elemont {
+				valID := es.Validators.GetID(oldValIdx)
+				for _, cheater := range bs.EpochCheaters {
+					if cheater == valID {
+						originatedFee = new(big.Int)
+						break
+					}
+				}
+			}
 			metrics[oldValIdx] = drivercall.ValidatorEpochMetric{
 				Missed:          missed,
 				Uptime:          uptime,
-				OriginatedTxFee: info.Originated,
+				OriginatedTxFee: originatedFee,
 			}
 		}
 		calldata := drivercall.SealEpoch(metrics)
@@ -146,11 +167,12 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 
 	gasUsed := new(big.Int).SetUint64(r.GasUsed)
 
-	// Compute effective gas price: for EIP-1559 txs, min(gasTipCap + baseFee, gasFeeCap)
+	// Compute effective gas price using the block-start MinGasPrice snapshot
+	// to ensure txFee matches what refundGas computed via the EVM baseFee.
 	effectiveGasPrice := tx.GasPrice()
-	if p.es.Rules.Upgrades.London && p.es.Rules.Economy.MinGasPrice != nil {
+	if p.es.Rules.Upgrades.London && p.blockMinGasPrice != nil {
 		effectiveGasPrice = ethmath.BigMin(
-			new(big.Int).Add(tx.GasTipCap(), p.es.Rules.Economy.MinGasPrice),
+			new(big.Int).Add(tx.GasTipCap(), p.blockMinGasPrice),
 			tx.GasFeeCap(),
 		)
 	}
@@ -170,8 +192,8 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 
 	// Burn 30% of base fee portion from the validator's share when SfcV2 is active
 	burnAmount := new(big.Int)
-	if p.es.Rules.Upgrades.SfcV2 && p.es.Rules.Upgrades.London && p.es.Rules.Economy.MinGasPrice != nil && p.es.Rules.Economy.MinGasPrice.Sign() > 0 {
-		baseFeeUsed := new(big.Int).Mul(p.es.Rules.Economy.MinGasPrice, gasUsed)
+	if p.es.Rules.Upgrades.SfcV2 && p.es.Rules.Upgrades.London && p.blockMinGasPrice != nil && p.blockMinGasPrice.Sign() > 0 {
+		baseFeeUsed := new(big.Int).Mul(p.blockMinGasPrice, gasUsed)
 		burnAmount.Mul(baseFeeUsed, burnNumeratorVal())
 		burnAmount.Div(burnAmount, burnDenominatorVal())
 		// burn cannot exceed what validators would receive
@@ -191,7 +213,7 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	// Send burned amount to 0x0 address for on-chain accounting
 	if burnAmount.Sign() > 0 {
 		p.statedb.AddBalance(common.Address{}, burnAmount)
-		log.Debug("Base fee burned", "tx", tx.Hash().Hex(), "burn", burnAmount, "baseFee", p.es.Rules.Economy.MinGasPrice, "fee", txFee)
+		log.Debug("Base fee burned", "tx", tx.Hash().Hex(), "burn", burnAmount, "baseFee", p.blockMinGasPrice, "fee", txFee)
 	}
 
 	// track gas power refunds
@@ -226,6 +248,9 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 	if l.Address != driver.ContractAddress {
 		return
 	}
+	if len(l.Topics) == 0 {
+		return
+	}
 	// Track validator weight changes
 	if l.Topics[0] == driverpos.Topics.UpdateValidatorWeight && len(l.Topics) > 1 && len(l.Data) >= 32 {
 		validatorID := idx.ValidatorID(new(big.Int).SetBytes(l.Topics[1][:]).Uint64())
@@ -236,13 +261,20 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 		} else {
 			profile, ok := p.bs.NextValidatorProfiles[validatorID]
 			if !ok {
-				profile.PubKey = validatorpk.PubKey{
-					Type: 0,
-					Raw:  []byte{},
+				if len(p.bs.NextValidatorProfiles) >= maxValidators {
+					log.Warn("Validator count at cap, ignoring new validator", "id", validatorID, "cap", maxValidators)
+				} else {
+					profile.PubKey = validatorpk.PubKey{
+						Type: 0,
+						Raw:  []byte{},
+					}
+					profile.Weight = weight
+					p.bs.NextValidatorProfiles[validatorID] = profile
 				}
+			} else {
+				profile.Weight = weight
+				p.bs.NextValidatorProfiles[validatorID] = profile
 			}
-			profile.Weight = weight
-			p.bs.NextValidatorProfiles[validatorID] = profile
 		}
 	}
 	// Track validator pubkey changes
@@ -261,7 +293,7 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 		}
 		parsedKey, err := validatorpk.FromBytes(pubkey)
 		if err != nil {
-			log.Crit("Malformed validator pubkey in UpdateValidatorPubkey event", "validator", validatorID, "err", err)
+			log.Warn("Malformed validator pubkey in UpdateValidatorPubkey event", "validator", validatorID, "err", err)
 			return
 		}
 		profile.PubKey = parsedKey
@@ -288,8 +320,12 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 	}
 	// Advance epochs
 	if l.Topics[0] == driverpos.Topics.AdvanceEpochs && len(l.Data) >= 32 {
-		// epochsNum < 2^24 to avoid overflow
-		epochsNum := new(big.Int).SetBytes(l.Data[29:32]).Uint64()
+		var epochsNum uint64
+		if p.es.Rules.Upgrades.Elemont {
+			epochsNum = new(big.Int).SetBytes(l.Data[0:32]).Uint64()
+		} else {
+			epochsNum = new(big.Int).SetBytes(l.Data[29:32]).Uint64()
+		}
 
 		p.bs.AdvanceEpochs += idx.Epoch(epochsNum)
 		if p.bs.AdvanceEpochs > maxAdvanceEpochs {

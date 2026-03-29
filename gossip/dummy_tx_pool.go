@@ -152,6 +152,8 @@ func (p *dummyTxPool) SampleHashes(max int) []common.Hash {
 }
 
 func (p *dummyTxPool) Count() int {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	return len(p.pool)
 }
 

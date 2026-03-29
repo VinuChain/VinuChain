@@ -11,6 +11,7 @@ import (
 
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
+	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/utils/migration"
 )
 
@@ -23,7 +24,10 @@ func isEmptyDB(db kvdb.Iteratee) bool {
 func (s *Store) migrateData() error {
 	versions := migration.NewKvdbIDStore(s.table.Version)
 	if isEmptyDB(s.table.Version) {
-		// short circuit if empty DB
+		// short circuit if empty DB — version marker is flushed
+		// with the first organic Commit() call after genesis application.
+		// The dirty-flag system (checkDBsSynced) prevents operating on
+		// partially-flushed state if a crash occurs before that point.
 		versions.SetID(s.migrations().ID())
 		return nil
 	}
@@ -79,6 +83,9 @@ func (s *Store) recoverLlrState() error {
 	if !ok {
 		return errors.New("epoch state reading failed: genesis not applied")
 	}
+	if v1.EpochState == nil || v1.BlockState == nil {
+		return errors.New("epoch state has nil fields: database may be corrupted")
+	}
 
 	epoch := v1.EpochState.Epoch + 1
 	block := v1.BlockState.LastBlock.Idx + 1
@@ -108,6 +115,9 @@ func (s *Store) eraseSfcApiTable() error {
 			return err
 		}
 	}
+	if it.Error() != nil {
+		return fmt.Errorf("iterator error during SFC API table erasure: %w", it.Error())
+	}
 	return nil
 }
 
@@ -118,7 +128,7 @@ func (s *Store) eraseGossipAsyncDB() error {
 	}
 
 	if err := asyncDB.Close(); err != nil {
-		log.Warn("Failed to close DB before drop", "err", err)
+		return fmt.Errorf("failed to close gossip-async before drop: %w", err)
 	}
 	asyncDB.Drop()
 
@@ -139,6 +149,10 @@ func (s *Store) eraseGenesisDB() error {
 }
 
 func (s *Store) calculateUpgradeHeights() error {
+	// Clear existing entries to ensure idempotency on re-run after crash
+	s.rlp.Set(s.table.UpgradeHeights, []byte{}, []opera.UpgradeHeight{})
+	s.cache.UpgradeHeights.Store([]opera.UpgradeHeight(nil))
+
 	var prevEs *iblockproc.EpochState
 	s.ForEachHistoryBlockEpochState(func(bs iblockproc.BlockState, es iblockproc.EpochState) bool {
 		s.WriteUpgradeHeight(bs, es, prevEs)

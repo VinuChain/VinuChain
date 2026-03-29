@@ -17,7 +17,7 @@ import (
 const (
 	MainNetworkID     uint64 = 0xfa
 	TestNetworkID     uint64 = 0xfa2
-	FakeNetworkID     uint64 = 0xfa3
+	VinuChainStagingNetworkID     = 0xcd // 205 (test mainnet / staging)
 	VinuChainTestNetworkID        = 0xce // 206
 	VinuChainMainNetworkID        = 0xcf // 207
 	VinuChainNewNetworkID         = 0x1b
@@ -27,6 +27,7 @@ const (
 	llrBit                   = 1 << 2
 	podgoricaBit             = 1 << 3
 	sfcV2Bit                 = 1 << 4
+	elemontBit               = 1 << 5
 )
 
 var DefaultVMConfig = vm.Config{
@@ -138,6 +139,11 @@ type Upgrades struct {
 	// Activation requires a new binary release with SfcV2 set to true in the
 	// network's hardcoded rule constructor; governance cannot toggle it.
 	SfcV2 bool
+	// Elemont gates consensus-critical behavioral fixes: NoCheaters merged view,
+	// AdvanceEpochs full 32-byte ABI decode, cheater fee zeroing, vecmt
+	// GatherFrom tie-breaking, MedianTime stable sort, and empty-pubkey
+	// validator skip at epoch seal. All changes activate atomically.
+	Elemont bool
 }
 
 type UpgradeHeight struct {
@@ -213,10 +219,11 @@ func FakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin: true,
-			London: true,
-			Llr:    true,
-			SfcV2:  true,
+			Berlin:  true,
+			London:  true,
+			Llr:     true,
+			SfcV2:   true,
+			Elemont: true,
 		},
 	}
 }
@@ -233,10 +240,11 @@ func LegacyFakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin: true,
-			London: true,
-			Llr:    true,
-			SfcV2:  true,
+			Berlin:  true,
+			London:  true,
+			Llr:     true,
+			SfcV2:   true,
+			Elemont: true,
 		},
 	}
 }
@@ -254,10 +262,11 @@ func VinuChainTestNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin: true,
-			London: true,
-			Llr:    true,
-			SfcV2:  true,
+			Berlin:  true,
+			London:  true,
+			Llr:     true,
+			SfcV2:   true,
+			Elemont: true,
 		},
 	}
 }
@@ -288,6 +297,26 @@ func VinuChainMainNetRules() Rules {
 			London: true,
 			Llr:    true,
 		},
+	}
+}
+
+// MainNetRulesForNetwork returns the hardcoded rules for a given network ID,
+// or nil if the network ID is not a known mainnet/testnet. Used by migrations
+// to propagate upgrade flags from the binary into the stored epoch state.
+func MainNetRulesForNetwork(networkID uint64) *Rules {
+	switch networkID {
+	case VinuChainMainNetworkID:
+		r := VinuChainMainNetRules()
+		return &r
+	case VinuChainTestNetworkID:
+		r := VinuChainTestNetRules()
+		return &r
+	case VinuChainStagingNetworkID:
+		r := VinuChainMainNetRules()
+		r.NetworkID = VinuChainStagingNetworkID
+		return &r
+	default:
+		return nil
 	}
 }
 

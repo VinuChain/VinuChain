@@ -2,6 +2,7 @@ package encryption
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter/validatorpk"
 )
 
+var ErrKeyAlreadyExists = errors.New("validator key file already exists — use --force to overwrite")
+
 type encryptedAccountKeyJSONV3 struct {
 	Address string              `json:"address"`
 	Crypto  keystore.CryptoJSON `json:"crypto"`
@@ -18,7 +21,12 @@ type encryptedAccountKeyJSONV3 struct {
 	Version int                 `json:"version"`
 }
 
-func MigrateAccountToValidatorKey(acckeypath string, valkeypath string, pubkey validatorpk.PubKey) error {
+func MigrateAccountToValidatorKey(acckeypath string, valkeypath string, pubkey validatorpk.PubKey, force bool) error {
+	if !force {
+		if _, err := os.Stat(valkeypath); err == nil {
+			return ErrKeyAlreadyExists
+		}
+	}
 	acckeyjson, err := ioutil.ReadFile(acckeypath)
 	if err != nil {
 		return err

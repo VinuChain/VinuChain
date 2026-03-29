@@ -2,6 +2,7 @@ package cser
 
 import (
 	"errors"
+	"math"
 	"math/big"
 
 	"github.com/Fantom-foundation/go-opera/utils/bits"
@@ -55,11 +56,19 @@ func readUint64Compact(bytesR *fast.Reader) uint64 {
 	v := uint64(0)
 	stop := false
 	for i := 0; !stop; i++ {
+		// ceil(64/7) = 10 bytes max for a uint64 varint
+		if i >= 10 {
+			panic(ErrMalformedEncoding)
+		}
 		chunk := uint64(bytesR.ReadByte())
 		stop = (chunk & 0b10000000) != 0
 		word := chunk & 0b01111111
+		// 10th byte (i==9) can only carry 1 bit (bit 63)
+		if i == 9 && word > 1 {
+			panic(ErrMalformedEncoding)
+		}
 		v |= word << (i * 7)
-		// last byte cannot be zero
+		// last byte cannot be zero (non-canonical)
 		if i > 0 && stop && word == 0 {
 			panic(ErrNonCanonicalEncoding)
 		}
@@ -154,6 +163,14 @@ func (r *Reader) I64() int64 {
 	if neg && abs == 0 {
 		panic(ErrNonCanonicalEncoding)
 	}
+	// Positive values: abs <= MaxInt64. Negative: abs <= MaxInt64+1 (for MinInt64).
+	maxAbs := uint64(math.MaxInt64)
+	if neg {
+		maxAbs++ // allow math.MinInt64 whose abs is MaxInt64+1
+	}
+	if abs > maxAbs {
+		panic(ErrMalformedEncoding)
+	}
 	if neg {
 		return -int64(abs)
 	}
@@ -245,6 +262,9 @@ func (r *Reader) BigInt() *big.Int {
 	buf := r.SliceBytes(512)
 	if len(buf) == 0 {
 		return new(big.Int)
+	}
+	if buf[0] == 0 {
+		panic(ErrNonCanonicalEncoding)
 	}
 	return new(big.Int).SetBytes(buf)
 }

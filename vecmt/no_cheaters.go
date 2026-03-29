@@ -18,16 +18,34 @@ func (vi *Index) NoCheaters(selfParent *hash.Event, options hash.Events) hash.Ev
 		return options
 	}
 
-	// no need to merge, because every branch is marked by IsForkDetected if fork is observed
-	highest := vi.Base.GetHighestBefore(*selfParent)
 	filtered := make(hash.Events, 0, len(options))
-	for _, id := range options {
-		e := vi.getEvent(id)
-		if e == nil {
-			vi.crit(errors.New("event not found"))
+	if vi.elemont {
+		// Post-Elemont: use merged view so branch indices are collapsed to
+		// validator indices. The raw GetHighestBefore is branch-indexed;
+		// when forks exist, branch indices don't match validator indices,
+		// causing misidentification.
+		merged := vi.GetMergedHighestBefore(*selfParent)
+		for _, id := range options {
+			e := vi.getEvent(id)
+			if e == nil {
+				vi.crit(errors.New("event not found"))
+			}
+			if !merged.VSeq.Get(vi.validatorIdxs[e.Creator()]).IsForkDetected() {
+				filtered.Add(id)
+			}
 		}
-		if !highest.Get(vi.validatorIdxs[e.Creator()]).IsForkDetected() {
-			filtered.Add(id)
+	} else {
+		// Pre-Elemont: use raw branch-indexed HighestBeforeSeq (legacy behavior).
+		seqBefore := vi.Base.GetHighestBefore(*selfParent)
+		for _, id := range options {
+			e := vi.getEvent(id)
+			if e == nil {
+				vi.crit(errors.New("event not found"))
+			}
+			creatorIdx := vi.validatorIdxs[e.Creator()]
+			if !seqBefore.Get(creatorIdx).IsForkDetected() {
+				filtered.Add(id)
+			}
 		}
 	}
 	return filtered

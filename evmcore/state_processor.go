@@ -80,15 +80,9 @@ func (p *StateProcessor) Process(
 		signer       = gsignercache.Wrap(types.MakeSigner(p.config, header.Number))
 	)
 
-	store := paybackCache.GetStore()
-	if store != nil {
-		paybackCache.PrepareForBlock(
-			store.GetCurrentEpoch(),
-			store.GetRules(),
-			block.Time.Time(),
-		)
-		defer paybackCache.FinishBlock()
-	}
+	// PrepareForBlock and FinishBlock are now called by the OperaEVMProcessor
+	// (Execute and Finalize respectively) to ensure they fire exactly once per
+	// logical block, not once per Execute() call.
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions {

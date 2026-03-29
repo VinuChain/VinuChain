@@ -10,6 +10,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/kvdb/table"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const MaxTopicsCount = 5 // count is limited hard to 5 by EVM (see LOG0...LOG4 ops)
@@ -48,8 +49,12 @@ func (tt *Index) WrapTablesAsBatched() (unwrap func()) {
 	batchedLogrec := batched.Wrap(tt.table.Logrec)
 	tt.table.Logrec = batchedLogrec
 	return func() {
-		_ = batchedTopic.Flush()
-		_ = batchedLogrec.Flush()
+		if err := batchedTopic.Flush(); err != nil {
+			log.Error("Failed to flush batched topics during genesis", "err", err)
+		}
+		if err := batchedLogrec.Flush(); err != nil {
+			log.Error("Failed to flush batched logrecs during genesis", "err", err)
+		}
 		tt.table = origTables
 	}
 }
@@ -70,7 +75,7 @@ func (tt *Index) FindInBlocks(ctx context.Context, from, to idx.Block, pattern [
 }
 
 // ForEach matches log records by pattern. 1st pattern element is an address.
-func (tt *Index) ForEach(ctx context.Context, pattern [][]common.Hash, onLog func(*types.Log) (gonext bool)) error {
+func (tt *Index) forEach(ctx context.Context, pattern [][]common.Hash, onLog func(*types.Log) (gonext bool)) error {
 	pattern, err := limitPattern(pattern)
 	if err != nil {
 		return err

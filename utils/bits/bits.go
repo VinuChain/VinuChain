@@ -1,5 +1,7 @@
 package bits
 
+import "io"
+
 type (
 	// Array is a bitmap array
 	Array struct {
@@ -83,9 +85,9 @@ func (a *Reader) Read(bits int) (v uint) {
 	if bits == 0 {
 		return 0
 	}
-	/*if bits > a.NonReadBits() {
+	if bits > a.NonReadBits() {
 		panic(io.ErrUnexpectedEOF)
-	}*/
+	}
 
 	free := a.byteBitsFree()
 	if bits <= free {

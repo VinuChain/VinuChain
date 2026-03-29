@@ -60,11 +60,13 @@ func (es *epochStore) FlushHeads() {
 		return
 	}
 
-	// sort values for determinism
+	// snapshot under lock for thread-safe iteration
+	ids.RLock()
 	sortedHeads := make([]sortedHead, 0, len(ids.Val))
 	for id := range ids.Val {
 		sortedHeads = append(sortedHeads, id.Bytes())
 	}
+	ids.RUnlock()
 	sort.Slice(sortedHeads, func(i, j int) bool {
 		a, b := sortedHeads[i], sortedHeads[j]
 		return bytes.Compare(a, b) < 0

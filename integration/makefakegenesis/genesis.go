@@ -63,7 +63,7 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 		delegations = append(delegations, drivercall.Delegation{
 			Address:            val.Address,
 			ValidatorID:        val.ID,
-			Stake:              stake,
+			Stake:              new(big.Int).Set(stake),
 			LockedStake:        new(big.Int),
 			LockupFromEpoch:    0,
 			LockupEndTime:      0,
@@ -80,7 +80,8 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 	builder.SetCode(driver.ContractAddress, driver.GetContractBin())
 	// pre deploy NodeDriverAuth
 	builder.SetCode(driverauth.ContractAddress, driverauth.GetContractBin())
-	// pre deploy SFC (V1 bytecode for genesis; V2 applied via SfcV2 runtime upgrade)
+	// pre deploy SFC V1 bytecode for genesis initialization (initializeAll uses V1 ABI).
+	// If SfcV2 is active, the bytecode is upgraded to V2 after ExecuteGenesisTxs.
 	builder.SetCode(sfc.ContractAddress, sfc.GetGenesisContractBin())
 	// set non-zero code for pre-compiled contracts
 	builder.SetCode(evmwriter.ContractAddress, []byte{0})
@@ -123,11 +124,21 @@ func FakeGenesisStoreWithRulesAndStart(num idx.Validator, balance, stake *big.In
 		owner = crypto.PubkeyToAddress(FakeKey(1).PublicKey)
 	}
 
+	var sealedEpoch idx.Epoch
+	if epoch >= 2 {
+		sealedEpoch = epoch - 2
+	}
 	blockProc := makegenesis.DefaultBlockProc()
-	genesisTxs := GetGenesisTxs(epoch-2, validators, builder.TotalSupply(), delegations, owner)
+	genesisTxs := GetGenesisTxs(sealedEpoch, validators, builder.TotalSupply(), delegations, owner)
 	err := builder.ExecuteGenesisTxs(blockProc, genesisTxs)
 	if err != nil {
 		panic(err)
+	}
+
+	// Upgrade SFC bytecode to V2 after genesis initialization if SfcV2 is active.
+	// The block_processor.go false→true transition won't fire when SfcV2=true at genesis.
+	if rules.Upgrades.SfcV2 {
+		builder.GetStateDB().SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
 
 	return builder.Build(genesis.Header{
@@ -200,7 +211,7 @@ func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules o
 		delegations = append(delegations, drivercall.Delegation{
 			Address:            val.Address,
 			ValidatorID:        val.ID,
-			Stake:              stake,
+			Stake:              new(big.Int).Set(stake),
 			LockedStake:        new(big.Int),
 			LockupFromEpoch:    0,
 			LockupEndTime:      0,
@@ -217,7 +228,8 @@ func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules o
 	builder.SetCode(driver.ContractAddress, driver.GetContractBin())
 	// pre deploy NodeDriverAuth
 	builder.SetCode(driverauth.ContractAddress, driverauth.GetContractBin())
-	// pre deploy SFC (V1 bytecode for genesis; V2 applied via SfcV2 runtime upgrade)
+	// pre deploy SFC V1 bytecode for genesis initialization (initializeAll uses V1 ABI).
+	// If SfcV2 is active, the bytecode is upgraded to V2 after ExecuteGenesisTxs.
 	builder.SetCode(sfc.ContractAddress, sfc.GetGenesisContractBin())
 	// set non-zero code for pre-compiled contracts
 	builder.SetCode(evmwriter.ContractAddress, []byte{0})
@@ -260,11 +272,21 @@ func VinuChainTestGenesisStoreWithRulesAndStart(balance, stake *big.Int, rules o
 		owner = crypto.PubkeyToAddress(FakeKey(1).PublicKey)
 	}
 
+	var sealedEpoch idx.Epoch
+	if epoch >= 2 {
+		sealedEpoch = epoch - 2
+	}
 	blockProc := makegenesis.DefaultBlockProc()
-	genesisTxs := GetGenesisTxs(epoch-2, validators, builder.TotalSupply(), delegations, owner)
+	genesisTxs := GetGenesisTxs(sealedEpoch, validators, builder.TotalSupply(), delegations, owner)
 	err := builder.ExecuteGenesisTxs(blockProc, genesisTxs)
 	if err != nil {
 		panic(err)
+	}
+
+	// Upgrade SFC bytecode to V2 after genesis initialization if SfcV2 is active.
+	// The block_processor.go false→true transition won't fire when SfcV2=true at genesis.
+	if rules.Upgrades.SfcV2 {
+		builder.GetStateDB().SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
 
 	return builder.Build(genesis.Header{

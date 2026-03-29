@@ -3,6 +3,7 @@ package valkeystore
 import (
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
 
 	"github.com/Fantom-foundation/go-opera/inter/validatorpk"
 	"github.com/Fantom-foundation/go-opera/valkeystore/encryption"
@@ -53,7 +54,32 @@ func (c *CachedKeystore) GetUnlocked(pubkey validatorpk.PubKey) (*encryption.Pri
 	if !c.Unlocked(pubkey) {
 		return nil, ErrLocked
 	}
-	return c.cache[c.idxOf(pubkey)], nil
+	return copyPrivateKey(c.cache[c.idxOf(pubkey)]), nil
+}
+
+// copyPrivateKey returns a deep copy of the key so callers cannot mutate
+// or retain a reference to the cached original. This also prevents a
+// TOCTOU race where Lock() zeroes the cached key while Sign() uses it.
+func copyPrivateKey(src *encryption.PrivateKey) *encryption.PrivateKey {
+	if src == nil {
+		return nil
+	}
+	dst := &encryption.PrivateKey{
+		Type: src.Type,
+	}
+	if len(src.Bytes) > 0 {
+		dst.Bytes = make([]byte, len(src.Bytes))
+		copy(dst.Bytes, src.Bytes)
+	}
+	if ecKey, ok := src.Decoded.(*ecdsa.PrivateKey); ok && ecKey != nil {
+		cpKey := new(ecdsa.PrivateKey)
+		cpKey.PublicKey.Curve = ecKey.PublicKey.Curve
+		cpKey.PublicKey.X = new(big.Int).Set(ecKey.PublicKey.X)
+		cpKey.PublicKey.Y = new(big.Int).Set(ecKey.PublicKey.Y)
+		cpKey.D = new(big.Int).Set(ecKey.D)
+		dst.Decoded = cpKey
+	}
+	return dst
 }
 
 func (c *CachedKeystore) idxOf(pubkey validatorpk.PubKey) string {
@@ -76,6 +102,10 @@ func (c *CachedKeystore) Lock(pubkey validatorpk.PubKey) {
 				key.Bytes[i] = 0
 			}
 			if ecKey, ok := key.Decoded.(*ecdsa.PrivateKey); ok && ecKey != nil {
+				limbs := ecKey.D.Bits()
+				for i := range limbs {
+					limbs[i] = 0
+				}
 				ecKey.D.SetInt64(0)
 			}
 			key.Decoded = nil

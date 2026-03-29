@@ -14,7 +14,6 @@ const (
 
 	logrecKeySize = uint64Size + hashSize + uint64Size
 	topicKeySize  = hashSize + uint8Size + logrecKeySize
-	otherKeySize  = logrecKeySize + uint8Size
 )
 
 type (

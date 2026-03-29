@@ -10,11 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
+
 	"github.com/Fantom-foundation/go-opera/evmcore"
 	"github.com/Fantom-foundation/go-opera/gossip/blockproc"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/evmwriter"
 	"github.com/Fantom-foundation/go-opera/payback"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
@@ -25,7 +28,7 @@ func New() *EVMModule {
 	return &EVMModule{}
 }
 
-func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig, paybackCache *payback.PaybackCache) blockproc.EVMProcessor {
+func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, reader evmcore.DummyChain, onNewLog func(*types.Log), net opera.Rules, evmCfg *params.ChainConfig, paybackCache *payback.PaybackCache, epoch idx.Epoch) blockproc.EVMProcessor {
 	var prevBlockHash common.Hash
 	if block.Idx != 0 {
 		prevBlockHash = reader.GetHeader(common.Hash{}, uint64(block.Idx-1)).Hash
@@ -37,6 +40,7 @@ func (p *EVMModule) Start(block iblockproc.BlockCtx, statedb *state.StateDB, rea
 		onNewLog:      onNewLog,
 		net:           net,
 		evmCfg:        evmCfg,
+		epoch:         epoch,
 		blockIdx:      utils.U64toBig(uint64(block.Idx)),
 		prevBlockHash: prevBlockHash,
 		paybackCache:  paybackCache,
@@ -50,6 +54,7 @@ type OperaEVMProcessor struct {
 	onNewLog func(*types.Log)
 	net      opera.Rules
 	evmCfg   *params.ChainConfig
+	epoch    idx.Epoch
 
 	blockIdx      *big.Int
 	prevBlockHash common.Hash
@@ -87,6 +92,17 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 	evmProcessor := evmcore.NewStateProcessor(p.evmCfg, p.reader)
 	txsOffset := uint(len(p.incomingTxs))
 
+	// Prepare payback cache with the epoch known at block processor level,
+	// not from a live store query (which can return a different epoch on
+	// sealing blocks or during re-execution).
+	p.paybackCache.PrepareForBlock(p.epoch, p.net, p.block.Time.Time())
+
+	// Update the EvmWriter's payback proxy address from current rules so
+	// isSystemContract protects the proxy from swapCode/setStorage.
+	if pc, ok := opera.DefaultVMConfig.StatePrecompiles[evmwriter.ContractAddress].(*evmwriter.PreCompiledContract); ok {
+		pc.SetPaybackProxyAddr(p.net.Economy.QuotaCacheAddress)
+	}
+
 	// Process txs
 	evmBlock := p.evmBlockWith(txs)
 	receipts, _, skipped, err := evmProcessor.Process(evmBlock, p.statedb, opera.DefaultVMConfig, &p.gasUsed, func(l *types.Log, _ *state.StateDB) {
@@ -118,6 +134,11 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 }
 
 func (p *OperaEVMProcessor) Finalize() (evmBlock *evmcore.EvmBlock, skippedTxs []uint32, receipts types.Receipts) {
+	// FinishBlock is called exactly once per logical block at Finalize time,
+	// not per Execute() call, to prevent blkCtx teardown between phases.
+	if p.paybackCache != nil && p.paybackCache.GetStore() != nil {
+		p.paybackCache.FinishBlock()
+	}
 	evmBlock = p.evmBlockWith(
 		// Filter skipped transactions. Receipts are filtered already
 		inter.FilterSkippedTxs(p.incomingTxs, p.skippedTxs),

@@ -172,7 +172,11 @@ func (bp *BlockProcessor) Begin(cBlock *lachesis.Block) lachesis.BlockCallbacks 
 }
 
 func (bp *BlockProcessor) applyEvent(_e dag.Event) {
-	e := _e.(inter.EventI)
+	e, ok := _e.(inter.EventI)
+	if !ok {
+		log.Crit("applyEvent received non-inter.EventI event", "type", fmt.Sprintf("%T", _e))
+		return
+	}
 	if bp.cBlock.Atropos == e.ID() {
 		bp.atroposTime = e.MedianTime()
 		bp.atroposDegenerate = false
@@ -181,10 +185,15 @@ func (bp *BlockProcessor) applyEvent(_e dag.Event) {
 		bp.confirmedEvents = append(bp.confirmedEvents, e.ID())
 	}
 	if e.AnyMisbehaviourProofs() {
+		payload := bp.store.GetEventPayload(e.ID())
+		if payload == nil {
+			log.Crit("Event payload not found for confirmed event with misbehaviour proofs", "id", e.ID())
+			return
+		}
 		reportCheater := func(reporter, cheater idx.ValidatorID) {
 			bp.mpsCheatersMap[cheater] = struct{}{}
 		}
-		mps := bp.store.GetEventPayload(e.ID()).MisbehaviourProofs()
+		mps := payload.MisbehaviourProofs()
 		for _, mp := range mps {
 			// self-contained parts of proofs are already checked by the checkers
 			if proof := mp.BlockVoteDoublesign; proof != nil {
@@ -305,7 +314,7 @@ func (bp *BlockProcessor) initProcessors() {
 		})
 	}
 
-	bp.evmProcessor = bp.blockProc.EVMModule.Start(bp.blockCtx, bp.statedb, bp.evmStateReader, onNewLogAll, bp.es.Rules, bp.es.Rules.EvmChainConfig(bp.store.GetUpgradeHeights()), bp.pc)
+	bp.evmProcessor = bp.blockProc.EVMModule.Start(bp.blockCtx, bp.statedb, bp.evmStateReader, onNewLogAll, bp.es.Rules, bp.es.Rules.EvmChainConfig(bp.store.GetUpgradeHeights()), bp.pc, bp.es.Epoch)
 	bp.executionStart = time.Now()
 }
 
@@ -316,7 +325,7 @@ func (bp *BlockProcessor) executePreInternalTxs() {
 	bp.bs = bp.txListener.Finalize()
 	for _, r := range preInternalReceipts {
 		if r.Status == 0 {
-			log.Warn("Pre-internal transaction reverted", "txid", r.TxHash.String())
+			log.Crit("Pre-internal transaction reverted", "txid", r.TxHash.String(), "block", bp.blockCtx.Idx)
 		}
 	}
 }
@@ -369,11 +378,13 @@ func (bp *BlockProcessor) processBlock() {
 	internalReceipts := bp.evmProcessor.Execute(internalTxs)
 	for _, r := range internalReceipts {
 		if r.Status == 0 {
-			log.Warn("Internal transaction reverted", "txid", r.TxHash.String())
+			log.Crit("Internal transaction reverted", "txid", r.TxHash.String(), "block", bp.blockCtx.Idx)
 		}
 	}
 
-	// sort events by Lamport time
+	// INVARIANT: lachesis-base delivers events to applyEvent in undefined
+	// order. This sort ensures deterministic event ordering (by Lamport time)
+	// across all validators regardless of delivery order.
 	sort.Sort(bp.confirmedEvents)
 
 	// new block

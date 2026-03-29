@@ -153,6 +153,9 @@ func (r *Reader) init() error {
 		return err
 	}
 	r.pieceSize = uint64(bigendian.BytesToUint32(buf[:4]))
+	if r.pieceSize == 0 {
+		return errors.New("invalid genesis file: piece size must be > 0")
+	}
 	// read content size
 	err = ioread.ReadAll(r.backend, buf)
 	if err != nil {

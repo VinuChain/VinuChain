@@ -154,7 +154,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 			// sender is set explicitly by internaltx package.
 			sender := tx.From()
 			if sender == (common.Address{}) {
-				return errors.New("recovered sender is zero address")
+				return nil
 			}
 
 			if len(pc.StakesMap[epoch].StakesByAddress) >= maxPaybackEntries {
@@ -175,7 +175,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 		if receipt.FeeRefund != nil && receipt.FeeRefund.Sign() > 0 {
 			sender := tx.From()
 			if sender == (common.Address{}) {
-				return errors.New("recovered sender is zero address")
+				return nil
 			}
 
 			if len(pc.PaybackUsedMap) >= maxPaybackEntries {
@@ -193,12 +193,6 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 
 	}
 	return nil
-}
-
-func (pc *PaybackCache) GetQuotaUsed(address common.Address) *big.Int {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return pc.getQuotaUsedLocked(address)
 }
 
 func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
@@ -219,8 +213,8 @@ func NewPaybackCache(store Store) (*PaybackCache, error) {
 		pc.contractAddress = store.GetRules().Economy.QuotaCacheAddress
 		log.Info("NewPaybackCache: PaybackCacheAddress is set", "address", pc.contractAddress.String())
 	} else {
-		log.Info("HardFork Podgorica is not activated", "status", store.GetRules().Upgrades.Podgorica)
-		log.Info("NewPaybackCache:", "Rules", store.GetRules())
+		rules := store.GetRules()
+		log.Info("NewPaybackCache: Podgorica not active", "networkID", rules.NetworkID, "podgorica", rules.Upgrades.Podgorica)
 	}
 
 	abiQuotaProxy, err := abi.JSON(strings.NewReader(paybackProxy.QuotaProxyABI))
@@ -246,14 +240,13 @@ func (pc *PaybackCache) SetContractABI(a *abi.ABI) {
 	pc.contractABI = a
 }
 
-// String prints all data in cache
+// String returns a summary without per-address data to avoid leaking
+// financial state in logs.
 func (pc *PaybackCache) String() string {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("PaybackUsedMap: %v\n", pc.PaybackUsedMap))
-	sb.WriteString(fmt.Sprintf("StakesMap: %v\n", pc.StakesMap))
-	return sb.String()
+	stakeEpochs := len(pc.StakesMap)
+	return fmt.Sprintf("PaybackCache{addresses=%d, stakeEpochs=%d}", len(pc.PaybackUsedMap), stakeEpochs)
 }
 
 func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
@@ -272,6 +265,31 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 }
 
 // GetAvailablePaybackByAddress calculates the available quota for a given address.
+// getPaybackDataLocked reads epoch, quota, and duration under the lock.
+// Returns ok=false if the epoch is invalid.
+func (pc *PaybackCache) getPaybackDataLocked(address common.Address) (currentEpoch idx.Epoch, quotaUsed *big.Int, fullDuration int64, ok bool) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	currentEpoch = pc.getEpochLocked()
+	if currentEpoch < 1 {
+		log.Warn("GetAvailablePaybackByAddress: currentEpoch is 0, cannot compute payback")
+		return 0, nil, 0, false
+	}
+	prevEpoch := currentEpoch - 1
+
+	if pc.StakesMap[currentEpoch] == nil {
+		pc.StakesMap[currentEpoch] = &EpochStakes{
+			StakesByAddress: make(map[common.Address][]StakeInfo),
+		}
+	}
+
+	quotaUsed = pc.getQuotaUsedLocked(address)
+	prevEpochState := pc.store.GetHistoryEpochState(prevEpoch)
+	fullDuration = pc.calculateFullDurationLocked(address, currentEpoch, prevEpochState)
+	return currentEpoch, quotaUsed, fullDuration, true
+}
+
 // The evm parameter is passed directly to avoid storing a mutable pointer on the cache.
 //
 // Must be called during block processing (inBlockProcessing invariant). The epoch
@@ -279,6 +297,14 @@ func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
 // below is safe and free from TOCTOU races.
 func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm *vm.EVM) *big.Int {
 	payback := big.NewInt(0)
+
+	pc.mu.RLock()
+	processing := pc.inBlockProcessing
+	pc.mu.RUnlock()
+	if !processing {
+		log.Error("GetAvailablePaybackByAddress called outside block processing")
+		return payback
+	}
 
 	if address == (common.Address{}) {
 		return payback
@@ -310,27 +336,10 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 		return payback
 	}
 
-	pc.mu.Lock()
-	currentEpoch := pc.getEpochLocked()
-
-	if currentEpoch < 1 {
-		pc.mu.Unlock()
-		log.Warn("GetAvailablePaybackByAddress: currentEpoch is 0, cannot compute payback")
+	_, quotaUsed, fullDuration, ok := pc.getPaybackDataLocked(address)
+	if !ok {
 		return payback
 	}
-	// currentEpoch is validated above (< 1 returns early), so currentEpoch - 1 is safe from underflow.
-	prevEpoch := currentEpoch - 1
-
-	if pc.StakesMap[currentEpoch] == nil {
-		pc.StakesMap[currentEpoch] = &EpochStakes{
-			StakesByAddress: make(map[common.Address][]StakeInfo),
-		}
-	}
-
-	quotaUsed := pc.getQuotaUsedLocked(address)
-	prevEpochState := pc.store.GetHistoryEpochState(prevEpoch)
-	fullDuration := pc.calculateFullDurationLocked(address, currentEpoch, prevEpochState)
-	pc.mu.Unlock()
 
 	baseRewardPerSecond, sumTotalStake, err := pc.calculateStakeDetails(address, evm, contractAddr)
 	if err != nil {
@@ -351,7 +360,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 
 	paybackSum := pc.calculatePayback(multiplier, baseRewardPerSecond, sliceOfBaseRewardPerSecondPercent, fullDuration)
 
-	paybackSum = paybackSum.Sub(paybackSum, quotaUsed)
+	paybackSum = new(big.Int).Sub(paybackSum, quotaUsed)
 	log.Debug("GetAvailablePaybackByAddress:", "paybackSum after subtracting used payback", paybackSum)
 
 	if paybackSum.Sign() < 0 {
@@ -462,13 +471,15 @@ func (pc *PaybackCache) calculateStakeDetails(address common.Address, evm *vm.EV
 		return nil, nil, err
 	}
 
-	pc.mu.Lock()
-	if pc.blkCtx != nil && pc.blkCtx.baseRewardPerSecond == nil {
-		pc.blkCtx.baseRewardPerSecond = new(big.Int).Set(baseRewardPerSecond)
-		pc.blkCtx.totalStakeSFC = new(big.Int).Set(totalStakeSFC)
-		pc.blkCtx.totalStakeQuota = new(big.Int).Set(totalStakeQuota)
-	}
-	pc.mu.Unlock()
+	func() {
+		pc.mu.Lock()
+		defer pc.mu.Unlock()
+		if pc.blkCtx != nil && pc.blkCtx.baseRewardPerSecond == nil {
+			pc.blkCtx.baseRewardPerSecond = new(big.Int).Set(baseRewardPerSecond)
+			pc.blkCtx.totalStakeSFC = new(big.Int).Set(totalStakeSFC)
+			pc.blkCtx.totalStakeQuota = new(big.Int).Set(totalStakeQuota)
+		}
+	}()
 
 	sumTotalStake := new(big.Int).Add(totalStakeSFC, totalStakeQuota)
 	if sumTotalStake.Sign() == 0 {
@@ -510,6 +521,15 @@ func (pc *PaybackCache) calculateFullDurationLocked(address common.Address, curr
 		return 0
 	}
 	durationPrevEpochBySec := prevEpochState.Duration() / 1e9
+	// Clamp to a reasonable maximum epoch duration (1 year).
+	// Genesis epoch (PrevEpochStart == 0) returns the UNIX timestamp as Duration(),
+	// which is ~54 years and would inflate quota by orders of magnitude.
+	const maxReasonableEpochSec = 365 * 24 * 3600
+	if durationPrevEpochBySec > maxReasonableEpochSec {
+		log.Warn("calculateFullDurationLocked: epoch duration exceeds 1 year, clamping to zero",
+			"prevEpoch", prevEpoch, "durationSec", durationPrevEpochBySec)
+		return 0
+	}
 	fullDuration = int64(durationPrevEpochBySec)
 	if fullDuration < 0 {
 		fullDuration = 0
@@ -592,12 +612,18 @@ func (pc *PaybackCache) getTotalStake(address common.Address, contractAddress co
 	return decodeUint256(result)
 }
 
-// decodeUint256 validates that result is exactly 32 bytes and decodes as a uint256.
+// decodeUint256 validates that result is exactly 32 bytes, decodes as a uint256,
+// and rejects values above maxReasonableUint256 to prevent CPU spikes from
+// pathological proxy contract returns.
 func decodeUint256(data []byte) (*big.Int, error) {
 	if len(data) != abiEncodedUint256Len {
 		return big.NewInt(0), fmt.Errorf("expected %d bytes of return data, got %d", abiEncodedUint256Len, len(data))
 	}
-	return new(big.Int).SetBytes(data), nil
+	v := new(big.Int).SetBytes(data)
+	if v.BitLen() > 128 {
+		return big.NewInt(0), fmt.Errorf("decodeUint256: value exceeds 128-bit cap, bitLen=%d", v.BitLen())
+	}
+	return v, nil
 }
 
 // getStakesForEpochLocked requires pc.mu to be held by the caller.

@@ -59,12 +59,14 @@ func (s *Store) FlushLastEV() {
 		return
 	}
 
-	// sort values for determinism
+	// snapshot under lock for thread-safe iteration
+	lasts.RLock()
 	sortedLastEV := make([]sortedLastEV, 0, len(lasts.Val))
 	for vid, val := range lasts.Val {
 		b := append(vid.Bytes(), val.Bytes()...)
 		sortedLastEV = append(sortedLastEV, b)
 	}
+	lasts.RUnlock()
 	sort.Slice(sortedLastEV, func(i, j int) bool {
 		a, b := sortedLastEV[i], sortedLastEV[j]
 		return bytes.Compare(a, b) < 0

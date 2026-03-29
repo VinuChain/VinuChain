@@ -38,9 +38,11 @@ func (m *MemKeystore) Add(pubkey validatorpk.PubKey, key []byte, auth string) er
 	if err != nil {
 		return err
 	}
+	keyCopy := make([]byte, len(key))
+	copy(keyCopy, key)
 	m.mem[m.idxOf(pubkey)] = &encryption.PrivateKey{
 		Type:    pubkey.Type,
-		Bytes:   key,
+		Bytes:   keyCopy,
 		Decoded: decoded,
 	}
 	m.auth[m.idxOf(pubkey)] = auth
@@ -48,13 +50,19 @@ func (m *MemKeystore) Add(pubkey validatorpk.PubKey, key []byte, auth string) er
 }
 
 func (m *MemKeystore) Get(pubkey validatorpk.PubKey, auth string) (*encryption.PrivateKey, error) {
-	if !m.Has(pubkey) {
+	idx := m.idxOf(pubkey)
+	storedAuth, found := m.auth[idx]
+	// Always perform the comparison to avoid leaking key existence
+	// via timing. When the key doesn't exist, compare against an
+	// empty string — the result is discarded but the timing is uniform.
+	authMatch := subtle.ConstantTimeCompare([]byte(storedAuth), []byte(auth))
+	if !found {
 		return nil, ErrNotFound
 	}
-	if subtle.ConstantTimeCompare([]byte(m.auth[m.idxOf(pubkey)]), []byte(auth)) != 1 {
+	if authMatch != 1 {
 		return nil, errors.New("could not decrypt key with given password")
 	}
-	return m.mem[m.idxOf(pubkey)], nil
+	return m.mem[idx], nil
 }
 
 func (m *MemKeystore) idxOf(pubkey validatorpk.PubKey) string {
