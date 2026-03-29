@@ -128,7 +128,7 @@ func (d *Leecher) selectSessionPeerCandidates() []string {
 }
 
 func getSessionID(epoch idx.Epoch, try uint32) uint32 {
-	return (uint32(epoch) << 12) ^ try
+	return (uint32(epoch) << 12) ^ try ^ 0xEE000000 // EP protocol salt
 }
 
 func (d *Leecher) startSession(candidates []string) {
@@ -211,6 +211,9 @@ func (d *Leecher) NotifyChunkReceived(sessionID uint32, lastEpoch idx.Epoch, don
 
 	d.session.lastReceived = time.Now()
 	if done {
+		if lastEpoch == 0 {
+			d.session.try++
+		}
 		d.terminateSession()
 		return nil
 	}

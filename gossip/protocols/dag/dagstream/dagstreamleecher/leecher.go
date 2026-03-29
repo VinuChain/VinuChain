@@ -140,7 +140,7 @@ func (d *Leecher) selectSessionPeerCandidates() []string {
 }
 
 func getSessionID(epoch idx.Epoch, try uint32) uint32 {
-	return (uint32(epoch) << 12) ^ try
+	return (uint32(epoch) << 12) ^ try ^ 0xDA600000 // DAG protocol salt
 }
 
 func (d *Leecher) startSession(candidates []string) {
@@ -237,6 +237,12 @@ func (d *Leecher) NotifyChunkReceived(sessionID uint32, last hash.Event, done bo
 
 	d.session.lastReceived = time.Now()
 	if done {
+		// If done=true but no data received (empty last), penalize the
+		// try counter to increase backoff against peers that immediately
+		// terminate sessions without providing data.
+		if last == (hash.Event{}) {
+			d.session.try++
+		}
 		d.terminateSession()
 		return nil
 	}

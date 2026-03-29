@@ -137,7 +137,7 @@ func (d *Leecher) selectSessionPeerCandidates() []string {
 }
 
 func getSessionID(block idx.Block, try uint32) uint32 {
-	return (uint32(block) << 12) ^ try
+	return (uint32(block) << 12) ^ try ^ 0xBB000000 // BV protocol salt
 }
 
 func (d *Leecher) startSession(candidates []string) {
@@ -222,6 +222,9 @@ func (d *Leecher) NotifyChunkReceived(sessionID uint32, lastID BVsID, done bool)
 
 	d.session.lastReceived = time.Now()
 	if done {
+		if (lastID == BVsID{}) {
+			d.session.try++
+		}
 		d.terminateSession()
 		return nil
 	}
