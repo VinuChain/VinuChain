@@ -219,7 +219,12 @@ func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt,
 	// track gas power refunds
 	notUsedGas := tx.Gas() - r.GasUsed
 	if notUsedGas != 0 {
-		p.bs.ValidatorStates[originatorIdx].DirtyGasRefund += notUsedGas
+		cur := p.bs.ValidatorStates[originatorIdx].DirtyGasRefund
+		if cur+notUsedGas >= cur {
+			p.bs.ValidatorStates[originatorIdx].DirtyGasRefund = cur + notUsedGas
+		} else {
+			p.bs.ValidatorStates[originatorIdx].DirtyGasRefund = math.MaxUint64
+		}
 	}
 }
 

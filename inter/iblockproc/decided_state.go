@@ -148,6 +148,9 @@ func (es EpochState) Hash() hash.Hash {
 
 func (es EpochState) Copy() EpochState {
 	cp := es
+	if es.Validators != nil {
+		cp.Validators = es.Validators.Copy()
+	}
 	cp.ValidatorStates = make([]ValidatorEpochState, len(es.ValidatorStates))
 	copy(cp.ValidatorStates, es.ValidatorStates)
 	cp.ValidatorProfiles = es.ValidatorProfiles.Copy()

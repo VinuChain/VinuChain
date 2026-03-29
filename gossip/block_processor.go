@@ -269,7 +269,9 @@ func (bp *BlockProcessor) buildBlockContext() bool {
 	bp.skipBlock = bp.skipBlock || (emptyBlock && bp.blockCtx.Time < bp.bs.LastBlock.Time+bp.es.Rules.Blocks.MaxEmptyBlockSkipPeriod)
 	// Finalize the progress of eventProcessor
 	bp.bs = bp.eventProcessor.Finalize(bp.blockCtx, bp.skipBlock)
-	{ // sort and merge MPs cheaters
+	{ // CONSENSUS-CRITICAL: sort deterministically after map iteration.
+		// Go map iteration is non-deterministic; without this sort, different
+		// nodes would produce different cheater orderings, causing state divergence.
 		mpsCheaters := make(lachesis.Cheaters, 0, len(bp.mpsCheatersMap))
 		for vid := range bp.mpsCheatersMap {
 			mpsCheaters = append(mpsCheaters, vid)
