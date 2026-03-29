@@ -400,8 +400,13 @@ func (es *EventSystem) eventLoop() {
 			close(f.installed)
 
 		case f := <-es.uninstall:
-			atomic.AddInt32(&es.subCount, -1)
-			delete(index[f.typ], f.id)
+			// Only decrement if the subscription was actually installed.
+			// Rejected subscriptions (limit reached) were never added to
+			// the index, so unsubscribing them must not decrement subCount.
+			if _, exists := index[f.typ][f.id]; exists {
+				atomic.AddInt32(&es.subCount, -1)
+				delete(index[f.typ], f.id)
+			}
 			close(f.err)
 
 		// System stopped

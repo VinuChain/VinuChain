@@ -63,6 +63,21 @@ type PreCompiledContract struct {
 	// set from Rules.Economy.QuotaCacheAddress at block processing time.
 	// Accessed atomically since RPC and block processing run concurrently.
 	paybackProxyAddr atomic.Value
+	// elemont stores whether the Elemont upgrade is active (bool).
+	// Used to gate consensus-affecting gas cost changes.
+	elemont atomic.Value
+}
+
+func (c *PreCompiledContract) SetElemont(active bool) {
+	c.elemont.Store(active)
+}
+
+func (c *PreCompiledContract) isElemont() bool {
+	v := c.elemont.Load()
+	if v == nil {
+		return false
+	}
+	return v.(bool)
 }
 
 // SetPaybackProxyAddr updates the payback proxy address used by isSystemContract.
@@ -188,7 +203,11 @@ func (c *PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx v
 		if cost0 > math.MaxUint64-cost1 {
 			return nil, 0, vm.ErrOutOfGas
 		}
-		cost = cost0 + cost1
+		if c.isElemont() {
+			cost = cost0 + cost1
+		} else {
+			cost = (cost0 + cost1) / 2 // pre-Elemont 50% discount
+		}
 		if suppliedGas < cost {
 			return nil, 0, vm.ErrOutOfGas
 		}

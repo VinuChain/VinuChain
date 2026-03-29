@@ -617,6 +617,10 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := checkLenLimits(len(chunk.Events)+len(chunk.IDs)+1, chunk); err != nil {
 			return err
 		}
+		// Reject unsolicited responses from non-session peers
+		if !h.dagLeecher.IsValidSession(chunk.SessionID) {
+			break
+		}
 
 		if (len(chunk.Events) != 0) && (len(chunk.IDs) != 0) {
 			return errors.New("expected either events or event hashes")

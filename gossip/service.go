@@ -193,6 +193,7 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	// before the first block is processed.
 	if pc, ok := opera.DefaultVMConfig.StatePrecompiles[evmwriter.ContractAddress].(*evmwriter.PreCompiledContract); ok {
 		pc.SetPaybackProxyAddr(store.GetRules().Economy.QuotaCacheAddress)
+		pc.SetElemont(store.GetRules().Upgrades.Elemont)
 	}
 
 	return svc, nil

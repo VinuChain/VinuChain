@@ -101,6 +101,7 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 	// isSystemContract protects the proxy from swapCode/setStorage.
 	if pc, ok := opera.DefaultVMConfig.StatePrecompiles[evmwriter.ContractAddress].(*evmwriter.PreCompiledContract); ok {
 		pc.SetPaybackProxyAddr(p.net.Economy.QuotaCacheAddress)
+		pc.SetElemont(p.net.Upgrades.Elemont)
 	}
 
 	// Process txs

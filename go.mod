@@ -104,8 +104,11 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+// TODO(pre-merge): push go-vinu v1.20.5-quota tag and replace with:
+//   github.com/VinuChain/go-vinu v1.20.5-quota
 replace github.com/ethereum/go-ethereum => /home/gypsey/go-vinu-dev
 
+// TODO(pre-merge): publish lachesis-base elemont changes and replace with published version
 replace github.com/Fantom-foundation/lachesis-base => /home/gypsey/lachesis-base-dev
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f

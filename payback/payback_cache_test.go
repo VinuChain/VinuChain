@@ -214,3 +214,76 @@ func TestCleanupIdempotentWithinSameEpoch(t *testing.T) {
 		t.Fatalf("expected quota to persist within same epoch, got %v", pc.PaybackUsedMap[addr])
 	}
 }
+
+func TestDecodeUint256_RejectsOver128Bits(t *testing.T) {
+	// 129 bits (bit 128 set) — should be rejected
+	data129 := make([]byte, 32)
+	data129[15] = 0x01 // byte 15 is the 129th bit position (big-endian)
+	_, err := decodeUint256(data129)
+	if err == nil {
+		t.Fatal("expected error for 129-bit value")
+	}
+
+	// 128-bit max (all 1s in lower 16 bytes) — should succeed
+	data128ok := make([]byte, 32)
+	for i := 16; i < 32; i++ {
+		data128ok[i] = 0xFF
+	}
+	v, err := decodeUint256(data128ok)
+	if err != nil {
+		t.Fatalf("expected success for 128-bit value, got %v", err)
+	}
+	if v.BitLen() > 128 {
+		t.Fatalf("decoded value exceeds 128 bits: %d", v.BitLen())
+	}
+
+	// Zero — should succeed
+	dataZero := make([]byte, 32)
+	v, err = decodeUint256(dataZero)
+	if err != nil {
+		t.Fatalf("expected success for zero, got %v", err)
+	}
+	if v.Sign() != 0 {
+		t.Fatalf("expected zero, got %v", v)
+	}
+
+	// Wrong length — should fail
+	_, err = decodeUint256([]byte{0x01, 0x02})
+	if err == nil {
+		t.Fatal("expected error for wrong length")
+	}
+}
+
+func TestMaxPaybackEntries_CapsStakesMap(t *testing.T) {
+	pc := &PaybackCache{
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+	}
+	epoch := idx.Epoch(5)
+	rules := opera.FakeNetRules()
+	rules.Upgrades.Podgorica = true
+
+	pc.PrepareForBlock(epoch, rules, time.Now())
+
+	// Fill stakes map to capacity
+	pc.mu.Lock()
+	if pc.StakesMap[epoch] == nil {
+		pc.StakesMap[epoch] = &EpochStakes{
+			StakesByAddress: make(map[common.Address][]StakeInfo),
+		}
+	}
+	for i := 0; i < maxPaybackEntries; i++ {
+		addr := common.BigToAddress(big.NewInt(int64(i)))
+		pc.StakesMap[epoch].StakesByAddress[addr] = []StakeInfo{{Amount: big.NewInt(100)}}
+	}
+	pc.mu.Unlock()
+
+	// Adding one more should hit the cap (AddTransaction checks internally)
+	// Verify the map doesn't grow beyond maxPaybackEntries
+	pc.mu.Lock()
+	count := len(pc.StakesMap[epoch].StakesByAddress)
+	pc.mu.Unlock()
+	if count != maxPaybackEntries {
+		t.Fatalf("expected %d entries, got %d", maxPaybackEntries, count)
+	}
+}

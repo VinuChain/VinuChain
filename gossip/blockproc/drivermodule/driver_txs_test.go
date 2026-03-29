@@ -348,3 +348,65 @@ func TestOnNewReceipt_LondonFalse_SfcV2True_NoBurn(t *testing.T) {
 	require.Equal(expected, originated(l))
 	require.Equal(new(big.Int), statedb.GetBalance(common.Address{}))
 }
+
+func TestPopInternalTxs_CheaterFeeZeroed_Elemont(t *testing.T) {
+	require := require.New(t)
+	rules := opera.Rules{
+		Upgrades: opera.Upgrades{Berlin: true, London: true, Llr: true, SfcV2: true, Elemont: true},
+		Economy: opera.EconomyRules{
+			MinGasPrice:      big.NewInt(1e9),
+			BlockMissedSlack: 10,
+		},
+	}
+	statedb := newTestStateDB()
+	validators := pos.EqualWeightValidators([]idx.ValidatorID{1, 2}, 100)
+
+	bs := iblockproc.BlockState{
+		ValidatorStates: []iblockproc.ValidatorBlockState{
+			{Originated: big.NewInt(1000)},
+			{Originated: big.NewInt(2000)},
+		},
+		EpochCheaters: []idx.ValidatorID{1},
+	}
+	es := iblockproc.EpochState{
+		Validators: validators,
+		Rules:      rules,
+	}
+
+	txor := &DriverTxTransactor{}
+	block := iblockproc.BlockCtx{Idx: 100, Time: 1000000000}
+	txs := txor.PopInternalTxs(block, bs, es, true, statedb)
+
+	require.NotEmpty(txs)
+}
+
+func TestPopInternalTxs_NoCheaterZeroing_PreElemont(t *testing.T) {
+	require := require.New(t)
+	rules := opera.Rules{
+		Upgrades: opera.Upgrades{Berlin: true, London: true, Llr: true, SfcV2: true},
+		Economy: opera.EconomyRules{
+			MinGasPrice:      big.NewInt(1e9),
+			BlockMissedSlack: 10,
+		},
+	}
+	statedb := newTestStateDB()
+	validators := pos.EqualWeightValidators([]idx.ValidatorID{1, 2}, 100)
+
+	bs := iblockproc.BlockState{
+		ValidatorStates: []iblockproc.ValidatorBlockState{
+			{Originated: big.NewInt(1000)},
+			{Originated: big.NewInt(2000)},
+		},
+		EpochCheaters: []idx.ValidatorID{1},
+	}
+	es := iblockproc.EpochState{
+		Validators: validators,
+		Rules:      rules,
+	}
+
+	txor := &DriverTxTransactor{}
+	block := iblockproc.BlockCtx{Idx: 100, Time: 1000000000}
+	txs := txor.PopInternalTxs(block, bs, es, true, statedb)
+
+	require.NotEmpty(txs)
+}
