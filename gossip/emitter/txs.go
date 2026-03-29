@@ -141,12 +141,19 @@ func (em *Emitter) isMyTxTurn(txHash common.Hash, sender common.Address, account
 	txTime := em.getTxTime(txHash)
 
 	roundIndex := getTxRoundIndex(now, txTime, validators.Len())
-	if roundIndex != getTxRoundIndex(now.Add(TxTurnPeriodLatency), txTime, validators.Len()) {
-		// round is about to change, avoid originating the transaction to avoid racing with another validator
-		return false
+	roundsHash := hash.Of(sender.Bytes(), bigendian.Uint64ToBytes(accountNonce/TxTurnNonces), epoch.Bytes())
+
+	nextRoundIndex := getTxRoundIndex(now.Add(TxTurnPeriodLatency), txTime, validators.Len())
+	if roundIndex != nextRoundIndex {
+		// near round boundary: accept if we own either the current or next round
+		rounds := utils.WeightedPermutation(roundIndex+1, validators.SortedWeights(), roundsHash)
+		if validators.GetID(idx.Validator(rounds[roundIndex])) == me {
+			return true
+		}
+		nextRounds := utils.WeightedPermutation(nextRoundIndex+1, validators.SortedWeights(), roundsHash)
+		return validators.GetID(idx.Validator(nextRounds[nextRoundIndex])) == me
 	}
 
-	roundsHash := hash.Of(sender.Bytes(), bigendian.Uint64ToBytes(accountNonce/TxTurnNonces), epoch.Bytes())
 	rounds := utils.WeightedPermutation(roundIndex+1, validators.SortedWeights(), roundsHash)
 	return validators.GetID(idx.Validator(rounds[roundIndex])) == me
 }

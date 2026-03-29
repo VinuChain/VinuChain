@@ -21,19 +21,16 @@ func (em *Emitter) recountValidators(validators *pos.Validators) {
 		vid := validators.GetID(idx.Validator(i))
 		// pos.Weight is uint32, so cast to uint64 to avoid an overflow
 		stakeRatio := uint64(totalStakeBefore) * uint64(piecefunc.DecimalUnit) / uint64(validators.TotalWeight())
-		if !em.offlineValidators[vid] {
-			totalStakeBefore += stake
-		}
+		totalStakeBefore += stake
 		confirmingEmitIntervalRatio := confirmingEmitIntervalF(stakeRatio)
 		em.stakeRatio[vid] = stakeRatio
 		em.expectedEmitIntervals[vid] = time.Duration(piecefunc.Mul(uint64(em.config.EmitIntervals.Confirming), confirmingEmitIntervalRatio))
 	}
 	em.intervals.Confirming = em.expectedEmitIntervals[em.config.Validator.ID]
 	em.intervals.Max = em.config.EmitIntervals.Max
-	// if network just has started, then relax the doublesign protection
+	// if network just has started, relax emit interval but keep doublesign protection
 	if time.Since(em.world.GetGenesisTime().Time()) < networkStartPeriod {
 		em.intervals.Max /= 6
-		em.intervals.DoublesignProtection /= 6
 	}
 }
 

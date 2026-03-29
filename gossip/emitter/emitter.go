@@ -138,13 +138,14 @@ func (em *Emitter) Start() {
 	em.init()
 	em.done = make(chan struct{})
 
+	if em.config.EmitIntervals.Min == 0 {
+		return
+	}
+
 	newTxsCh := make(chan evmcore.NewTxsNotify)
 	em.world.TxPool.SubscribeNewTxsNotify(newTxsCh)
 
 	done := em.done
-	if em.config.EmitIntervals.Min == 0 {
-		return
-	}
 	em.wg.Add(1)
 	go func() {
 		defer em.wg.Done()
@@ -174,14 +175,18 @@ func (em *Emitter) Stop() {
 	close(em.done)
 	em.done = nil
 	em.wg.Wait()
-	em.busyRate.Stop()
+	if em.busyRate != nil {
+		em.busyRate.Stop()
+	}
 	em.closePrevActionFiles()
 }
 
 func (em *Emitter) closePrevActionFiles() {
 	for _, f := range []*os.File{em.emittedEventFile, em.emittedBvsFile, em.emittedEvFile} {
 		if f != nil {
-			_ = f.Close()
+			if err := f.Close(); err != nil {
+				em.Log.Error("Failed to close doublesign-protection file", "file", f.Name(), "err", err)
+			}
 		}
 	}
 	em.emittedEventFile = nil
@@ -404,7 +409,7 @@ func (em *Emitter) createEvent(sortedTxs *types.TransactionsByPriceAndNonce) (*i
 
 	// Pre-check if event should be emitted
 	// It is checked in advance to avoid adding transactions just to immediately drop the event later
-	if !em.isAllowedToEmit(mutEvent, true, metric, selfParentHeader) {
+	if !em.isAllowedToEmit(mutEvent, false, metric, selfParentHeader) {
 		return nil, nil
 	}
 
