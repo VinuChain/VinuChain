@@ -200,6 +200,14 @@ func (d *Leecher) ForceSyncing() {
 	d.forceSyncing = true
 }
 
+// IsValidSession checks if the given sessionID matches the active session.
+// Used to reject unsolicited stream responses before enqueuing payloads.
+func (d *Leecher) IsValidSession(sessionID uint32) bool {
+	d.Mu.Lock()
+	defer d.Mu.Unlock()
+	return d.session.agent != nil && d.session.sessionID == sessionID
+}
+
 func (d *Leecher) NotifyChunkReceived(sessionID uint32, lastID BVsID, done bool) error {
 	d.Mu.Lock()
 	defer d.Mu.Unlock()

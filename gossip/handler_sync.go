@@ -671,6 +671,10 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := checkLenLimits(len(chunk.BVs)+1, chunk); err != nil {
 			return err
 		}
+		// Reject unsolicited responses — only enqueue from the active session peer
+		if !h.bvLeecher.IsValidSession(chunk.SessionID) {
+			break
+		}
 
 		var last bvstreamleecher.BVsID
 		if len(chunk.BVs) != 0 {
@@ -724,6 +728,9 @@ func (h *handler) handleMsg(p *peer) error {
 		if err := checkLenLimits(len(chunk.BRs)+1, chunk); err != nil {
 			return err
 		}
+		if !h.brLeecher.IsValidSession(chunk.SessionID) {
+			break
+		}
 
 		var last idx.Block
 		if len(chunk.BRs) != 0 {
@@ -771,6 +778,9 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 		if err := checkLenLimits(len(chunk.EPs)+1, chunk); err != nil {
 			return err
+		}
+		if !h.epLeecher.IsValidSession(chunk.SessionID) {
+			break
 		}
 
 		var last idx.Epoch
