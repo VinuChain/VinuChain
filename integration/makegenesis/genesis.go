@@ -106,7 +106,7 @@ func (b *GenesisBuilder) SetCurrentEpoch(er ier.LlrIdxFullEpochRecord) {
 }
 
 func (b *GenesisBuilder) TotalSupply() *big.Int {
-	return b.totalSupply
+	return new(big.Int).Set(b.totalSupply)
 }
 
 func (b *GenesisBuilder) CurrentHash() hash.Hash {

@@ -14,6 +14,7 @@ import (
 	"github.com/Fantom-foundation/lachesis-base/inter/pos"
 	"github.com/Fantom-foundation/lachesis-base/utils/piecefunc"
 	"github.com/ethereum/go-ethereum/core/types"
+	notify "github.com/ethereum/go-ethereum/event"
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
@@ -80,6 +81,7 @@ type Emitter struct {
 	emittedBvsFile   *os.File
 	emittedEvFile    *os.File
 	busyRate         *rate.Gauge
+	txsSub           notify.Subscription
 
 	logger.Periodic
 }
@@ -143,7 +145,7 @@ func (em *Emitter) Start() {
 	}
 
 	newTxsCh := make(chan evmcore.NewTxsNotify)
-	em.world.TxPool.SubscribeNewTxsNotify(newTxsCh)
+	em.txsSub = em.world.TxPool.SubscribeNewTxsNotify(newTxsCh)
 
 	done := em.done
 	em.wg.Add(1)
@@ -175,6 +177,10 @@ func (em *Emitter) Stop() {
 	close(em.done)
 	em.done = nil
 	em.wg.Wait()
+	if em.txsSub != nil {
+		em.txsSub.Unsubscribe()
+		em.txsSub = nil
+	}
 	if em.busyRate != nil {
 		em.busyRate.Stop()
 	}
