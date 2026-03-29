@@ -536,6 +536,9 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args Transactio
 // able to decrypt the key it fails. The transaction is returned in RLP-form, not broadcast
 // to other nodes
 func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args TransactionArgs, passwd string) (*SignTransactionResult, error) {
+	if s.b.ExtRPCEnabled() {
+		return nil, errors.New("personal_signTransaction is not available over external RPC")
+	}
 	// No need to obtain the noncelock mutex, since we won't be sending this
 	// tx into the transaction pool, but right back to the user
 	if args.From == nil {

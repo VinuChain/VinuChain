@@ -37,6 +37,8 @@ import (
 )
 
 const maxFilterResults = 10000
+const maxFilterAddresses = 1000
+const maxFilterTopics = 100
 
 type Backend interface {
 	ChainDb() ethdb.Database
@@ -107,6 +109,14 @@ func newFilter(backend Backend, cfg Config, addresses []common.Address, topics [
 // Logs searches the blockchain for matching log entries, returning all from the
 // first block that contains matches, updating the start of the filter accordingly.
 func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
+	if len(f.addresses) > maxFilterAddresses {
+		return nil, fmt.Errorf("too many addresses in filter (%d), the limit is %d", len(f.addresses), maxFilterAddresses)
+	}
+	for _, topic := range f.topics {
+		if len(topic) > maxFilterTopics {
+			return nil, fmt.Errorf("too many topics in filter (%d), the limit is %d", len(topic), maxFilterTopics)
+		}
+	}
 	// If we're doing singleton block filtering, execute and return
 	if f.block != common.Hash(hash.Zero) {
 		header, err := f.backend.HeaderByHash(ctx, f.block)
@@ -205,6 +215,9 @@ func (f *Filter) unindexedLogs(ctx context.Context, begin, end idx.Block) (logs 
 			return
 		}
 		logs = append(logs, found...)
+		if len(logs) > maxFilterResults {
+			return nil, fmt.Errorf("query returned too many results (%d), the limit is %d", len(logs), maxFilterResults)
+		}
 	}
 	return
 }
