@@ -105,7 +105,6 @@ require (
 
 replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.6-quota
 
-// TODO(pre-merge): publish lachesis-base elemont changes and replace with published version
-replace github.com/Fantom-foundation/lachesis-base => /home/gypsey/lachesis-base-dev
+replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.0-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f

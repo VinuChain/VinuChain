@@ -51,6 +51,8 @@ github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c
 github.com/VictoriaMetrics/fastcache v1.6.0/go.mod h1:0qHz5QP0GMX4pfmMA/zt5RgfNuXJrTP0zS7DqpHGGTw=
 github.com/VinuChain/go-vinu v1.20.6-quota h1:7j3MQay1iyst63GY9BvD4BpQRBw2cEvEB3JMEkeKC8E=
 github.com/VinuChain/go-vinu v1.20.6-quota/go.mod h1:Ova08cAXUvO64xWq9PrgTWwQ4I5Oj7tW9O3lurXS6zg=
+github.com/VinuChain/lachesis-base v0.1.0-elemont h1:KmAkB3Nq9xnWGpNaSeKPPtFlKcNsJYLtFf2p6MjEVws=
+github.com/VinuChain/lachesis-base v0.1.0-elemont/go.mod h1:CFMonaK1v/QHwpjLszuycFDgLXNazZqZxciwhKwXDVQ=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
