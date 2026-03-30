@@ -1,28 +1,67 @@
 # VinuChain
 
-EVM-compatible chain secured by the VinuChain consensus algorithm.
+EVM-compatible blockchain secured by the Lachesis asynchronous DAG-based BFT consensus algorithm. Forked from [Fantom's go-opera](https://github.com/Fantom-foundation/go-opera) with VinuChain-specific features including a fee refund (payback) system, SFC V2 staking contract, and extensive security hardening.
+
+## Networks
+
+| Network | ID | Hex |
+|---------|----|-----|
+| Mainnet | 207 | `0xcf` |
+| Testnet | 206 | `0xce` |
+| Fakenet | 27 | `0x1b` |
+
+## Architecture
+
+VinuChain is built on three repositories:
+
+| Repository | Purpose |
+|------------|---------|
+| [VinuChain](https://github.com/VinuChain/VinuChain) | Node binary: consensus integration, block processing, gossip, RPC, payback system |
+| [go-vinu](https://github.com/VinuChain/go-vinu) | Forked go-ethereum: EVM execution, P2P, accounts, FeeRefund receipt field |
+| [lachesis-base](https://github.com/VinuChain/lachesis-base) | Forked Lachesis consensus: DAG-BFT, event processing, stream hardening |
+
+Key packages in this repository:
+
+| Package | Purpose |
+|---------|---------|
+| `gossip/` | Main node service: P2P, event/block processing, tx pool, emitter |
+| `evmcore/` | EVM state transitions and block execution |
+| `opera/` | Chain rules, network configs, upgrade flags, on-chain contract bindings |
+| `payback/` | Fee refund cache: per-address refunds based on staking activity |
+| `inter/` | Core data types: events, blocks, timestamps |
+| `vecmt/` | Vector clocks for DAG consensus (median time, cheater detection) |
+| `integration/` | Genesis creation and store wiring |
+
+### Upgrade system
+
+Hard forks are gated by boolean flags in `opera.Upgrades`. Each flag enables consensus-critical behavior changes and is activated by shipping a new binary with the flag set in the network's hardcoded rule constructor.
+
+| Flag | What it enables |
+|------|----------------|
+| `Berlin` | EIP-2565, EIP-2929, EIP-2718, EIP-2930 |
+| `London` | EIP-1559 base fee, EIP-3529 |
+| `Llr` | Lightweight Lachesis revision |
+| `Podgorica` | Fee refund / payback system |
+| `SfcV2` | SFC V2 contract upgrade, 30% base fee burn |
+| `Elemont` | Consensus fixes: NoCheaters merged view, epoch boundary hardening |
 
 ## Building the source
 
-Building `opera` requires both a Go (version 1.14 or later) and a C compiler. You can install
-them using your favourite package manager. Once the dependencies are installed, run
+Requires Go 1.22+ and a C compiler.
 
 ```shell
 make opera
 ```
-The build output is ```build/opera``` executable.
+
+The build output is `build/opera`.
 
 ## Running `opera`
-
-Going through all the possible command line flags is out of scope here,
-but we've enumerated a few common parameter combos to get you up to speed quickly
-on how you can run your own `opera` instance.
 
 ### Launching a network
 
 You will need a genesis file to join a network, which may be found at https://drive.google.com/drive/folders/1_LKq9ljXYwH4LkxO-6e8UnVgiWncGCBH?usp=sharing
 
-Launching `opera` readonly (non-validator) node for network specified by the genesis file:
+Launching a readonly (non-validator) node:
 
 ```shell
 $ opera --genesis file.g
@@ -30,37 +69,35 @@ $ opera --genesis file.g
 
 ### Configuration
 
-As an alternative to passing the numerous flags to the `opera` binary, you can also pass a
-configuration file via:
-
 ```shell
 $ opera --config /path/to/your_config.toml
 ```
 
-To get an idea how the file should look like you can use the `dumpconfig` subcommand to
-export your existing configuration:
+Export your current configuration:
 
 ```shell
 $ opera --your-favourite-flags dumpconfig
 ```
 
-#### Validator
+### Validator
 
-New validator private key may be created with `opera validator new` command.
+Create a new validator private key:
 
-To launch a validator, you have to use `--validator.id` and `--validator.pubkey` flags to enable events emitter.
+```shell
+$ opera validator new
+```
+
+Launch a validator:
 
 ```shell
 $ opera --nousb --validator.id YOUR_ID --validator.pubkey 0xYOUR_PUBKEY
 ```
 
-`opera` will prompt you for a password to decrypt your validator private key. Optionally, you can
-specify password with a file using `--validator.password` flag.
+`opera` will prompt for a password to decrypt the validator private key. Optionally, specify a password file with `--validator.password`.
 
-#### Participation in discovery
+### Participation in discovery
 
-Optionally you can specify your public IP to straighten connectivity of the network.
-Ensure your TCP/UDP p2p port (5050 by default) isn't blocked by your firewall.
+Specify your public IP for better connectivity. Ensure TCP/UDP p2p port (5050 by default) is open.
 
 ```shell
 $ opera --nat extip:1.2.3.4
@@ -70,92 +107,67 @@ $ opera --nat extip:1.2.3.4
 
 ### Running testnet
 
-The network is specified only by its genesis file, so running a testnet node is equivalent to
-using a testnet genesis file instead of a mainnet genesis file:
+The network is specified by its genesis file:
+
 ```shell
-$ opera --genesis /path/to/testnet.g # launch node
+$ opera --genesis /path/to/testnet.g
 ```
 
-It may be convenient to use a separate datadir for your testnet node to avoid collisions with other networks:
+Use a separate datadir for testnet to avoid collisions:
+
 ```shell
-$ opera --genesis /path/to/testnet.g --datadir /path/to/datadir # launch node
-$ opera --datadir /path/to/datadir account new # create new account
-$ opera --datadir /path/to/datadir attach # attach to IPC
+$ opera --genesis /path/to/testnet.g --datadir /path/to/datadir
+$ opera --datadir /path/to/datadir account new
+$ opera --datadir /path/to/datadir attach
 ```
 
 ### Testing
 
-VinuChain has extensive unit-testing. Use the Go tool to run tests:
 ```shell
-go test ./...
+make test               # run all tests
+go test ./...           # equivalent
+go test -race ./...     # with race detector
+make coverage           # coverage report
 ```
 
-If everything goes well, it should output something along these lines:
-```
-ok  	github.com/Fantom-foundation/go-opera/app	0.033s
-?   	github.com/Fantom-foundation/go-opera/cmd/cmdtest	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/cmd/opera	13.890s
-?   	github.com/Fantom-foundation/go-opera/cmd/opera/metrics	[no test files]
-?   	github.com/Fantom-foundation/go-opera/cmd/opera/tracing	[no test files]
-?   	github.com/Fantom-foundation/go-opera/crypto	[no test files]
-?   	github.com/Fantom-foundation/go-opera/debug	[no test files]
-?   	github.com/Fantom-foundation/go-opera/ethapi	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/basiccheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/gaspowercheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/heavycheck	[no test files]
-?   	github.com/Fantom-foundation/go-opera/eventcheck/parentscheck	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/evmcore	6.322s
-?   	github.com/Fantom-foundation/go-opera/gossip	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/emitter	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/gossip/filters	1.250s
-?   	github.com/Fantom-foundation/go-opera/gossip/gasprice	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/occuredtxs	[no test files]
-?   	github.com/Fantom-foundation/go-opera/gossip/piecefunc	[no test files]
-ok  	github.com/Fantom-foundation/go-opera/integration	21.640s
-```
+### Fakenet (private testing)
 
-Also it is tested with [fuzzing](./FUZZING.md).
+Fakenet generates a genesis with N validators with equal stakes. Validator private keys are deterministic — use only for testing.
 
+Single validator (PoA-like):
 
-### Operating a private network (fakenet)
-
-Fakenet is a private network optimized for your private testing.
-It'll generate a genesis containing N validators with equal stakes.
-To launch a validator in this network, all you need to do is specify a validator ID you're willing to launch.
-
-Pay attention that validator's private keys are deterministically generated in this network, so you must use it only for private testing.
-
-Maintaining your own private network is more involved as a lot of configurations taken for
-granted in the official networks need to be manually set up.
-
-To run the fakenet with just one validator (which will work practically as a PoA blockchain), use:
 ```shell
 $ opera --fakenet 1/1
 ```
 
-To run the fakenet with 5 validators, run the command for each validator:
+Five validators (run per validator):
+
 ```shell
-$ opera --fakenet 1/5 # first node, use 2/5 for second node
+$ opera --fakenet 1/5   # first validator
+$ opera --fakenet 2/5   # second validator
 ```
 
-If you have to launch a non-validator node in fakenet, use 0 as ID:
+Non-validator node:
+
 ```shell
 $ opera --fakenet 0/5
 ```
 
-After that, you have to connect your nodes. Either connect them statically or specify a bootnode:
+Connect nodes via bootnode:
+
 ```shell
 $ opera --fakenet 1/5 --bootnodes "enode://verylonghex@1.2.3.4:5050"
 ```
 
-### Running the demo
+### Demo
 
-For the testing purposes, the full demo may be launched using:
 ```shell
 cd demo/
-./start.sh # start the VinuChain processes
-./stop.sh # stop the demo
-./clean.sh # erase the chain data
+./start.sh    # start VinuChain processes
+./stop.sh     # stop
+./clean.sh    # erase chain data
 ```
-Check README.md in the demo directory for more information.
+
+## License
+
+GNU Lesser General Public License v3.0 — see [COPYING.LESSER](COPYING.LESSER) and [COPYING](COPYING).
