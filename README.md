@@ -47,7 +47,7 @@ Hard forks are gated by boolean flags in `opera.Upgrades`. Each flag enables con
 
 ## Building the source
 
-Requires Go 1.22+ and a C compiler.
+Requires Go 1.25+ and a C compiler.
 
 ```shell
 make opera
