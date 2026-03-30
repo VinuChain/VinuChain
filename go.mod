@@ -103,8 +103,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.6-quota
+replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.7-quota
 
-replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.0-elemont
+replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.1-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
