@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/pkg/reexec"
+	"github.com/Fantom-foundation/go-opera/internal/reexec"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 

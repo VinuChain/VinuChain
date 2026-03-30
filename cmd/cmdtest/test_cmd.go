@@ -31,7 +31,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/docker/docker/pkg/reexec"
+	"github.com/Fantom-foundation/go-opera/internal/reexec"
 )
 
 func NewTestCmd(t *testing.T, data interface{}) *TestCmd {

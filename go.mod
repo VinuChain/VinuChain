@@ -7,7 +7,6 @@ require (
 	github.com/cespare/cp v1.1.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/docker/docker v1.13.1
 	github.com/dvyukov/go-fuzz v0.0.0-20201127111758-49e582c6c23d
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/evalphobia/logrus_sentry v0.8.2
