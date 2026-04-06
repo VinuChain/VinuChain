@@ -447,10 +447,33 @@ func (bp *BlockProcessor) processBlock() {
 
 	// When txs are skipped, the TransactionPosition recorded by the tracer
 	// (via statedb.TxIndex) no longer matches the final BlockOffset. Correct
-	// the stored trace bytes for every executed tx so the RPC returns the right
-	// position.
+	// the stored trace bytes only for transactions whose position shifted.
 	if len(skippedTxs) > 0 && bp.store.TxTraceStore() != nil {
-		for _, tx := range evmBlock.Transactions {
+		// Pre-compute which non-skipped txs need position correction.
+		// tx at evmBlock.Transactions[j] needs correction iff its original block
+		// index (what statedb.TxIndex returned during execution) differs from j,
+		// which happens when there is at least one skipped tx before it.
+		skipSet := make(map[uint32]struct{}, len(skippedTxs))
+		for _, s := range skippedTxs {
+			skipSet[s] = struct{}{}
+		}
+		totalOriginal := len(evmBlock.Transactions) + len(skippedTxs)
+		needsCorrection := make([]bool, len(evmBlock.Transactions))
+		evmIdx := 0
+		for origIdx := 0; origIdx < totalOriginal && evmIdx < len(evmBlock.Transactions); origIdx++ {
+			if _, ok := skipSet[uint32(origIdx)]; ok {
+				continue
+			}
+			if origIdx != evmIdx {
+				needsCorrection[evmIdx] = true
+			}
+			evmIdx++
+		}
+
+		for j, tx := range evmBlock.Transactions {
+			if !needsCorrection[j] {
+				continue
+			}
 			txBytes := bp.store.TxTraceStore().GetTx(tx.Hash())
 			if txBytes == nil {
 				continue
@@ -460,9 +483,6 @@ func (bp *BlockProcessor) processBlock() {
 				continue
 			}
 			pos := uint64(txPositions[tx.Hash()].BlockOffset)
-			if len(traces) > 0 && traces[0].TransactionPosition == pos {
-				continue
-			}
 			for i := range traces {
 				traces[i].TransactionPosition = pos
 			}
