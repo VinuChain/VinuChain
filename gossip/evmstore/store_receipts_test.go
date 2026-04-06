@@ -18,6 +18,7 @@ func equalStorageReceipts(t *testing.T, expect, got []*types.ReceiptForStorage) 
 		assert.EqualValues(t, expect[i].CumulativeGasUsed, got[i].CumulativeGasUsed)
 		assert.EqualValues(t, expect[i].Logs, got[i].Logs)
 		assert.EqualValues(t, expect[i].Status, got[i].Status)
+		assert.Equal(t, expect[i].FeeRefund, got[i].FeeRefund)
 	}
 }
 
@@ -101,7 +102,34 @@ func fakeReceipts() (idx.Block, []*types.ReceiptForStorage) {
 				BlockHash:         common.Hash{},
 				BlockNumber:       nil,
 				TransactionIndex:  0,
-				FeeRefund:         new(big.Int),
+				FeeRefund:         big.NewInt(12345),
 			},
 		}
+}
+
+func TestStoreGetCachedReceiptsWithFeeRefund(t *testing.T) {
+	logger.SetTestMode(t)
+
+	block := idx.Block(2)
+	feeRefund := big.NewInt(9876543210)
+	receipts := []*types.ReceiptForStorage{
+		{
+			Status:            1,
+			CumulativeGasUsed: 21000,
+			Logs:              []*types.Log{},
+			FeeRefund:         feeRefund,
+		},
+	}
+
+	cached := cachedStore()
+	cached.SetRawReceipts(block, receipts)
+	gotCached, _ := cached.GetRawReceipts(block)
+	assert.EqualValues(t, len(receipts), len(gotCached))
+	assert.Equal(t, feeRefund, gotCached[0].FeeRefund)
+
+	nonCached := nonCachedStore()
+	nonCached.SetRawReceipts(block, receipts)
+	gotNonCached, _ := nonCached.GetRawReceipts(block)
+	assert.EqualValues(t, len(receipts), len(gotNonCached))
+	assert.Equal(t, feeRefund, gotNonCached[0].FeeRefund)
 }
