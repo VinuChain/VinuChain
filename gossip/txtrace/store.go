@@ -49,11 +49,6 @@ func (s *Store) RemoveTxTrace(txID common.Hash) error {
 	return s.mainDB.Delete(txID.Bytes())
 }
 
-// HasTxTrace returns whether a trace exists for the given tx hash.
-func (s *Store) HasTxTrace(txID common.Hash) (bool, error) {
-	return s.mainDB.Has(txID.Bytes())
-}
-
 // ForEachTxtrace iterates over all transaction traces in db.
 func (s *Store) ForEachTxtrace(onEvent func(key common.Hash, traces []byte) bool) {
 	it := s.mainDB.NewIterator(nil, nil)

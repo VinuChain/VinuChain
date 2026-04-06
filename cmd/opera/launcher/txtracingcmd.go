@@ -251,8 +251,7 @@ func deleteTraces(gdb *gossip.Store, from, to idx.Block) error {
 
 	for i := from; i <= to; i++ {
 		for _, tx := range gdb.GetBlockTxs(i, gdb.GetBlock(i)) {
-			ok, err := gdb.TxTraceStore().HasTxTrace(tx.Hash())
-			if ok && err == nil {
+			if gdb.TxTraceStore().GetTx(tx.Hash()) != nil {
 				counter++
 				gdb.TxTraceStore().RemoveTxTrace(tx.Hash())
 				if time.Since(reported) >= statsReportLimit {

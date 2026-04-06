@@ -460,6 +460,9 @@ func (bp *BlockProcessor) processBlock() {
 				continue
 			}
 			pos := uint64(txPositions[tx.Hash()].BlockOffset)
+			if len(traces) > 0 && traces[0].TransactionPosition == pos {
+				continue
+			}
 			for i := range traces {
 				traces[i].TransactionPosition = pos
 			}

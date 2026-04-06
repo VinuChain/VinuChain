@@ -290,6 +290,11 @@ func (tr *TraceStructLogger) reset() {
 	tr.inputData = nil
 	tr.rootTrace = nil
 	tr.reverted = false
+	tr.output = nil
+	tr.gasUsed = 0
+	tr.err = nil
+	tr.state = nil
+	tr.traceAddress = nil
 }
 
 // SetTx sets the transaction hash.

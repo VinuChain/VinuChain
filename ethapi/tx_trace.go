@@ -66,7 +66,6 @@ func (s *PublicTxTraceAPI) traceTx(
 
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
 	txTracer.SetTx(tx.Hash())
 	txTracer.SetFrom(msg.From())
@@ -88,6 +87,7 @@ func (s *PublicTxTraceAPI) traceTx(
 	gp := new(evmcore.GasPool).AddGas(msg.Gas())
 	state.Prepare(tx.Hash(), int(index))
 	result, err := evmcore.ApplyMessage(vmenv, msg, gp, big.NewInt(0))
+	cancel()
 
 	if result != nil {
 		txTracer.SetGasUsed(result.UsedGas)
@@ -186,12 +186,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 		for i, tx := range block.Transactions {
 			if txHash == nil || *txHash == tx.Hash() {
 				log.Info("Replaying transaction", "txHash", tx.Hash().String())
-				tx, _, index, err := s.b.GetTransaction(ctx, tx.Hash())
-				if err != nil {
-					log.Debug("Cannot get transaction", "txHash", tx.Hash().String(), "err", err.Error())
-					callTrace.AddTrace(txtrace.GetErrorTrace(block.Hash, *block.Number, nil, tx.To(), tx.Hash(), index, err))
-					continue
-				}
+				index := uint64(i)
 				msg, err := tx.AsMessage(signer, block.BaseFee)
 				if err != nil {
 					callTrace.AddTrace(txtrace.GetErrorTrace(block.Hash, *block.Number, nil, tx.To(), tx.Hash(), index, errors.New("not able to decode tx")))
@@ -370,12 +365,6 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		}
 	}
 
-	contextDone := false
-	go func() {
-		<-ctx.Done()
-		contextDone = true
-	}()
-
 	callTrace := txtrace.CallTrace{
 		Actions: make([]txtrace.ActionTrace, 0),
 	}
@@ -385,8 +374,22 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		if workerCount < 1 {
 			workerCount = 1
 		}
-		blocks := make(chan rpc.BlockNumber, 10000)
-		results := make(chan txtrace.ActionTrace, 100000)
+		blocks := make(chan rpc.BlockNumber, workerCount)
+		results := make(chan txtrace.ActionTrace, workerCount*64)
+
+		// Producer runs in its own goroutine so workers breaking early
+		// doesn't deadlock the caller.
+		stopProducer := make(chan struct{})
+		go func() {
+			defer close(blocks)
+			for i := fromBlock; i <= toBlock; i++ {
+				select {
+				case blocks <- i:
+				case <-stopProducer:
+					return
+				}
+			}
+		}()
 
 		var wg sync.WaitGroup
 		for w := 0; w < workerCount; w++ {
@@ -398,11 +401,6 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 			}()
 		}
 
-		for i := fromBlock; i <= toBlock; i++ {
-			blocks <- i
-		}
-		close(blocks)
-
 		var wgResult sync.WaitGroup
 		wgResult.Add(1)
 		go func() {
@@ -413,11 +411,18 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		}()
 
 		wg.Wait()
+		close(stopProducer)
 		close(results)
 		wgResult.Wait()
 	} else {
 	blocks:
 		for i := fromBlock; i <= toBlock; i++ {
+			select {
+			case <-ctx.Done():
+				mainErr = ctx.Err()
+				break blocks
+			default:
+			}
 			block, err := s.b.BlockByNumber(ctx, i)
 			if err != nil {
 				mainErr = err
@@ -460,17 +465,11 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 					}
 				}
 			}
-			if contextDone {
-				break
-			}
 		}
 	}
 
-	if contextDone || mainErr != nil {
-		if mainErr != nil {
-			return nil, mainErr
-		}
-		return nil, fmt.Errorf("timeout when scanning blocks")
+	if mainErr != nil {
+		return nil, mainErr
 	}
 
 	return &callTrace.Actions, nil
