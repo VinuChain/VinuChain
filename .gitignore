@@ -1,4 +1,17 @@
 ./build
+build/
+node_modules/
+package.json
+package-lock.json
 .vscode/
 .idea/
 .DS_Store
+gitignore/
+.claude/
+CLAUDE.md
+docs/
+cover.prof
+claude-progress.txt
+feature-progress.json
+chainlist/
+*.code-workspace
