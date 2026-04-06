@@ -90,7 +90,8 @@ type PaybackCache struct {
 
 	contractAddress common.Address
 
-	// maxAddresses is the maximum number of entries allowed in PaybackUsedMap.
+	// maxAddresses is the maximum number of entries allowed in PaybackUsedMap and
+	// StakesMap per epoch. Zero means use the package-level maxPaybackEntries default.
 	// When the limit is reached, new addresses are silently dropped.
 	maxAddresses uint64
 
@@ -161,7 +162,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 				return nil
 			}
 
-			if uint64(len(pc.StakesMap[epoch].StakesByAddress)) >= pc.maxAddresses {
+			if uint64(len(pc.StakesMap[epoch].StakesByAddress)) >= pc.effectiveMaxAddresses() {
 				if _, exists := pc.StakesMap[epoch].StakesByAddress[sender]; !exists {
 					log.Warn("StakesMap at capacity, ignoring new address", "address", sender)
 					return nil
@@ -182,7 +183,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 				return nil
 			}
 
-			if uint64(len(pc.PaybackUsedMap)) >= pc.maxAddresses {
+			if uint64(len(pc.PaybackUsedMap)) >= pc.effectiveMaxAddresses() {
 				if _, exists := pc.PaybackUsedMap[sender]; !exists {
 					log.Warn("PaybackUsedMap at capacity, ignoring new address", "address", sender)
 					return nil
@@ -199,6 +200,16 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 	return nil
 }
 
+// effectiveMaxAddresses returns the capacity limit for address-keyed maps.
+// Falls back to maxPaybackEntries when the field is zero (e.g. in tests that
+// construct PaybackCache directly rather than via NewPaybackCache).
+func (pc *PaybackCache) effectiveMaxAddresses() uint64 {
+	if pc.maxAddresses == 0 {
+		return maxPaybackEntries
+	}
+	return pc.maxAddresses
+}
+
 func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
 	if _, ok := pc.PaybackUsedMap[address]; ok {
 		return new(big.Int).Set(pc.PaybackUsedMap[address])
@@ -207,9 +218,6 @@ func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
 }
 
 func NewPaybackCache(store Store, maxAddresses uint64) (*PaybackCache, error) {
-	if maxAddresses == 0 {
-		maxAddresses = maxPaybackEntries
-	}
 	pc := PaybackCache{
 		PaybackUsedMap: make(map[common.Address]*big.Int),
 		StakesMap:      make(map[idx.Epoch]*EpochStakes),
