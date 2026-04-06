@@ -43,6 +43,7 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 
 	_, err = UpdateRules(base, []byte(`{"Dag":{"MaxParents":2}}`))
 	require.Error(err, "MaxParents=2 should be rejected")
+	require.Contains(err.Error(), "MaxParents")
 
 	// MaxEventGas=0 halts chain
 	_, err = UpdateRules(base, []byte(`{"Economy":{"Gas":{"MaxEventGas":0}}}`))
@@ -62,14 +63,17 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 	// ShortGasPower.AllocPerSec=0
 	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"AllocPerSec":0}}}`))
 	require.Error(err, "ShortGasPower.AllocPerSec=0 should be rejected")
+	require.Contains(err.Error(), "ShortGasPower.AllocPerSec")
 
 	// LongGasPower.AllocPerSec=0
 	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"AllocPerSec":0}}}`))
 	require.Error(err, "LongGasPower.AllocPerSec=0 should be rejected")
+	require.Contains(err.Error(), "LongGasPower.AllocPerSec")
 
 	// MaxBlockGas=0
 	_, err = UpdateRules(base, []byte(`{"Blocks":{"MaxBlockGas":0}}`))
 	require.Error(err, "MaxBlockGas=0 should be rejected")
+	require.Contains(err.Error(), "MaxBlockGas")
 
 	// MisbehaviourProofGas > MaxEventGas/2
 	bigGas := base.Economy.Gas.MaxEventGas/2 + 1

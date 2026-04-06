@@ -90,6 +90,10 @@ type PaybackCache struct {
 
 	contractAddress common.Address
 
+	// maxAddresses is the maximum number of entries allowed in PaybackUsedMap.
+	// When the limit is reached, new addresses are silently dropped.
+	maxAddresses uint64
+
 	// inBlockProcessing guards epoch cleanup to prevent mid-block resets.
 	inBlockProcessing bool
 
@@ -157,7 +161,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 				return nil
 			}
 
-			if len(pc.StakesMap[epoch].StakesByAddress) >= maxPaybackEntries {
+			if uint64(len(pc.StakesMap[epoch].StakesByAddress)) >= pc.maxAddresses {
 				if _, exists := pc.StakesMap[epoch].StakesByAddress[sender]; !exists {
 					log.Warn("StakesMap at capacity, ignoring new address", "address", sender)
 					return nil
@@ -178,7 +182,7 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 				return nil
 			}
 
-			if len(pc.PaybackUsedMap) >= maxPaybackEntries {
+			if uint64(len(pc.PaybackUsedMap)) >= pc.maxAddresses {
 				if _, exists := pc.PaybackUsedMap[sender]; !exists {
 					log.Warn("PaybackUsedMap at capacity, ignoring new address", "address", sender)
 					return nil
@@ -202,11 +206,15 @@ func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
 	return big.NewInt(0)
 }
 
-func NewPaybackCache(store Store) (*PaybackCache, error) {
+func NewPaybackCache(store Store, maxAddresses uint64) (*PaybackCache, error) {
+	if maxAddresses == 0 {
+		maxAddresses = maxPaybackEntries
+	}
 	pc := PaybackCache{
 		PaybackUsedMap: make(map[common.Address]*big.Int),
 		StakesMap:      make(map[idx.Epoch]*EpochStakes),
 		store:          store,
+		maxAddresses:   maxAddresses,
 	}
 
 	if store.GetRules().Upgrades.Podgorica {

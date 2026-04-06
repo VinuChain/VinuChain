@@ -3,6 +3,7 @@ package gasprice
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -311,4 +312,103 @@ func TestOracle_reactiveGasPrice(t *testing.T) {
 	gpo.txpoolStatsTick()
 	require.Equal(t, "0", gpo.reactiveGasPrice(0.8*DecimalUnit).String())
 	require.Equal(t, "0", gpo.reactiveGasPrice(DecimalUnit).String())
+}
+
+func TestOracle_SuggestTip(t *testing.T) {
+	backend := &TestBackend{
+		block:             1,
+		totalGasPowerLeft: 0,
+		rules:             opera.FakeNetRules(),
+		pendingRules:      opera.FakeNetRules(),
+	}
+
+	gpo := NewOracle(Config{})
+	gpo.backend = backend
+
+	// First call calculates and caches the tip.
+	tip1 := gpo.SuggestTip(AsDefaultCertainty)
+	require.NotNil(t, tip1)
+
+	// Second call with the same certainty should return the cached value within statUpdatePeriod.
+	tip2 := gpo.SuggestTip(AsDefaultCertainty)
+	require.NotNil(t, tip2)
+	require.Equal(t, tip1.String(), tip2.String())
+
+	// Advancing the block index alone does not invalidate the tip cache (tip cache is time-based,
+	// not block-based). Calling SuggestTip again must not panic regardless.
+	backend.block++
+	tip3 := gpo.SuggestTip(AsDefaultCertainty)
+	require.NotNil(t, tip3)
+
+	// With no backend the oracle must return zero without panicking.
+	gpo2 := NewOracle(Config{})
+	require.Equal(t, "0", gpo2.SuggestTip(AsDefaultCertainty).String())
+}
+
+func TestOracle_StartStop(t *testing.T) {
+	backend := &TestBackend{
+		block:             1,
+		totalGasPowerLeft: 0,
+		rules:             opera.FakeNetRules(),
+		pendingRules:      opera.FakeNetRules(),
+	}
+
+	gpo := NewOracle(Config{})
+	gpo.Start(backend)
+
+	done := make(chan struct{})
+	go func() {
+		gpo.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// goroutine exited cleanly
+	case <-time.After(3 * time.Second):
+		t.Fatal("Stop() did not return within 3 seconds — goroutine leak suspected")
+	}
+}
+
+func TestOracle_SanitizeBigInt(t *testing.T) {
+	min := big.NewInt(1)
+	max := big.NewInt(1000)
+	def := big.NewInt(50)
+
+	// nil input returns the default.
+	got := sanitizeBigInt(nil, min, max, def, "test")
+	require.Equal(t, def.String(), got.String())
+
+	// zero input with non-zero default returns the default.
+	got = sanitizeBigInt(new(big.Int), min, max, def, "test")
+	require.Equal(t, def.String(), got.String())
+
+	// zero input with zero default passes through to min check and is clamped to min.
+	got = sanitizeBigInt(new(big.Int), min, max, new(big.Int), "test")
+	require.Equal(t, min.String(), got.String())
+
+	// negative value is clamped to min.
+	got = sanitizeBigInt(big.NewInt(-5), min, max, def, "test")
+	require.Equal(t, min.String(), got.String())
+
+	// zero value with nil min and nil max passes through unchanged.
+	got = sanitizeBigInt(new(big.Int), nil, max, new(big.Int), "test")
+	require.Equal(t, "0", got.String())
+
+	// value above max is clamped to max.
+	got = sanitizeBigInt(big.NewInt(9999), min, max, def, "test")
+	require.Equal(t, max.String(), got.String())
+
+	// valid value within bounds is returned unchanged.
+	got = sanitizeBigInt(big.NewInt(100), min, max, def, "test")
+	require.Equal(t, "100", got.String())
+
+	// nil min and nil max: any non-nil, non-zero value passes through.
+	got = sanitizeBigInt(big.NewInt(42), nil, nil, def, "test")
+	require.Equal(t, "42", got.String())
+
+	// MaxUint256 with no max constraint passes through unchanged.
+	maxUint256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	got = sanitizeBigInt(maxUint256, nil, nil, def, "test")
+	require.Equal(t, maxUint256.String(), got.String())
 }

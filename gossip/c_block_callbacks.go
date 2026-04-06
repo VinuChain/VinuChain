@@ -72,7 +72,7 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 
 	// Use a fresh PaybackCache for re-execution to avoid residual quota
 	// data from the live cache producing incorrect FeeRefund values.
-	reexecCache, err := payback.NewPaybackCache(s.paybackCache.GetStore())
+	reexecCache, err := payback.NewPaybackCache(s.paybackCache.GetStore(), s.store.GetRules().Economy.QuotaCacheMaxAddresses)
 	if err != nil {
 		log.Crit("Failed to create re-execution PaybackCache", "err", err)
 	}

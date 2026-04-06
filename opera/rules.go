@@ -110,7 +110,8 @@ type EconomyRules struct {
 	ShortGasPower GasPowerRules
 	LongGasPower  GasPowerRules
 
-	QuotaCacheAddress common.Address `rlp:"optional"`
+	QuotaCacheAddress    common.Address `rlp:"optional"`
+	QuotaCacheMaxAddresses uint64       `rlp:"optional"`
 }
 
 // BlocksRules contains blocks constants
@@ -323,11 +324,12 @@ func MainNetRulesForNetwork(networkID uint64) *Rules {
 // DefaultEconomyRules returns mainnet economy
 func DefaultEconomyRules() EconomyRules {
 	return EconomyRules{
-		BlockMissedSlack: 50,
-		Gas:              DefaultGasRules(),
-		MinGasPrice:      big.NewInt(1e9),
-		ShortGasPower:    DefaultShortGasPowerRules(),
-		LongGasPower:     DefaultLongGasPowerRules(),
+		BlockMissedSlack:       50,
+		Gas:                    DefaultGasRules(),
+		MinGasPrice:            big.NewInt(1e9),
+		ShortGasPower:          DefaultShortGasPowerRules(),
+		LongGasPower:           DefaultLongGasPowerRules(),
+		QuotaCacheMaxAddresses: 10000,
 	}
 }
 

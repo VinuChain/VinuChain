@@ -347,8 +347,7 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 
 	// create quota cache
 	paybackStore := NewPaybackStore(svc.store)
-	// TODO: make quota cache size configurable (from bc NetworkRules json (sfc variable))
-	svc.paybackCache, err = payback.NewPaybackCache(paybackStore)
+	svc.paybackCache, err = payback.NewPaybackCache(paybackStore, svc.store.GetRules().Economy.QuotaCacheMaxAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create payback cache: %w", err)
 	}

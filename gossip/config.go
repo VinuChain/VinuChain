@@ -112,6 +112,10 @@ type (
 		AllowUnprotectedTxs bool
 
 		RPCBlockExt bool
+
+		// BloomCacheMB is the number of megabytes to allocate for the fast-sync
+		// state bloom filter. Zero disables the bloom cache.
+		BloomCacheMB uint64
 	}
 
 	StoreCacheConfig struct {
@@ -223,9 +227,10 @@ func DefaultConfig(scale cachescale.Func) Config {
 
 		RPCBlockExt: true,
 
-		RPCGasCap:   50000000,
-		RPCTxFeeCap: 100, // 100 VC
-		RPCTimeout:  5 * time.Second,
+		RPCGasCap:    50000000,
+		RPCTxFeeCap:  100, // 100 VC
+		RPCTimeout:   5 * time.Second,
+		BloomCacheMB: 256,
 	}
 	sessionCfg := cfg.Protocol.DagStreamLeecher.Session
 	cfg.Protocol.DagProcessor.EventsBufferLimit.Num = idx.Event(sessionCfg.ParallelChunksDownload)*

@@ -223,10 +223,7 @@ func newHandler(
 	}
 	h.started.Add(1)
 
-	// TODO: configure it
-	var (
-		configBloomCache uint64 = 0 // Megabytes to alloc for fast sync bloom
-	)
+	configBloomCache := c.config.BloomCacheMB
 
 	var err error
 	h.chain, err = newEthBlockChain(c.s)
