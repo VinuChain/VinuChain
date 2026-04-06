@@ -30,6 +30,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/tracing"
 	"github.com/Fantom-foundation/go-opera/txtrace"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
@@ -418,6 +419,20 @@ func (bp *BlockProcessor) processBlock() {
 	block.SkippedTxs = skippedTxs
 	block.Root = hash.Hash(evmBlock.Root)
 	block.GasUsed = evmBlock.GasUsed
+
+	// Close tracing spans for skipped transactions. Txs submitted via SendTx
+	// have StartTx called; without FinishTx here they would leak spans forever.
+	if len(skippedTxs) > 0 {
+		allIncoming := make(types.Transactions, 0, len(bp.preInternalTxs)+len(internalTxs)+len(txs))
+		allIncoming = append(allIncoming, bp.preInternalTxs...)
+		allIncoming = append(allIncoming, internalTxs...)
+		allIncoming = append(allIncoming, txs...)
+		for _, skipIdx := range skippedTxs {
+			if int(skipIdx) < len(allIncoming) {
+				tracing.FinishTx(allIncoming[skipIdx].Hash(), "BlockProcessor.skipped")
+			}
+		}
+	}
 
 	// memorize event position of each tx
 	txPositions := make(map[common.Hash]ExtendedTxPosition)

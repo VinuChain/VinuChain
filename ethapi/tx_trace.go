@@ -431,6 +431,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 			}
 		}()
 
+		workerErrCh := make(chan error, workerCount)
 		var wg sync.WaitGroup
 		for w := 0; w < workerCount; w++ {
 			wg.Add(1)
@@ -442,7 +443,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 						log.Error("filterWorker panicked", "worker", wId, "recover", r)
 					}
 				}()
-				filterWorker(wId, s, ctx, blocks, results, fromAddresses, toAddresses)
+				filterWorker(wId, s, ctx, blocks, results, fromAddresses, toAddresses, workerErrCh)
 			}()
 		}
 
@@ -459,6 +460,12 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		close(stopProducer)
 		close(results)
 		wgResult.Wait()
+		close(workerErrCh)
+		for err := range workerErrCh {
+			if mainErr == nil {
+				mainErr = err
+			}
+		}
 
 		sort.SliceStable(callTrace.Actions, func(i, j int) bool {
 			bi := callTrace.Actions[i].BlockNumber.Uint64()
@@ -535,17 +542,26 @@ func filterWorker(id int,
 	blocks <-chan rpc.BlockNumber,
 	results chan<- txtrace.ActionTrace,
 	fromAddresses map[common.Address]struct{},
-	toAddresses map[common.Address]struct{}) {
+	toAddresses map[common.Address]struct{},
+	errCh chan<- error) {
 
 	for i := range blocks {
 		block, err := s.b.BlockByNumber(ctx, i)
 		if err != nil {
-			break
+			select {
+			case errCh <- err:
+			default:
+			}
+			return
 		}
 		if block != nil && block.Transactions.Len() > 0 {
 			traces, err := s.traceBlock(ctx, block, nil, nil)
 			if err != nil {
-				break
+				select {
+				case errCh <- err:
+				default:
+				}
+				return
 			}
 			for _, trace := range *traces {
 				addTrace := true
