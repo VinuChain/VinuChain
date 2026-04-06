@@ -12,6 +12,15 @@ Branch: elemont
 Last Session: 2026-04-07
 
 ## What Was Done
+- Cycle 97: Database Migrations Audit (Focus Area 13)
+  - MIG-01 (MEDIUM): gossip/store_migration.go — isEmptyDB did not check it.Error()
+    after it.Next() returned false. A LevelDB read failure on the Version table
+    was silently treated as an empty table, causing migrateData to skip all
+    migrations and mark the DB as fully migrated. Fixed: isEmptyDB now returns
+    (bool, error); migrateData propagates the error as a fatal startup condition.
+  - Added gossip/store_migration_test.go — TestIsEmptyDBPropagatesIteratorError
+    and TestIsEmptyDBTrueForEmpty.
+  VinuChain commit: 04a007e
 - Cycle 96: State Storage Audit (Focus Area 12)
   - ES-02 (MEDIUM): topicsdb/search_parallel.go — scanPatternVariant discarded LevelDB
     iterator errors; searchParallel only returned ctx.Err(). eth_getLogs silently
@@ -65,12 +74,11 @@ Last Session: 2026-04-07
 
 ## What's Next
 - Cron audit cycle: run /loop @.claude/cron_audit.md to continue
-- Backlog is empty — next cycle is a fresh assessment
+- Backlog has 1 INFO item: Close() CloseTables error logging (gossip/evmstore/store.go, gossip/store.go)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit (excluded last 3 cycles: 12/16/10): 2, 3, 9, 11, 13, 17, 18, 22, 26, 29, 32, 33, 34, 36
-- Area 12 (State Storage): first dedicated audit complete, 2 findings fixed
-- Area 17 (Serialization): approaching saturation (2 dedicated audits, diminishing returns)
-- Area 10 (LLR Streaming): first dedicated audit complete, 1 LOW found
+- Areas eligible for re-audit (excluded last 3 cycles: 13/12/16): all others from pool
+- Area 13 (DB Migrations): first dedicated audit complete, 1 MEDIUM fixed
+- Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
 - TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
