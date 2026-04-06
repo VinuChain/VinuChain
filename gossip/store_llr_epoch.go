@@ -106,4 +106,7 @@ func (s *Store) IterateEpochPacksRLP(start idx.Epoch, f func(epoch idx.Epoch, ep
 			break
 		}
 	}
+	if err := it.Error(); err != nil {
+		s.Log.Crit("Failed to iterate epoch packs", "err", err)
+	}
 }
