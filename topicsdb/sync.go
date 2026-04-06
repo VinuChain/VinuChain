@@ -24,6 +24,7 @@ type (
 		goNext    int32
 		minBlock  uint64
 		blocks    map[uint64]*blockCounter
+		firstErr  error
 	}
 )
 
@@ -139,4 +140,20 @@ func (s *synchronizator) WaitForThreads() {
 
 func (s *synchronizator) PositionsCount() int {
 	return len(s.positions)
+}
+
+// SetError records the first iterator error encountered by any scan goroutine.
+func (s *synchronizator) SetError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.firstErr == nil {
+		s.firstErr = err
+	}
+}
+
+// Err returns the first iterator error recorded by SetError, if any.
+func (s *synchronizator) Err() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.firstErr
 }

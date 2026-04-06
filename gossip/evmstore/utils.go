@@ -185,6 +185,9 @@ func (s *Store) ImportEvm(r io.Reader) error {
 			batch.Reset()
 		}
 	}
+	if it.Error() != nil {
+		return it.Error()
+	}
 	return batch.Write()
 }
 

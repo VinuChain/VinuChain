@@ -90,7 +90,7 @@ func (tt *Index) searchParallel(ctx context.Context, pattern [][]common.Hash, bl
 			go func(pos, i int, variant common.Hash) {
 				onMatched := aggregator(pos, i)
 				preparing.Wait()
-				tt.scanPatternVariant(uint8(pos), variant, blockStart, onMatched)
+				tt.scanPatternVariant(uint8(pos), variant, blockStart, onMatched, syncing)
 			}(pos, i, variant)
 		}
 	}
@@ -98,10 +98,13 @@ func (tt *Index) searchParallel(ctx context.Context, pattern [][]common.Hash, bl
 
 	syncing.WaitForThreads()
 
+	if err := syncing.Err(); err != nil {
+		return err
+	}
 	return ctx.Err()
 }
 
-func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64, onMatched logHandler) {
+func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64, onMatched logHandler, syncing *synchronizator) {
 	prefix := append(variant.Bytes(), posToBytes(pos)...)
 
 	it := tt.table.Topic.NewIterator(prefix, uintToBytes(start))
@@ -120,8 +123,7 @@ func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64
 		}
 	}
 	if it.Error() != nil {
-		onMatched(nil)
-		return
+		syncing.SetError(it.Error())
 	}
 	onMatched(nil)
 }
