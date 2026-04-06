@@ -104,6 +104,14 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 	// Valid changes should still work
 	_, err = UpdateRules(base, []byte(`{"Dag":{"MaxParents":10}}`))
 	require.NoError(err, "valid MaxParents=10 should succeed")
+
+	// ExtraDataGas too large: 128 * 100000 = 12800000 exceeds MaxEventGas (~10028000)
+	_, err = UpdateRules(base, []byte(`{"Economy":{"Gas":{"ExtraDataGas":100000}}}`))
+	require.Error(err, "ExtraDataGas that makes maxEmptyEventGas exceed MaxEventGas should be rejected")
+
+	// ParentGas too large: 7 * 1600000 = 11200000 exceeds MaxEventGas
+	_, err = UpdateRules(base, []byte(`{"Economy":{"Gas":{"ParentGas":1600000}}}`))
+	require.Error(err, "ParentGas that makes maxEmptyEventGas exceed MaxEventGas should be rejected")
 }
 
 func TestMainNetRulesRLP(t *testing.T) {

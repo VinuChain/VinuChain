@@ -124,5 +124,24 @@ func validateRulesBounds(r Rules) error {
 	if r.Economy.Gas.EpochVoteGas == 0 {
 		return errors.New("Economy.Gas.EpochVoteGas cannot be zero")
 	}
+	// Validate that maxEmptyEventGas (the formula used by MaxGasLimit) does not exceed
+	// MaxEventGas. If it does, MaxGasLimit returns 0 and no EVM transactions can be
+	// included in blocks. Overflow-safe: detect multiplication overflow before summing.
+	maxParentDiff := uint64(r.Dag.MaxParents - r.Dag.MaxFreeParents)
+	parentGasTerm := maxParentDiff * r.Economy.Gas.ParentGas
+	if maxParentDiff > 0 && parentGasTerm/maxParentDiff != r.Economy.Gas.ParentGas {
+		return errors.New("Economy.Gas.ParentGas overflows uint64 with current Dag.MaxParents")
+	}
+	extraGasTerm := uint64(r.Dag.MaxExtraData) * r.Economy.Gas.ExtraDataGas
+	if r.Dag.MaxExtraData > 0 && extraGasTerm/uint64(r.Dag.MaxExtraData) != r.Economy.Gas.ExtraDataGas {
+		return errors.New("Economy.Gas.ExtraDataGas overflows uint64 with current Dag.MaxExtraData")
+	}
+	minEventGas := r.Economy.Gas.EventGas + parentGasTerm + extraGasTerm
+	if minEventGas < r.Economy.Gas.EventGas {
+		return errors.New("gas parameters overflow uint64 in minimum event gas calculation")
+	}
+	if minEventGas > r.Economy.Gas.MaxEventGas {
+		return errors.New("gas parameters make all events exceed MaxEventGas, blocking EVM transactions")
+	}
 	return nil
 }
