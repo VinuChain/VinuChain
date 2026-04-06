@@ -1,0 +1,49 @@
+# Claude Progress — Session Handoff Notes
+#
+# PURPOSE: Human-readable context that persists across sessions.
+# Updated at the end of each session (manually or by hook).
+# Git-tracked so it survives branch switches and session resets.
+#
+# FORMAT: Plain text. Keep it scannable. New sessions read this first.
+
+## Current State
+Status: clean (all committed)
+Branch: elemont
+Last Session: 2026-04-07
+
+## What Was Done
+- Cycle 93: Serialization from Untrusted Peers Re-Audit (Focus Area 17)
+  - SER-NEW-01 (LOW): inter/transaction_serializer.go — access list allocation cap tightened
+    from ProtocolMaxMsgSize/24 (436,906 entries → 19.2 MB alloc) to
+    ProtocolMaxMsgSize/accessListEntrySize (238,290 entries → 10 MB alloc)
+    New accessListEntrySize=44 constant documents the bound
+  - Added inter/transaction_serializer_test.go — 8 tests covering all tx types,
+    cap invariant, and unknown-type error path (previously zero direct tests)
+  VinuChain commit: a84c2b7
+- Cycle 92: Logging Hygiene (Focus Area 26) — 2 findings fixed
+  - LH-01 (LOW): evmcore/state_processor.go — log.Info→log.Error + remove receipt struct
+    VinuChain commit: c56e6a2
+  - LB-01 (MEDIUM, lachesis-base): kvdb/flushable NotFlushedSizeEst() data race fixed
+    lachesis-base-dev commit f90e4255 (branch fix/deferred-audit-c57)
+    Requires new lachesis-base tag + go.mod bump to resolve TestSFC/SFC_upgrade race
+- Cycle 91: Event Validation Pipeline (Focus Area 9) — EC-01 (HIGH) IsBan asymmetry fixed
+- Cycle 90: Tx Tracing Subsystem — 3 findings fixed (TT-01, TT-03, TT-04)
+- Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
+
+## What's Next
+- Cron audit cycle: run /loop @.claude/cron_audit.md to continue
+- Backlog is empty — next cycle is a fresh assessment
+- lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
+- Areas eligible for re-audit (excluded last 3 cycles: 17/26/9): 2, 3, 10, 11, 12, 13, 16, 18, 22, 29, 32, 33, 34, 36
+- Area 17 (Serialization): approaching saturation (2 dedicated audits, diminishing returns)
+
+## Blockers / Open Questions
+- TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
+  (Flushable.NotFlushedSizeEst has no lock). Fix committed to lachesis-base-dev but not yet published.
+
+## Key Decisions Made
+- go-ethereum replaced with go-vinu fork: receipt.FeeRefund, payback changes, JS tracer fix, per-connection sub limits
+- Podgorica upgrade gates payback system activation; QuotaCacheAddress comes from Rules.Economy
+- Commit messages never reference audit item IDs (C-07, H-17 etc.) — describe the change instead
+- docs/, CLAUDE.md, .claude/, gitignore/, build/ are all gitignored — never git add these paths
+- Per-peer event processing quota added for heavy check queue (30 events/peer)
