@@ -70,7 +70,7 @@ func (s *Store) getAnyEpochStore() *epochStore {
 // getEpochStore is safe for concurrent use.
 func (s *Store) getEpochStore(epoch idx.Epoch) *epochStore {
 	es := s.getAnyEpochStore()
-	if es.epoch != epoch {
+	if es == nil || es.epoch != epoch {
 		return nil
 	}
 	return es

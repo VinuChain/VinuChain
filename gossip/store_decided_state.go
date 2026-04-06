@@ -69,6 +69,9 @@ func (s *Store) ForEachHistoryBlockEpochState(fn func(iblockproc.BlockState, ibl
 			break
 		}
 	}
+	if err := it.Error(); err != nil {
+		s.Log.Crit("Failed to iterate BlockEpochState history", "err", err)
+	}
 }
 
 func (s *Store) GetHistoryEpochState(epoch idx.Epoch) *iblockproc.EpochState {
