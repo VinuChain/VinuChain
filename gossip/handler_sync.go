@@ -171,6 +171,12 @@ func (h *handler) makeDagProcessor(checkers *eventcheck.Checkers) *dagprocessor.
 
 			CheckParents:    bufferedCheck,
 			CheckParentless: parentlessChecker.Enqueue,
+			IsImportant: func(e dag.Event) bool {
+				if ie, ok := e.(inter.EventI); ok {
+					return ie.AnyMisbehaviourProofs()
+				}
+				return false
+			},
 		},
 		HighestLamport: h.store.GetHighestLamport,
 	})
