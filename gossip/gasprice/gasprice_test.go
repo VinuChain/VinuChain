@@ -325,11 +325,9 @@ func TestOracle_SuggestTip(t *testing.T) {
 	gpo := NewOracle(Config{})
 	gpo.backend = backend
 
-	// First call calculates and caches the tip.
 	tip1 := gpo.SuggestTip(AsDefaultCertainty)
 	require.NotNil(t, tip1)
 
-	// Second call with the same certainty should return the cached value within statUpdatePeriod.
 	tip2 := gpo.SuggestTip(AsDefaultCertainty)
 	require.NotNil(t, tip2)
 	require.Equal(t, tip1.String(), tip2.String())
@@ -362,10 +360,11 @@ func TestOracle_StartStop(t *testing.T) {
 		close(done)
 	}()
 
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
 	select {
 	case <-done:
-		// goroutine exited cleanly
-	case <-time.After(3 * time.Second):
+	case <-timer.C:
 		t.Fatal("Stop() did not return within 3 seconds — goroutine leak suspected")
 	}
 }
@@ -408,7 +407,6 @@ func TestOracle_SanitizeBigInt(t *testing.T) {
 	require.Equal(t, "42", got.String())
 
 	// MaxUint256 with no max constraint passes through unchanged.
-	maxUint256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
-	got = sanitizeBigInt(maxUint256, nil, nil, def, "test")
-	require.Equal(t, maxUint256.String(), got.String())
+	got = sanitizeBigInt(math.MaxBig256, nil, nil, def, "test")
+	require.Equal(t, math.MaxBig256.String(), got.String())
 }
