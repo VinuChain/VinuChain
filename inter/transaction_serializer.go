@@ -12,6 +12,12 @@ import (
 
 var ErrUnknownTxType = errors.New("unknown tx type")
 
+// accessListEntrySize is the in-memory size of one types.AccessTuple on a
+// 64-bit platform (Address 20B + slice header 24B). Used to bound the
+// accessListLen allocation so make(types.AccessList, n) stays within
+// ProtocolMaxMsgSize, preventing memory amplification from crafted P2P events.
+const accessListEntrySize = 44
+
 func encodeSig(r, s *big.Int) (sig [64]byte) {
 	copy(sig[0:], cser.PaddedBytes(r.Bytes(), 32)[:32])
 	copy(sig[32:], cser.PaddedBytes(s.Bytes(), 32)[:32])
@@ -116,7 +122,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 	} else if txType == types.AccessListTxType || txType == types.DynamicFeeTxType {
 		chainID := r.BigInt()
 		accessListLen := r.U32()
-		if accessListLen > ProtocolMaxMsgSize/24 {
+		if accessListLen > ProtocolMaxMsgSize/accessListEntrySize {
 			return nil, cser.ErrTooLargeAlloc
 		}
 		accessList := make(types.AccessList, accessListLen)
