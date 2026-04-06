@@ -13,3 +13,5 @@ docs/
 cover.prof
 claude-progress.txt
 feature-progress.json
+chainlist/
+*.code-workspace
