@@ -631,13 +631,11 @@ func (h *handler) handleMsg(p *peer) error {
 		if (len(chunk.Events) != 0) && (len(chunk.IDs) != 0) {
 			return errors.New("expected either events or event hashes")
 		}
-		n := len(chunk.Events) + len(chunk.IDs)
-		if n > 0 {
-			if !h.peerStreamQuota.Acquire(p.id, n) {
-				break
-			}
-			h.peerStreamQuota.Release(p.id, n)
-		}
+		// DAG event backpressure is enforced by peerEventQuota inside
+		// handleEvents, not peerStreamQuota. BVs/BRs/EPs hold peerStreamQuota
+		// until their processor done() callback fires; DAG events do not use
+		// this mechanism because handleEvents enqueues into the dag processor
+		// which has its own per-peer quota.
 		var last hash.Event
 		if len(chunk.IDs) != 0 {
 			h.handleEventHashes(p, chunk.IDs)
