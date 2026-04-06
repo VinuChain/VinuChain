@@ -108,12 +108,7 @@ func (p *StateProcessor) Process(
 		allLogs = append(allLogs, receipt.Logs...)
 
 		if err = paybackCache.AddTransaction(tx, receipt); err != nil {
-			log.Info(
-				"Transaction not applied",
-				"hash", tx.Hash(),
-				"index", i,
-				"receipt", receipt,
-			)
+			log.Error("Failed to add transaction to payback cache", "hash", tx.Hash(), "index", i, "err", err)
 			return nil, nil, nil, fmt.Errorf("could not add transaction to quota cache: %w", err)
 		}
 
