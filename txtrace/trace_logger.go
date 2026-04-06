@@ -112,7 +112,7 @@ func (tr *TraceStructLogger) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, 
 			log.Error("Tracer CaptureState failed", "recover", fmt.Sprintf("%v", r))
 		}
 	}()
-	for lastState(tr.state).level >= depth {
+	for len(tr.state) > 0 && lastState(tr.state).level >= depth {
 		result := tr.rootTrace.Stack[len(tr.rootTrace.Stack)-1].Result
 		if lastState(tr.state).create && result != nil {
 			if len(scope.Stack.Data()) > 0 {
@@ -124,7 +124,7 @@ func (tr *TraceStructLogger) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, 
 		tr.traceAddress = removeTraceAddressLevel(tr.traceAddress, depth)
 		tr.state = tr.state[:len(tr.state)-1]
 		tr.rootTrace.Stack = tr.rootTrace.Stack[:len(tr.rootTrace.Stack)-1]
-		if lastState(tr.state).level == depth {
+		if len(tr.state) == 0 || lastState(tr.state).level == depth {
 			break
 		}
 	}
@@ -527,18 +527,28 @@ func (callTrace *CallTrace) processLastTrace() {
 }
 
 func (callTrace *CallTrace) processTrace(trace *ActionTrace) {
-	trace.Subtraces = uint64(len(trace.childTraces))
-	for _, childTrace := range trace.childTraces {
-		if CALL == trace.TraceType {
-			childTrace.Action.From = trace.Action.To
+	// Snapshot all fields from trace before any AddTrace call, since appending
+	// to callTrace.Actions may reallocate the backing array, invalidating the
+	// pointer for the next loop iteration.
+	traceType := trace.TraceType
+	actionTo := trace.Action.To
+	actionGas := trace.Action.Gas
+	var resultFrom *common.Address
+	if trace.Result != nil {
+		resultFrom = trace.Result.Address
+	}
+	childTraces := trace.childTraces
+	trace.Subtraces = uint64(len(childTraces))
+
+	for _, childTrace := range childTraces {
+		if CALL == traceType {
+			childTrace.Action.From = actionTo
 		} else {
-			if trace.Result != nil {
-				childTrace.Action.From = trace.Result.Address
-			}
+			childTrace.Action.From = resultFrom
 		}
 		if childTrace.Result != nil {
-			if trace.Action.Gas > childTrace.Result.GasUsed {
-				childTrace.Action.Gas = trace.Action.Gas - childTrace.Result.GasUsed
+			if actionGas > childTrace.Result.GasUsed {
+				childTrace.Action.Gas = actionGas - childTrace.Result.GasUsed
 			} else {
 				childTrace.Action.Gas = childTrace.Result.GasUsed
 			}

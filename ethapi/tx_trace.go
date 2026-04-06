@@ -97,10 +97,10 @@ func (s *PublicTxTraceAPI) traceTx(
 	state.Finalise(true)
 	if err != nil {
 		errTrace := txtrace.GetErrorTraceFromMsg(&msg, block.Hash, *block.Number, tx.Hash(), index, err)
-		at := make([]txtrace.ActionTrace, 0)
-		at = append(at, *errTrace)
+		at := []txtrace.ActionTrace{*errTrace}
 		if status == 1 {
-			panic("Not equal state when replaying tx " + tx.Hash().String())
+			log.Error("State mismatch replaying tx: failed but receipt shows success", "txHash", tx.Hash().String(), "err", err)
+			return nil, fmt.Errorf("state mismatch replaying tx %s: failed but receipt shows success", tx.Hash().String())
 		}
 		return &at, nil
 	}
@@ -112,17 +112,17 @@ func (s *PublicTxTraceAPI) traceTx(
 		if len(*traceActions) == 0 {
 			log.Error("error in result when replaying transaction", "txHash", tx.Hash().String(), "err", result.Err.Error())
 			errTrace := txtrace.GetErrorTraceFromMsg(&msg, block.Hash, *block.Number, tx.Hash(), index, result.Err)
-			at := make([]txtrace.ActionTrace, 0)
-			at = append(at, *errTrace)
-			return &at, nil
+			return &[]txtrace.ActionTrace{*errTrace}, nil
 		}
 		if status == 1 {
-			panic("Not equal state when replaying tx " + tx.Hash().String())
+			log.Error("State mismatch replaying tx: reverted but receipt shows success", "txHash", tx.Hash().String(), "err", result.Err)
+			return nil, fmt.Errorf("state mismatch replaying tx %s: reverted but receipt shows success", tx.Hash().String())
 		}
 		return traceActions, nil
 	}
 	if status == 0 {
-		panic("Not equal state when replaying tx " + tx.Hash().String())
+		log.Error("State mismatch replaying tx: succeeded but receipt shows failure", "txHash", tx.Hash().String())
+		return nil, fmt.Errorf("state mismatch replaying tx %s: succeeded but receipt shows failure", tx.Hash().String())
 	}
 	return traceActions, nil
 }
@@ -510,7 +510,11 @@ func filterWorker(id int,
 					}
 				}
 				if addTrace {
-					results <- trace
+					select {
+					case results <- trace:
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}
