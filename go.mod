@@ -13,6 +13,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/bloomfilter/v2 v2.0.3
+	github.com/holiman/uint256 v1.2.0
 	github.com/mattn/go-colorable v0.1.8
 	github.com/mattn/go-isatty v0.0.12
 	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
@@ -65,7 +66,6 @@ require (
 	github.com/google/uuid v1.1.5 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/graph-gophers/graphql-go v1.3.0 // indirect
-	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/huin/goupnp v1.0.2 // indirect
 	github.com/influxdata/influxdb v1.8.3 // indirect
 	github.com/influxdata/influxdb-client-go/v2 v2.4.0 // indirect
@@ -105,6 +105,6 @@ require (
 
 replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.8-quota
 
-replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.1-elemont
+replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.2-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
