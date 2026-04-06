@@ -474,7 +474,11 @@ func (bp *BlockProcessor) processBlock() {
 			if !needsCorrection[j] {
 				continue
 			}
-			txBytes := bp.store.TxTraceStore().GetTx(tx.Hash())
+			txBytes, err := bp.store.TxTraceStore().GetTx(tx.Hash())
+			if err != nil {
+				log.Error("Failed to read tx trace for position correction", "tx", tx.Hash(), "err", err)
+				continue
+			}
 			if txBytes == nil {
 				continue
 			}

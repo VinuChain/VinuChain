@@ -209,7 +209,11 @@ func exportTraceTo(w io.Writer, gdb *gossip.Store, from, to idx.Block) error {
 	for i := from; i <= to; i++ {
 		block = gdb.GetBlock(i)
 		for _, tx := range gdb.GetBlockTxs(i, block) {
-			traces := gdb.TxTraceStore().GetTx(tx.Hash())
+			traces, traceErr := gdb.TxTraceStore().GetTx(tx.Hash())
+			if traceErr != nil {
+				log.Error("Failed to read tx trace", "tx", tx.Hash(), "err", traceErr)
+				continue
+			}
 			if len(traces) > 0 {
 				counter++
 				rlp.Encode(w, TracePayload{tx.Hash(), traces})
@@ -251,7 +255,7 @@ func deleteTraces(gdb *gossip.Store, from, to idx.Block) error {
 
 	for i := from; i <= to; i++ {
 		for _, tx := range gdb.GetBlockTxs(i, gdb.GetBlock(i)) {
-			if gdb.TxTraceStore().GetTx(tx.Hash()) != nil {
+			if existing, _ := gdb.TxTraceStore().GetTx(tx.Hash()); existing != nil {
 				counter++
 				gdb.TxTraceStore().RemoveTxTrace(tx.Hash())
 				if time.Since(reported) >= statsReportLimit {

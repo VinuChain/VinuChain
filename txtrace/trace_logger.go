@@ -274,6 +274,9 @@ func (tr *TraceStructLogger) CaptureExit(output []byte, gasUsed uint64, err erro
 			log.Error("Tracer CaptureExit failed", "recover", fmt.Sprintf("%v", r))
 		}
 	}()
+	if tr.rootTrace == nil || len(tr.rootTrace.Stack) == 0 {
+		return
+	}
 	result := tr.rootTrace.Stack[len(tr.rootTrace.Stack)-1].Result
 	if result != nil {
 		result.GasUsed = hexutil.Uint64(gasUsed)
@@ -300,8 +303,13 @@ func (tr *TraceStructLogger) reset() {
 	tr.stack = tr.stack[:0]
 }
 
-// SetTx sets the transaction hash.
-func (tr *TraceStructLogger) SetTx(tx common.Hash) { tr.tx = tx }
+// SetTx prepares the logger for a new transaction. It clears any stale state
+// from a prior transaction (including state left by a mid-capture panic) before
+// recording the new hash, so a failed previous capture cannot contaminate this tx.
+func (tr *TraceStructLogger) SetTx(tx common.Hash) {
+	tr.reset()
+	tr.tx = tx
+}
 
 // SetFrom sets the sender address.
 func (tr *TraceStructLogger) SetFrom(from common.Address) { tr.from = &from }

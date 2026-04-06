@@ -32,16 +32,14 @@ func (s *Store) SetTxTrace(txID common.Hash, txTraces []byte) error {
 	return s.mainDB.Put(txID.Bytes(), txTraces)
 }
 
-// GetTx returns stored transaction traces.
-func (s *Store) GetTx(txID common.Hash) []byte {
+// GetTx returns stored transaction traces, or nil if not found.
+// Returns an error only for genuine I/O failures; a missing key is not an error.
+func (s *Store) GetTx(txID common.Hash) ([]byte, error) {
 	buf, err := s.mainDB.Get(txID.Bytes())
 	if err != nil {
-		s.Log.Crit("Failed to get key-value", "err", err)
+		return nil, err
 	}
-	if buf == nil {
-		return nil
-	}
-	return buf
+	return buf, nil
 }
 
 // RemoveTxTrace removes key and []byte representation of transaction traces.

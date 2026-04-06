@@ -295,7 +295,10 @@ func (s *PublicTxTraceAPI) Get(ctx context.Context, hash common.Hash, traceIndex
 }
 
 func (s *PublicTxTraceAPI) traceTxHash(ctx context.Context, hash common.Hash, traceIndex *[]hexutil.Uint) (*[]txtrace.ActionTrace, error) {
-	_, blockNumber, _, _ := s.b.GetTransaction(ctx, hash)
+	tx, blockNumber, _, _ := s.b.GetTransaction(ctx, hash)
+	if tx == nil {
+		return nil, fmt.Errorf("transaction not found: %s", hash.Hex())
+	}
 	blkNr := rpc.BlockNumber(blockNumber)
 	block, err := s.b.BlockByNumber(ctx, blkNr)
 	if err != nil {

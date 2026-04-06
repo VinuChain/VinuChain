@@ -549,7 +549,10 @@ func (b *EthAPIBackend) TxTraceByHash(ctx context.Context, h common.Hash) (*[]tx
 	if b.svc.store.TxTraceStore() == nil {
 		return nil, fmt.Errorf("transaction trace store is not initialized")
 	}
-	data := b.svc.store.TxTraceStore().GetTx(h)
+	data, err := b.svc.store.TxTraceStore().GetTx(h)
+	if err != nil {
+		return nil, fmt.Errorf("trace store read error for tx %s: %w", h.Hex(), err)
+	}
 	if data == nil {
 		return nil, fmt.Errorf("trace not found for tx %s", h.Hex())
 	}
