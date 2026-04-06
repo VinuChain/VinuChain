@@ -102,6 +102,10 @@ func TestEmitter(t *testing.T) {
 	})
 
 	t.Run("tick", func(t *testing.T) {
+		// IsBusy=true (set AnyTimes in memorizeTxTimes) must prevent emission.
+		before := em.prevEmittedAtTime
 		em.tick()
+		require.Equal(t, before, em.prevEmittedAtTime,
+			"tick must not advance prevEmittedAtTime when IsBusy returns true")
 	})
 }
