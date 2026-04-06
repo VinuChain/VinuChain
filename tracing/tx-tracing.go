@@ -2,13 +2,14 @@ package tracing
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/opentracing/opentracing-go"
 )
 
 var (
-	enabled   bool
+	enabled   atomic.Bool
 	txSpans   = make(map[common.Hash]opentracing.Span)
 	txSpansMu sync.RWMutex
 
@@ -16,15 +17,15 @@ var (
 )
 
 func SetEnabled(val bool) {
-	enabled = val
+	enabled.Store(val)
 }
 
 func Enabled() bool {
-	return enabled
+	return enabled.Load()
 }
 
 func StartTx(tx common.Hash, operation string) {
-	if !enabled {
+	if !enabled.Load() {
 		return
 	}
 
@@ -42,7 +43,7 @@ func StartTx(tx common.Hash, operation string) {
 }
 
 func FinishTx(tx common.Hash, operation string) {
-	if !enabled {
+	if !enabled.Load() {
 		return
 	}
 
@@ -60,7 +61,7 @@ func FinishTx(tx common.Hash, operation string) {
 }
 
 func CheckTx(tx common.Hash, operation string) opentracing.Span {
-	if !enabled {
+	if !enabled.Load() {
 		return noopSpan
 	}
 
