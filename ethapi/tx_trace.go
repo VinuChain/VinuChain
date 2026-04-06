@@ -359,7 +359,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 	}
 
 	const maxFilterBlockRange = 1000
-	if toBlock > fromBlock && uint64(toBlock-fromBlock) > maxFilterBlockRange {
+	if toBlock > fromBlock && uint64(toBlock-fromBlock) >= maxFilterBlockRange {
 		return nil, fmt.Errorf("block range too large: %d blocks requested, maximum is %d", uint64(toBlock-fromBlock)+1, maxFilterBlockRange)
 	}
 

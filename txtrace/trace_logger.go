@@ -112,7 +112,14 @@ func (tr *TraceStructLogger) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, 
 			log.Error("Tracer CaptureState failed", "recover", fmt.Sprintf("%v", r))
 		}
 	}()
-	for len(tr.state) > 0 && lastState(tr.state).level >= depth {
+	// COR-005: guard against nil rootTrace (CaptureStart never called or panicked
+	// before initializing rootTrace).
+	if tr.rootTrace == nil {
+		return
+	}
+	// COR-001: guard Stack length in drain loop — Stack and state can desync if
+	// CaptureStart panicked after setting state but before pushing to Stack.
+	for len(tr.state) > 0 && len(tr.rootTrace.Stack) > 0 && lastState(tr.state).level >= depth {
 		result := tr.rootTrace.Stack[len(tr.rootTrace.Stack)-1].Result
 		if lastState(tr.state).create && result != nil {
 			if len(scope.Stack.Data()) > 0 {
@@ -127,6 +134,11 @@ func (tr *TraceStructLogger) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, 
 		if len(tr.state) == 0 || lastState(tr.state).level == depth {
 			break
 		}
+	}
+	// COR-001: if the drain loop emptied the Stack, no switch case can safely
+	// access Stack[len-1]; return early to avoid a panic.
+	if len(tr.rootTrace.Stack) == 0 {
+		return
 	}
 
 	switch op {
@@ -204,7 +216,9 @@ func (tr *TraceStructLogger) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, 
 						}
 					}
 				}
-				if lastState(tr.state).create {
+				// COR-002: state may be empty after the drain loop; guard before
+				// calling lastState to avoid an out-of-bounds access.
+				if len(tr.state) > 0 && lastState(tr.state).create {
 					code := hexutil.Bytes(data)
 					result.Code = &code
 				} else {
