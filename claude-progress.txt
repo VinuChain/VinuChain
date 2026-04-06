@@ -12,6 +12,14 @@ Branch: elemont
 Last Session: 2026-04-07
 
 ## What Was Done
+- Cycle 94: LLR Streaming Protocols Audit (Focus Area 10)
+  - LLP-01 (LOW): gossip/handler_sync.go — EventsStreamResponse acquired and
+    immediately released peerStreamQuota (no-op). BVs/BRs/EPs hold the slot
+    until processor done() fires; DAG events use peerEventQuota in handleEvents.
+    Removed the dead acquire/release block, added explanatory comment.
+  - Added gossip/peer_ratelimit_test.go — 6 tests for peerEventQuota and
+    peerStreamQuota (acquire/release lifecycle, RemovePeer, concurrent safety).
+  VinuChain commit: e5fc5a5
 - Cycle 93: Serialization from Untrusted Peers Re-Audit (Focus Area 17)
   - SER-NEW-01 (LOW): inter/transaction_serializer.go — access list allocation cap tightened
     from ProtocolMaxMsgSize/24 (436,906 entries → 19.2 MB alloc) to
@@ -34,8 +42,9 @@ Last Session: 2026-04-07
 - Cron audit cycle: run /loop @.claude/cron_audit.md to continue
 - Backlog is empty — next cycle is a fresh assessment
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit (excluded last 3 cycles: 17/26/9): 2, 3, 10, 11, 12, 13, 16, 18, 22, 29, 32, 33, 34, 36
+- Areas eligible for re-audit (excluded last 3 cycles: 10/26/9): 2, 3, 11, 12, 13, 16, 18, 22, 29, 32, 33, 34, 36
 - Area 17 (Serialization): approaching saturation (2 dedicated audits, diminishing returns)
+- Area 10 (LLR Streaming): first dedicated audit complete, 1 LOW found
 
 ## Blockers / Open Questions
 - TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
