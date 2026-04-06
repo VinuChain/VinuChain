@@ -30,6 +30,7 @@ type TraceStructLogger struct {
 	value       big.Int
 
 	gasUsed      uint64
+	feeRefund    *big.Int
 	rootTrace    *CallTrace
 	inputData    []byte
 	state        []depthState
@@ -311,6 +312,7 @@ func (tr *TraceStructLogger) reset() {
 	tr.reverted = false
 	tr.output = nil
 	tr.gasUsed = 0
+	tr.feeRefund = nil
 	tr.err = nil
 	tr.state = nil
 	tr.traceAddress = nil
@@ -351,6 +353,9 @@ func (tr *TraceStructLogger) SetNewAddress(newAddress common.Address) {
 // SetGasUsed sets the gas used by the transaction.
 func (tr *TraceStructLogger) SetGasUsed(gasUsed uint64) { tr.gasUsed = gasUsed }
 
+// SetFeeRefund sets the fee refund amount for the transaction.
+func (tr *TraceStructLogger) SetFeeRefund(feeRefund *big.Int) { tr.feeRefund = feeRefund }
+
 // ProcessTx finalizes trace processing.
 func (tr *TraceStructLogger) ProcessTx() {
 	if tr.rootTrace != nil {
@@ -367,6 +372,9 @@ func (tr *TraceStructLogger) SaveTrace() {
 	if tr.rootTrace == nil {
 		tr.rootTrace = &CallTrace{}
 		tr.rootTrace.AddTrace(GetErrorTraceFromLogger(tr))
+	}
+	if tr.feeRefund != nil && len(tr.rootTrace.Actions) > 0 {
+		tr.rootTrace.Actions[0].FeeRefund = (*hexutil.Big)(tr.feeRefund)
 	}
 	if tr.store != nil {
 		tracesBytes, _ := json.Marshal(tr.rootTrace.Actions)
@@ -466,6 +474,7 @@ type ActionTrace struct {
 	BlockNumber         big.Int            `json:"blockNumber"`
 	Result              *TraceActionResult `json:"result,omitempty"`
 	Error               string             `json:"error,omitempty"`
+	FeeRefund           *hexutil.Big       `json:"feeRefund,omitempty"`
 	Subtraces           uint64             `json:"subtraces"`
 	TraceAddress        []uint32           `json:"traceAddress"`
 	TransactionHash     common.Hash        `json:"transactionHash"`

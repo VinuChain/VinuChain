@@ -21,6 +21,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver/drivercall"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver/driverpos"
+	"github.com/Fantom-foundation/go-opera/tracing"
 )
 
 const (
@@ -160,6 +161,7 @@ func (p *DriverTxTransactor) PopInternalTxs(_ iblockproc.BlockCtx, _ iblockproc.
 }
 
 func (p *DriverTxListener) OnNewReceipt(tx *types.Transaction, r *types.Receipt, originator idx.ValidatorID) {
+	tracing.FinishTx(tx.Hash(), "DriverTxListener.OnNewReceipt()")
 	if originator == 0 {
 		return
 	}

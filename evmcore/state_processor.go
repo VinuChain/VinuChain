@@ -206,6 +206,7 @@ func applyTransaction(
 	if traceLogger != nil {
 		traceLogger.SetGasUsed(result.UsedGas)
 		traceLogger.SetNewAddress(receipt.ContractAddress)
+		traceLogger.SetFeeRefund(receipt.FeeRefund)
 		traceLogger.ProcessTx()
 		traceLogger.SaveTrace()
 	}

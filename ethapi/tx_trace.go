@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 
@@ -66,6 +67,7 @@ func (s *PublicTxTraceAPI) traceTx(
 
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
 	txTracer.SetTx(tx.Hash())
 	txTracer.SetFrom(msg.From())
@@ -87,7 +89,6 @@ func (s *PublicTxTraceAPI) traceTx(
 	gp := new(evmcore.GasPool).AddGas(msg.Gas())
 	state.Prepare(tx.Hash(), int(index))
 	result, err := evmcore.ApplyMessage(vmenv, msg, gp, big.NewInt(0))
-	cancel()
 
 	if result != nil {
 		txTracer.SetGasUsed(result.UsedGas)
@@ -348,6 +349,9 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 	)
 	if args.FromBlock != nil && args.FromBlock.BlockNumber != nil {
 		fromBlock = *args.FromBlock.BlockNumber
+		if fromBlock == rpc.LatestBlockNumber || fromBlock == rpc.PendingBlockNumber {
+			fromBlock = rpc.BlockNumber(s.b.CurrentBlock().NumberU64())
+		}
 	}
 	if args.ToBlock != nil && args.ToBlock.BlockNumber != nil {
 		toBlock = *args.ToBlock.BlockNumber
@@ -432,6 +436,15 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		close(stopProducer)
 		close(results)
 		wgResult.Wait()
+
+		sort.SliceStable(callTrace.Actions, func(i, j int) bool {
+			bi := callTrace.Actions[i].BlockNumber.Uint64()
+			bj := callTrace.Actions[j].BlockNumber.Uint64()
+			if bi != bj {
+				return bi < bj
+			}
+			return callTrace.Actions[i].TransactionPosition < callTrace.Actions[j].TransactionPosition
+		})
 	} else {
 	blocks:
 		for i := fromBlock; i <= toBlock; i++ {
