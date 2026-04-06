@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/topicsdb"
 	"github.com/Fantom-foundation/go-opera/tracing"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 )
 
 // EthAPIBackend implements ethapi.Backend.
@@ -535,4 +537,33 @@ func (b *EthAPIBackend) CalcBlockExtApi() bool {
 func (b *EthAPIBackend) SealedEpochTiming(ctx context.Context) (start inter.Timestamp, end inter.Timestamp) {
 	es := b.svc.store.GetEpochState()
 	return es.PrevEpochStart, es.EpochStart
+}
+
+// GetBlockContext returns the EVM block context for the given header.
+func (b *EthAPIBackend) GetBlockContext(header *evmcore.EvmHeader) vm.BlockContext {
+	return evmcore.NewEVMBlockContext(header, b.state, nil)
+}
+
+// TxTraceByHash returns stored transaction traces for the given tx hash.
+func (b *EthAPIBackend) TxTraceByHash(ctx context.Context, h common.Hash) (*[]txtrace.ActionTrace, error) {
+	if b.svc.store.TxTraceStore() == nil {
+		return nil, fmt.Errorf("transaction trace store is not initialized")
+	}
+	data := b.svc.store.TxTraceStore().GetTx(h)
+	if data == nil {
+		return nil, fmt.Errorf("trace not found for tx %s", h.Hex())
+	}
+	var traces []txtrace.ActionTrace
+	if err := json.Unmarshal(data, &traces); err != nil {
+		return nil, err
+	}
+	return &traces, nil
+}
+
+// TxTraceSave saves transaction traces for the given tx hash.
+func (b *EthAPIBackend) TxTraceSave(ctx context.Context, h common.Hash, traceBytes []byte) error {
+	if b.svc.store.TxTraceStore() != nil {
+		return b.svc.store.TxTraceStore().SetTxTrace(h, traceBytes)
+	}
+	return fmt.Errorf("transaction trace store is not initialized")
 }

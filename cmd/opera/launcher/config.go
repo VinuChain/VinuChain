@@ -139,6 +139,10 @@ var (
 		Name:  "db.preset",
 		Usage: "DBs layout preset ('pbl-1' or 'ldb-1' or 'legacy-ldb' or 'legacy-pbl')",
 	}
+	TraceNodeFlag = cli.BoolFlag{
+		Name:  "tracenode",
+		Usage: "If present, this node records inner transaction traces",
+	}
 )
 
 type GenesisTemplate struct {
@@ -496,6 +500,10 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 
 	if err := cfg.Opera.Validate(); err != nil {
 		return nil, err
+	}
+
+	if ctx.GlobalIsSet(TraceNodeFlag.Name) {
+		cfg.OperaStore.TraceTransactions = true
 	}
 
 	if err := validateConfig(&cfg); err != nil {

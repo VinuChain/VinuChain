@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/Fantom-foundation/go-opera/gossip/evmstore"
+	"github.com/Fantom-foundation/go-opera/gossip/txtrace"
 	"github.com/Fantom-foundation/go-opera/logger"
 	"github.com/Fantom-foundation/go-opera/utils/adapters/snap2kvdb"
 	"github.com/Fantom-foundation/go-opera/utils/eventid"
@@ -30,6 +31,7 @@ type Store struct {
 
 	snapshotedEVMDB *switchable.Snapshot
 	evm             *evmstore.Store
+	txtraceStore    *txtrace.Store
 	table           struct {
 		Version kvdb.Store `table:"_"`
 
@@ -41,6 +43,9 @@ type Store struct {
 		EpochBlocks            kvdb.Store `table:"P"`
 		Genesis                kvdb.Store `table:"g"`
 		UpgradeHeights         kvdb.Store `table:"U"`
+
+		// Transaction traces
+		TransactionTraces kvdb.Store `table:"t"`
 
 		// P2P-only
 		HighestLamport kvdb.Store `table:"l"`
@@ -121,6 +126,9 @@ func NewStore(dbs kvdb.FlushableDBProducer, cfg StoreConfig) *Store {
 
 	s.initCache()
 	s.evm = evmstore.NewStore(dbs, cfg.EVM)
+	if cfg.TraceTransactions {
+		s.txtraceStore = txtrace.NewStore(s.table.TransactionTraces)
+	}
 
 	if err := s.migrateData(); err != nil {
 		s.Log.Crit("Failed to migrate Gossip DB", "err", err)
@@ -163,6 +171,9 @@ func (s *Store) Close() {
 
 	_ = s.closeEpochStore()
 	s.evm.Close()
+	if s.txtraceStore != nil {
+		s.txtraceStore.Close()
+	}
 }
 
 func (s *Store) IsCommitNeeded() bool {
@@ -293,4 +304,9 @@ func (s *Store) makeCache(weight uint, size int) *wlru.Cache {
 		return nil
 	}
 	return cache
+}
+
+// TxTraceStore returns the transaction trace KV store, or nil if not enabled.
+func (s *Store) TxTraceStore() *txtrace.Store {
+	return s.txtraceStore
 }

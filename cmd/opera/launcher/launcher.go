@@ -127,6 +127,7 @@ func initFlags() {
 		DBPresetFlag,
 		DBMigrationModeFlag,
 		FastEmitFlag,
+		TraceNodeFlag,
 	}
 	legacyRpcFlags = []cli.Flag{
 		utils.NoUSBFlag,
@@ -228,6 +229,7 @@ func init() {
 		importCommand,
 		exportCommand,
 		checkCommand,
+		deleteTxTracesCommand,
 		// See snapshot.go
 		snapshotCommand,
 		// See dbcmd.go

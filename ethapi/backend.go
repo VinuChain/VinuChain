@@ -36,6 +36,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/evmcore"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 )
 
 // PeerProgress is synchronization status of a peer
@@ -102,6 +103,11 @@ type Backend interface {
 	GetDowntime(ctx context.Context, vid idx.ValidatorID) (idx.Block, inter.Timestamp, error)
 	GetUptime(ctx context.Context, vid idx.ValidatorID) (*big.Int, error)
 	GetOriginatedFee(ctx context.Context, vid idx.ValidatorID) (*big.Int, error)
+
+	// Transaction trace API
+	GetBlockContext(header *evmcore.EvmHeader) vm.BlockContext
+	TxTraceByHash(ctx context.Context, h common.Hash) (*[]txtrace.ActionTrace, error)
+	TxTraceSave(ctx context.Context, h common.Hash, traces []byte) error
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -155,6 +161,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "abft",
 			Version:   "1.0",
 			Service:   NewPublicAbftAPI(apiBackend),
+			Public:    true,
+		}, {
+			Namespace: "trace",
+			Version:   "1.0",
+			Service:   NewPublicTxTraceAPI(apiBackend),
 			Public:    true,
 		},
 	}

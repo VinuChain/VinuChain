@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -29,6 +30,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
 
@@ -316,7 +318,12 @@ func (bp *BlockProcessor) initProcessors() {
 		})
 	}
 
-	bp.evmProcessor = bp.blockProc.EVMModule.Start(bp.blockCtx, bp.statedb, bp.evmStateReader, onNewLogAll, bp.es.Rules, bp.es.Rules.EvmChainConfig(bp.store.GetUpgradeHeights()), bp.pc, bp.es.Epoch)
+	vmCfg := opera.DefaultVMConfig
+	if bp.store.TxTraceStore() != nil {
+		vmCfg.Debug = true
+		vmCfg.Tracer = txtrace.NewTraceStructLogger(bp.store.TxTraceStore())
+	}
+	bp.evmProcessor = bp.blockProc.EVMModule.Start(bp.blockCtx, bp.statedb, bp.evmStateReader, onNewLogAll, bp.es.Rules, vmCfg, bp.es.Rules.EvmChainConfig(bp.store.GetUpgradeHeights()), bp.pc, bp.es.Epoch)
 	bp.executionStart = time.Now()
 }
 
@@ -436,6 +443,30 @@ func (bp *BlockProcessor) processBlock() {
 		position.Block = bp.blockCtx.Idx
 		position.BlockOffset = uint32(i)
 		txPositions[tx.Hash()] = position
+	}
+
+	// When txs are skipped, the TransactionPosition recorded by the tracer
+	// (via statedb.TxIndex) no longer matches the final BlockOffset. Correct
+	// the stored trace bytes for every executed tx so the RPC returns the right
+	// position.
+	if len(skippedTxs) > 0 && bp.store.TxTraceStore() != nil {
+		for _, tx := range evmBlock.Transactions {
+			txBytes := bp.store.TxTraceStore().GetTx(tx.Hash())
+			if txBytes == nil {
+				continue
+			}
+			var traces []txtrace.ActionTrace
+			if err := json.Unmarshal(txBytes, &traces); err != nil {
+				continue
+			}
+			pos := uint64(txPositions[tx.Hash()].BlockOffset)
+			for i := range traces {
+				traces[i].TransactionPosition = pos
+			}
+			if corrected, err := json.Marshal(traces); err == nil {
+				bp.store.TxTraceStore().SetTxTrace(tx.Hash(), corrected)
+			}
+		}
 	}
 
 	// call OnNewReceipt

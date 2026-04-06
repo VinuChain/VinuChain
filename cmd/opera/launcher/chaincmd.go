@@ -57,6 +57,19 @@ Events are fully verified by default, unless overridden by --check=false flag.`,
 
 The import command imports EVM storage (trie nodes, code, preimages) from files.`,
 			},
+			{
+				Name:      "txtraces",
+				Usage:     "Import transaction traces",
+				ArgsUsage: "<filename>",
+				Action:    utils.MigrateFlags(importTxTraces),
+				Flags: []cli.Flag{
+					DataDirFlag,
+				},
+				Description: `
+    opera import txtraces
+
+The import command imports transaction traces and replaces the old ones with traces from a file.`,
+			},
 		},
 	}
 	exportCommand = cli.Command{
@@ -116,6 +129,47 @@ EVM export mode is configured with --export.evm.mode.
     opera export evm-keys
 
 Requires a first argument of the DB directory to write to.
+`,
+			},
+			{
+				Name:      "txtraces",
+				Usage:     "Export stored transaction traces",
+				ArgsUsage: "<filename> [<blockFrom> <blockTo>]",
+				Action:    utils.MigrateFlags(exportTxTraces),
+				Flags: []cli.Flag{
+					DataDirFlag,
+				},
+				Description: `
+    opera export txtraces
+
+Requires a first argument of the file to write to.
+Optional second and third arguments control the first and
+last block to export transaction traces from. If the file ends with .gz, the output will
+be gzipped.
+`,
+			},
+		},
+	}
+
+	deleteTxTracesCommand = cli.Command{
+		Name:     "delete",
+		Usage:    "Delete blockchain data",
+		Category: "MISCELLANEOUS COMMANDS",
+
+		Subcommands: []cli.Command{
+			{
+				Name:      "txtraces",
+				Usage:     "Delete transaction traces",
+				ArgsUsage: "[<blockFrom> <blockTo>]",
+				Action:    utils.MigrateFlags(deleteTxTraces),
+				Flags: []cli.Flag{
+					DataDirFlag,
+				},
+				Description: `
+    opera delete txtraces
+
+Optional first and second arguments control the first and
+last block to delete transaction traces from.
 `,
 			},
 		},

@@ -94,7 +94,7 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 		}
 		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
 
-		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, es.Rules.EvmChainConfig(upgradeHeights), reexecCache, es.Epoch)
+		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, opera.DefaultVMConfig, es.Rules.EvmChainConfig(upgradeHeights), reexecCache, es.Epoch)
 		txs := s.store.GetBlockTxs(b, block)
 		evmProcessor.Execute(txs)
 		evmProcessor.Finalize()

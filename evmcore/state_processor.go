@@ -21,6 +21,7 @@ import (
 	"math/big"
 
 	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -143,6 +144,19 @@ func applyTransaction(
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
 
+	var traceLogger *txtrace.TraceStructLogger
+	switch evm.Config.Tracer.(type) {
+	case *txtrace.TraceStructLogger:
+		traceLogger = evm.Config.Tracer.(*txtrace.TraceStructLogger)
+		traceLogger.SetTx(tx.Hash())
+		traceLogger.SetFrom(msg.From())
+		traceLogger.SetTo(msg.To())
+		traceLogger.SetValue(*msg.Value())
+		traceLogger.SetBlockHash(blockHash)
+		traceLogger.SetBlockNumber(blockNumber)
+		traceLogger.SetTxIndex(uint(statedb.TxIndex()))
+	}
+
 	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From(), evm)
 
 	// Apply the transaction to the current state (included in the env).
@@ -188,6 +202,14 @@ func applyTransaction(
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 	receipt.FeeRefund = result.FeeRefund
+
+	if traceLogger != nil {
+		traceLogger.SetGasUsed(result.UsedGas)
+		traceLogger.SetNewAddress(receipt.ContractAddress)
+		traceLogger.ProcessTx()
+		traceLogger.SaveTrace()
+	}
+
 	return receipt, result.UsedGas, false, err
 }
 
