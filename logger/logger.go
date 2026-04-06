@@ -2,26 +2,22 @@ package logger
 
 import (
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/evalphobia/logrus_sentry"
 )
 
-// init with defaults.
 func init() {
 	log.Root().SetHandler(
 		log.CallerStackHandler("%v", log.StdoutHandler))
 }
 
-// SetDSN appends sentry hook to log root handler.
+// SetDSN appends a Sentry error-reporting handler to the log root handler.
+// If value is empty, the call is a no-op and a warning is emitted.
 func SetDSN(value string) {
-	// If DSN is empty, we don't create new hook.
-	// Otherwise we'll the same error message for each new log.
 	if value == "" {
 		log.Warn("Sentry client DSN is empty")
 		return
 	}
 
-	// TODO: find or make sentry log.Handler without logrus.
-	sentry, err := logrus_sentry.NewSentryHook(value, nil)
+	h, err := newSentryHandler(value)
 	if err != nil {
 		log.Warn("Probably Sentry host is not running", "err", err)
 		return
@@ -30,7 +26,7 @@ func SetDSN(value string) {
 	log.Root().SetHandler(
 		log.MultiHandler(
 			log.Root().GetHandler(),
-			LogrusHandler(sentry),
+			h,
 		))
 }
 
