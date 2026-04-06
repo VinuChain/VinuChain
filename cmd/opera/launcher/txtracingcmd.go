@@ -150,7 +150,7 @@ func exportTxTraces(ctx *cli.Context) error {
 
 	fn := ctx.Args().First()
 
-	fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

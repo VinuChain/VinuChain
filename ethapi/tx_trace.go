@@ -210,8 +210,11 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 						callTrace.AddTrace(txtrace.GetErrorTraceFromMsg(&msg, block.Hash, *block.Number, tx.Hash(), index, err))
 					} else {
 						callTrace.AddTraces(txTraces, traceIndex)
-						jsonTraceBytes, _ := json.Marshal(txTraces)
-						s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes)
+						if jsonTraceBytes, marshalErr := json.Marshal(txTraces); marshalErr != nil {
+							log.Error("Cannot marshal tx traces for storage", "txHash", tx.Hash().String(), "err", marshalErr)
+						} else {
+							s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes)
+						}
 					}
 				}
 				if txHash != nil {
@@ -329,8 +332,28 @@ type FilterArgs struct {
 	Count       uint                   `json:"count"`
 }
 
+// maxFilterTraceAddresses is the maximum number of addresses allowed in a
+// trace_filter fromAddress or toAddress list. Large lists cause unbounded
+// map allocations before any block data is read.
+const maxFilterTraceAddresses = 1000
+
+// validateFilterArgs returns an error if any address list exceeds the cap.
+func validateFilterArgs(args FilterArgs) error {
+	if args.FromAddress != nil && len(*args.FromAddress) > maxFilterTraceAddresses {
+		return fmt.Errorf("fromAddress list too large: %d addresses, maximum is %d", len(*args.FromAddress), maxFilterTraceAddresses)
+	}
+	if args.ToAddress != nil && len(*args.ToAddress) > maxFilterTraceAddresses {
+		return fmt.Errorf("toAddress list too large: %d addresses, maximum is %d", len(*args.ToAddress), maxFilterTraceAddresses)
+	}
+	return nil
+}
+
 // Filter implements trace_filter: returns traces matching the filter criteria.
 func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtrace.ActionTrace, error) {
+	if err := validateFilterArgs(args); err != nil {
+		return nil, err
+	}
+
 	defer func(start time.Time) {
 		var data []interface{}
 		if args.FromBlock != nil && args.FromBlock.BlockNumber != nil {
