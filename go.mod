@@ -103,6 +103,6 @@ require (
 
 replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.8-quota
 
-replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.4-elemont.0.20260406144649-6722f81a8dea
+replace github.com/Fantom-foundation/lachesis-base => /home/gypsey/lachesis-base-dev
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f

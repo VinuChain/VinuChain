@@ -12,6 +12,11 @@ Branch: elemont
 Last Session: 2026-04-07
 
 ## What Was Done
+- Cycle 98: Backlog drain — Close() CloseTables error logging (INFO)
+  - CL-01 (INFO): gossip/evmstore/store.go + gossip/store.go — changed
+    `_ = table.CloseTables(...)` to log at Warn level on error so DB close
+    failures are visible in node logs during shutdown.
+  VinuChain commit: 6dbb64d
 - Cycle 97: Database Migrations Audit (Focus Area 13)
   - MIG-01 (MEDIUM): gossip/store_migration.go — isEmptyDB did not check it.Error()
     after it.Next() returned false. A LevelDB read failure on the Version table
@@ -73,11 +78,9 @@ Last Session: 2026-04-07
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit cycle: run /loop @.claude/cron_audit.md to continue
-- Backlog has 1 INFO item: Close() CloseTables error logging (gossip/evmstore/store.go, gossip/store.go)
+- Cron audit: /loop active at 15m intervals — next cycle will be full assessment (backlog empty)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit (excluded last 3 cycles: 13/12/16): all others from pool
-- Area 13 (DB Migrations): first dedicated audit complete, 1 MEDIUM fixed
+- Areas eligible for re-audit (excluded last 3 cycles: 98-drain/13/12): all others from pool
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
