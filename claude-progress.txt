@@ -12,6 +12,31 @@ Branch: elemont
 Last Session: 2026-04-07
 
 ## What Was Done
+- Cycle 96: State Storage Audit (Focus Area 12)
+  - ES-02 (MEDIUM): topicsdb/search_parallel.go — scanPatternVariant discarded LevelDB
+    iterator errors; searchParallel only returned ctx.Err(). eth_getLogs silently
+    returned empty results on DB read failure. Fixed: SetError/Err helpers on
+    synchronizator propagate the first iterator error to searchParallel return.
+  - ES-01 (LOW): gossip/evmstore/utils.go — ImportEvm dropped iterator error after
+    loop (partial batch written, nil returned). Fixed: check it.Error() before
+    batch.Write(), matching store_genesis.go/store_migration.go pattern.
+  - Added topicsdb/error_propagation_test.go — TestSearchParallelIteratorError injects
+    error mid-scan via mock store, asserts FindInBlocks returns the error.
+  VinuChain commit: 56ab2b9
+- Cycle 95: CLI Security Re-Audit (Focus Area 16) — new tracing CLI hardened
+  - TRC-01 (MEDIUM): importTxTraces rlp.NewStream(reader, 0) → unlimited decode
+    for generic readers. OOM risk from crafted import files. Fixed: use
+    maxImportStreamSize (600 MB).
+  - TRC-02 (LOW): exportTraceTo rlp.Encode error silently discarded → corrupt
+    trace file with no error returned. Fixed: propagate the error.
+  - TRC-03 (LOW): exportTraceTo/deleteTraces called GetBlockTxs(i, GetBlock(i))
+    without nil guard → nil dereference panic on sparse block ranges. Fixed:
+    skip nil blocks.
+  - TRC-04 (LOW): deleteTxTraces/exportTxTraces ParseUint(64-bit) → idx.Block
+    (uint32) silent truncation for values > MaxUint32. Fixed: parseBlockNumber
+    helper with bitSize=32.
+  - Added cmd/opera/launcher/txtracingcmd_test.go — 5 tests.
+  VinuChain commit: 674bbf9
 - Cycle 94: LLR Streaming Protocols Audit (Focus Area 10)
   - LLP-01 (LOW): gossip/handler_sync.go — EventsStreamResponse acquired and
     immediately released peerStreamQuota (no-op). BVs/BRs/EPs hold the slot
@@ -42,7 +67,8 @@ Last Session: 2026-04-07
 - Cron audit cycle: run /loop @.claude/cron_audit.md to continue
 - Backlog is empty — next cycle is a fresh assessment
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit (excluded last 3 cycles: 10/26/9): 2, 3, 11, 12, 13, 16, 18, 22, 29, 32, 33, 34, 36
+- Areas eligible for re-audit (excluded last 3 cycles: 12/16/10): 2, 3, 9, 11, 13, 17, 18, 22, 26, 29, 32, 33, 34, 36
+- Area 12 (State Storage): first dedicated audit complete, 2 findings fixed
 - Area 17 (Serialization): approaching saturation (2 dedicated audits, diminishing returns)
 - Area 10 (LLR Streaming): first dedicated audit complete, 1 LOW found
 
