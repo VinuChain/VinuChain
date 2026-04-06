@@ -216,18 +216,20 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 				}
 			} else if txHash != nil {
 				log.Info("Replaying transaction without trace", "txHash", tx.Hash().String())
-				msg, _ := tx.AsMessage(signer, block.BaseFee)
+				msg, err := tx.AsMessage(signer, block.BaseFee)
+				if err != nil {
+					return nil, fmt.Errorf("cannot decode tx %s: %w", tx.Hash().String(), err)
+				}
 				stateDB.Prepare(tx.Hash(), i)
 				vmConfig := opera.DefaultVMConfig
 				vmConfig.NoBaseFee = true
 				vmConfig.Debug = false
 				vmConfig.Tracer = nil
 				vmenv := vm.NewEVM(blockCtx, evmcore.NewEVMTxContext(msg), stateDB, s.b.ChainConfig(), vmConfig)
-				res, err := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0))
-				failed := false
-				if err != nil {
-					failed = true
-					log.Error("Cannot replay transaction", "txHash", tx.Hash().String(), "err", err.Error())
+				res, applyErr := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0))
+				failed := applyErr != nil
+				if applyErr != nil {
+					log.Error("Cannot replay transaction", "txHash", tx.Hash().String(), "err", applyErr.Error())
 				}
 				if res != nil && res.Err != nil {
 					failed = true
@@ -235,7 +237,8 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 				}
 				stateDB.Finalise(true)
 				if (failed && receipts[i].Status == 1) || (!failed && receipts[i].Status == 0) {
-					panic("Not equal state when replaying tx " + tx.Hash().String())
+					log.Error("State mismatch replaying tx without trace", "txHash", tx.Hash().String())
+					return nil, fmt.Errorf("state mismatch replaying tx %s", tx.Hash().String())
 				}
 			}
 		}
@@ -324,10 +327,10 @@ type FilterArgs struct {
 func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtrace.ActionTrace, error) {
 	defer func(start time.Time) {
 		var data []interface{}
-		if args.FromBlock != nil {
+		if args.FromBlock != nil && args.FromBlock.BlockNumber != nil {
 			data = append(data, "fromBlock", args.FromBlock.BlockNumber.Int64())
 		}
-		if args.ToBlock != nil {
+		if args.ToBlock != nil && args.ToBlock.BlockNumber != nil {
 			data = append(data, "toBlock", args.ToBlock.BlockNumber.Int64())
 		}
 		data = append(data, "time", time.Since(start))
@@ -338,10 +341,10 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		fromBlock, toBlock rpc.BlockNumber
 		mainErr            error
 	)
-	if args.FromBlock != nil {
+	if args.FromBlock != nil && args.FromBlock.BlockNumber != nil {
 		fromBlock = *args.FromBlock.BlockNumber
 	}
-	if args.ToBlock != nil {
+	if args.ToBlock != nil && args.ToBlock.BlockNumber != nil {
 		toBlock = *args.ToBlock.BlockNumber
 		if toBlock == rpc.LatestBlockNumber || toBlock == rpc.PendingBlockNumber {
 			toBlock = rpc.BlockNumber(s.b.CurrentBlock().NumberU64())
@@ -397,6 +400,11 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 			wId := w
 			go func() {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						log.Error("filterWorker panicked", "worker", wId, "recover", r)
+					}
+				}()
 				filterWorker(wId, s, ctx, blocks, results, fromAddresses, toAddresses)
 			}()
 		}
