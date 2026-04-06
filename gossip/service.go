@@ -285,6 +285,12 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 		if changed {
 			store.SetBlockEpochState(store.GetBlockState(), es)
 			store.FlushBlockEpochState()
+			// Re-sync FeeRefundActive in case Podgorica was just activated.
+			// The Store() at line 263 read the pre-activation stored state;
+			// re-apply it here so receipt encoding is correct from this block on.
+			if es.Rules.Upgrades.Podgorica {
+				types.FeeRefundActive.Store(true)
+			}
 		}
 	}
 	svc.checkers = makeCheckers(config.HeavyCheck, txSigner, &svc.heavyCheckReader, &svc.gasPowerCheckReader, svc.store)

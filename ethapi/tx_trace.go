@@ -195,11 +195,13 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 				from := msg.From()
 				if tx.To() != nil && *tx.To() == sfc.ContractAddress {
 					errTrace := txtrace.GetErrorTrace(block.Hash, *block.Number, &from, tx.To(), tx.Hash(), index, errors.New("sfc tx"))
-					at := make([]txtrace.ActionTrace, 0)
-					at = append(at, *errTrace)
+					at := []txtrace.ActionTrace{*errTrace}
 					callTrace.AddTrace(errTrace)
-					jsonTraceBytes, _ := json.Marshal(&at)
-					s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes)
+					if jsonTraceBytes, err := json.Marshal(&at); err == nil {
+						if saveErr := s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes); saveErr != nil {
+							log.Debug("Cannot save sfc tx trace", "txHash", tx.Hash().String(), "err", saveErr)
+						}
+					}
 				} else {
 					txTraces, err := s.traceTx(ctx, blockCtx, msg, stateDB, block, tx, index, receipts[i].Status, s.b.ChainConfig())
 					if err != nil {

@@ -252,10 +252,12 @@ func (tr *TraceStructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Du
 		}
 	}
 	if gasUsed > 0 {
-		if tr.rootTrace.Actions[0].Result != nil {
-			tr.rootTrace.Actions[0].Result.GasUsed = hexutil.Uint64(gasUsed)
+		if tr.rootTrace != nil && len(tr.rootTrace.Actions) > 0 {
+			if tr.rootTrace.Actions[0].Result != nil {
+				tr.rootTrace.Actions[0].Result.GasUsed = hexutil.Uint64(gasUsed)
+			}
+			tr.rootTrace.lastTrace().Action.Gas = hexutil.Uint64(gasUsed)
 		}
-		tr.rootTrace.lastTrace().Action.Gas = hexutil.Uint64(gasUsed)
 		tr.gasUsed = gasUsed
 	}
 	tr.output = output
@@ -295,6 +297,7 @@ func (tr *TraceStructLogger) reset() {
 	tr.err = nil
 	tr.state = nil
 	tr.traceAddress = nil
+	tr.stack = tr.stack[:0]
 }
 
 // SetTx sets the transaction hash.
