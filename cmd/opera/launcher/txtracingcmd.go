@@ -24,6 +24,17 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter"
 )
 
+// parseBlockNumber parses a block number from a decimal string and enforces the
+// idx.Block range (uint32). strconv.ParseUint with bitSize=32 rejects values
+// larger than math.MaxUint32, preventing silent truncation on cast to idx.Block.
+func parseBlockNumber(s string) (uint32, error) {
+	n, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
 // TracePayload is the RLP-encoded form for import/export of a single trace entry.
 type TracePayload struct {
 	Key    common.Hash
@@ -71,7 +82,7 @@ func importTxTraces(ctx *cli.Context) error {
 	log.Info("Importing transaction traces from file", "file", fn)
 	start, reported := time.Now(), time.Now()
 
-	stream := rlp.NewStream(reader, 0)
+	stream := rlp.NewStream(reader, maxImportStreamSize)
 	for {
 		select {
 		case <-interrupt:
@@ -110,17 +121,17 @@ func deleteTxTraces(ctx *cli.Context) error {
 
 	from := idx.Block(1)
 	if len(ctx.Args()) > 0 {
-		n, err := strconv.ParseUint(ctx.Args().Get(0), 10, 64)
+		n, err := parseBlockNumber(ctx.Args().Get(0))
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid from block: %w", err)
 		}
 		from = idx.Block(n)
 	}
 	to := gdb.GetLatestBlockIndex()
 	if len(ctx.Args()) > 1 {
-		n, err := strconv.ParseUint(ctx.Args().Get(1), 10, 64)
+		n, err := parseBlockNumber(ctx.Args().Get(1))
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid to block: %w", err)
 		}
 		to = idx.Block(n)
 	}
@@ -164,17 +175,17 @@ func exportTxTraces(ctx *cli.Context) error {
 
 	from := idx.Block(1)
 	if len(ctx.Args()) > 1 {
-		n, err := strconv.ParseUint(ctx.Args().Get(1), 10, 64)
+		n, err := parseBlockNumber(ctx.Args().Get(1))
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid from block: %w", err)
 		}
 		from = idx.Block(n)
 	}
 	to := gdb.GetLatestBlockIndex()
 	if len(ctx.Args()) > 2 {
-		n, err := strconv.ParseUint(ctx.Args().Get(2), 10, 64)
+		n, err := parseBlockNumber(ctx.Args().Get(2))
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid to block: %w", err)
 		}
 		to = idx.Block(n)
 	}
@@ -208,6 +219,9 @@ func exportTraceTo(w io.Writer, gdb *gossip.Store, from, to idx.Block) error {
 	)
 	for i := from; i <= to; i++ {
 		block = gdb.GetBlock(i)
+		if block == nil {
+			continue
+		}
 		for _, tx := range gdb.GetBlockTxs(i, block) {
 			traces, traceErr := gdb.TxTraceStore().GetTx(tx.Hash())
 			if traceErr != nil {
@@ -216,7 +230,9 @@ func exportTraceTo(w io.Writer, gdb *gossip.Store, from, to idx.Block) error {
 			}
 			if len(traces) > 0 {
 				counter++
-				rlp.Encode(w, TracePayload{tx.Hash(), traces})
+				if err := rlp.Encode(w, TracePayload{tx.Hash(), traces}); err != nil {
+					return fmt.Errorf("failed to encode trace for tx %s: %w", tx.Hash(), err)
+				}
 			}
 			if time.Since(reported) >= statsReportLimit {
 				log.Info("Exporting transaction traces", "at block", i, "exported", counter, "elapsed", common.PrettyDuration(time.Since(start)))
@@ -254,7 +270,11 @@ func deleteTraces(gdb *gossip.Store, from, to idx.Block) error {
 	var counter int
 
 	for i := from; i <= to; i++ {
-		for _, tx := range gdb.GetBlockTxs(i, gdb.GetBlock(i)) {
+		blk := gdb.GetBlock(i)
+		if blk == nil {
+			continue
+		}
+		for _, tx := range gdb.GetBlockTxs(i, blk) {
 			if existing, _ := gdb.TxTraceStore().GetTx(tx.Hash()); existing != nil {
 				counter++
 				gdb.TxTraceStore().RemoveTxTrace(tx.Hash())
