@@ -93,7 +93,9 @@ func (s *Store) Close() {
 		return nil
 	}
 
-	_ = table.CloseTables(&s.table)
+	if err := table.CloseTables(&s.table); err != nil {
+		s.Log.Warn("Failed to close EVM store tables", "err", err)
+	}
 	table.MigrateTables(&s.table, nil)
 	table.MigrateCaches(&s.cache, setnil)
 	s.EvmLogs.Close()
