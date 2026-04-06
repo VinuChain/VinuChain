@@ -15,15 +15,23 @@ import (
 	"github.com/Fantom-foundation/go-opera/utils/migration"
 )
 
-func isEmptyDB(db kvdb.Iteratee) bool {
+func isEmptyDB(db kvdb.Iteratee) (bool, error) {
 	it := db.NewIterator(nil, nil)
 	defer it.Release()
-	return !it.Next()
+	hasNext := it.Next()
+	if err := it.Error(); err != nil {
+		return true, err
+	}
+	return !hasNext, nil
 }
 
 func (s *Store) migrateData() error {
 	versions := migration.NewKvdbIDStore(s.table.Version)
-	if isEmptyDB(s.table.Version) {
+	empty, err := isEmptyDB(s.table.Version)
+	if err != nil {
+		return fmt.Errorf("failed to check migration version table: %w", err)
+	}
+	if empty {
 		// short circuit if empty DB — version marker is flushed
 		// with the first organic Commit() call after genesis application.
 		// The dirty-flag system (checkDBsSynced) prevents operating on
@@ -32,8 +40,7 @@ func (s *Store) migrateData() error {
 		return nil
 	}
 
-	err := s.migrations().Exec(versions, s.flushDBs)
-	return err
+	return s.migrations().Exec(versions, s.flushDBs)
 }
 
 func (s *Store) migrations() *migration.Migration {
