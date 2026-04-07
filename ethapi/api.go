@@ -984,6 +984,10 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 		}
 		// Override account(contract) code.
 		if account.Code != nil {
+			if len(*account.Code) > params.MaxCodeSize {
+				return fmt.Errorf("account %s code override exceeds maximum code size (%d > %d)",
+					addr.Hex(), len(*account.Code), params.MaxCodeSize)
+			}
 			state.SetCode(addr, *account.Code)
 		}
 		// Override account balance.

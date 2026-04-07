@@ -9,9 +9,29 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 114)
+Last Session: 2026-04-07 (Cycle 115)
 
 ## What Was Done
+- Cycle 115: RPC Filter & Subscription Audit (Focus Area 39)
+  - RPC-01 (MEDIUM): ethapi/api.go:986-991 — StateOverride.Apply accepted code blobs
+    larger than params.MaxCodeSize (24576 bytes). An attacker could supply up to ~2.5MB
+    of code per account via eth_call state override. crypto.Keccak256Hash runs synchronously
+    inside Apply (statedb.go:411) before the EVM timeout context is established (DoCall:1024).
+    Timing proof: 1MB blob = 2ms keccak, zero timeout protection. With 200 concurrent calls:
+    ~500MB heap + 200 concurrent keccak ops.
+    Fix: `if len(*account.Code) > params.MaxCodeSize { return fmt.Errorf(...) }` before SetCode.
+    Tests: TestStateOverrideApply_CodeSizeLimit (rejects oversized),
+           TestStateOverrideApply_CodeSizeLimit_ExactBoundary (accepts MaxCodeSize),
+           TestStateOverrideApply_CodeSizeLimit_NilCode (nil is no-op),
+           TestStateOverrideApply_OversizedCodeRejectedBeforeKeccak (timing regression guard),
+           TestStateOverrideApply_AccountLimit (256-account cap regression).
+  - Deferred to backlog (4 items, RPC-02/03/04/07/08):
+    - RPC-02 (HIGH): MaxConcurrentRPC config field declared but never enforced — DoS via goroutine flooding.
+    - RPC-03 (HIGH): debug_* namespace — Public: false doesn't block HTTP/WS; debug_blocksTransactionTimes 10k block reads unguarded.
+    - RPC-04 (MEDIUM): personal namespace key management lacks ExtRPCEnabled() guard.
+    - RPC-07 (LOW): BlockNumber() nil deref on startup (panic recovered by RPC server).
+    - RPC-08 (MEDIUM): FeeHistory shares mutable tip slice reference across all response entries.
+  - Confirmed safe (INFO): FeeHistory bounded at 1024 iterations; GetProof storageKeys capped at 256; DoCall goroutine not leaked; logsChanSize=10 lossy by design; no validator key/emitter state exposed via RPC.
 - Cycle 114: Backlog drain (GP-02 MEDIUM)
   - GP-02 (MEDIUM): opera/marshal.go + gossip/gasprice/gasprice.go
     (1) validateRulesBounds accepted MinGasPrice==0 → governance could zero-out spam
@@ -214,9 +234,9 @@ Last Session: 2026-04-07 (Cycle 114)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full audit (backlog empty)
+- Backlog has 5 items (RPC-02 HIGH, RPC-03 HIGH, RPC-04 MEDIUM, RPC-07 LOW, RPC-08 MEDIUM) — next cycle is backlog drain
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit: all except FA20/FA26/FA3 (last 3 cycles)
+- Areas eligible for re-audit: all except FA8/FA20/FA26 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 - Seed file: update SEED-LOWER-BOUND in docs/audit/attack-seeds.md
 
