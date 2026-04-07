@@ -18,6 +18,14 @@ var (
 
 func SetEnabled(val bool) {
 	enabled.Store(val)
+	if !val {
+		txSpansMu.Lock()
+		for k, span := range txSpans {
+			span.Finish()
+			delete(txSpans, k)
+		}
+		txSpansMu.Unlock()
+	}
 }
 
 func Enabled() bool {

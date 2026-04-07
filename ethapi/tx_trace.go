@@ -388,7 +388,8 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 		toBlock = rpc.BlockNumber(s.b.CurrentBlock().NumberU64())
 	}
 
-	const maxFilterBlockRange = 1000
+	const maxFilterBlockRange   = 1000
+	const maxFilterResultCount = 10000
 	if toBlock > fromBlock && uint64(toBlock-fromBlock) >= maxFilterBlockRange {
 		return nil, fmt.Errorf("block range too large: %d blocks requested, maximum is %d", uint64(toBlock-fromBlock)+1, maxFilterBlockRange)
 	}
@@ -450,17 +451,26 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 			}()
 		}
 
+		var stopOnce sync.Once
+		stopAll := func() { stopOnce.Do(func() { close(stopProducer) }) }
+
 		var wgResult sync.WaitGroup
 		wgResult.Add(1)
 		go func() {
 			defer wgResult.Done()
 			for trace := range results {
 				callTrace.AddTrace(&trace)
+				if len(callTrace.Actions) >= maxFilterResultCount {
+					stopAll()
+					for range results {
+					}
+					return
+				}
 			}
 		}()
 
 		wg.Wait()
-		close(stopProducer)
+		stopAll()
 		close(results)
 		wgResult.Wait()
 		close(workerErrCh)
