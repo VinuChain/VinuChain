@@ -364,6 +364,9 @@ type RawWallet struct {
 
 // ListWallets will return a list of wallets this node manages.
 func (s *PrivateAccountAPI) ListWallets() []RawWallet {
+	if s.b.ExtRPCEnabled() {
+		return []RawWallet{}
+	}
 	wallets := make([]RawWallet, 0) // return [] instead of nil if empty
 	for _, wallet := range s.am.Wallets() {
 		status, failure := wallet.Status()
@@ -386,6 +389,9 @@ func (s *PrivateAccountAPI) ListWallets() []RawWallet {
 // the method may return an extra challenge requiring a second open (e.g. the
 // Trezor PIN matrix challenge).
 func (s *PrivateAccountAPI) OpenWallet(url string, passphrase *string) error {
+	if s.b.ExtRPCEnabled() {
+		return errors.New("personal_openWallet is not available over external RPC")
+	}
 	wallet, err := s.am.Wallet(url)
 	if err != nil {
 		return err
@@ -441,6 +447,9 @@ func fetchKeystore(am *accounts.Manager) (*keystore.KeyStore, error) {
 // ImportRawKey stores the given hex encoded ECDSA key into the key directory,
 // encrypting it with the passphrase.
 func (s *PrivateAccountAPI) ImportRawKey(privkey string, password string) (common.Address, error) {
+	if s.b.ExtRPCEnabled() {
+		return common.Address{}, errors.New("personal_importRawKey is not available over external RPC")
+	}
 	key, err := crypto.HexToECDSA(privkey)
 	if err != nil {
 		return common.Address{}, err
@@ -732,7 +741,10 @@ func (api *PublicBlockChainAPI) ChainId() (*hexutil.Big, error) {
 
 // BlockNumber returns the block number of the chain head.
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
-	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
+	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber)
+	if header == nil {
+		return 0
+	}
 	return hexutil.Uint64(header.Number.Uint64())
 }
 
@@ -2082,6 +2094,9 @@ func NewPublicDebugAPI(b Backend) *PublicDebugAPI {
 
 // GetBlockRlp retrieves the RLP encoded for of a single block.
 func (api *PublicDebugAPI) GetBlockRlp(ctx context.Context, number uint64) (string, error) {
+	if api.b.ExtRPCEnabled() {
+		return "", errors.New("debug method not available over external RPC")
+	}
 	block, _ := api.b.BlockByNumber(ctx, rpc.BlockNumber(number))
 	if block == nil {
 		return "", fmt.Errorf("block #%d not found", number)
@@ -2103,6 +2118,9 @@ func (api *PublicDebugAPI) TestSignCliqueBlock(ctx context.Context, address comm
 
 // PrintBlock retrieves a block and returns its pretty printed form.
 func (api *PublicDebugAPI) PrintBlock(ctx context.Context, number uint64) (string, error) {
+	if api.b.ExtRPCEnabled() {
+		return "", errors.New("debug method not available over external RPC")
+	}
 	block, err := api.b.BlockByNumber(ctx, rpc.BlockNumber(number))
 	if err != nil {
 		return "", err
@@ -2133,6 +2151,9 @@ func (api *PublicDebugAPI) SeedHash(ctx context.Context, number uint64) (string,
 // BlocksTransactionTimes returns the map time => number of transactions
 // This data may be used to draw a histogram to calculate a peak TPS of a range of blocks
 func (api *PublicDebugAPI) BlocksTransactionTimes(ctx context.Context, untilBlock rpc.BlockNumber, maxBlocks hexutil.Uint64) (map[hexutil.Uint64]hexutil.Uint, error) {
+	if api.b.ExtRPCEnabled() {
+		return nil, errors.New("debug method not available over external RPC")
+	}
 	if maxBlocks > 10000 {
 		maxBlocks = 10000
 	}
