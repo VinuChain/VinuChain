@@ -132,7 +132,13 @@ func (gpo *Oracle) Stop() {
 
 func (gpo *Oracle) suggestTip(certainty uint64) *big.Int {
 	minPrice := gpo.backend.GetRules().Economy.MinGasPrice
+	if minPrice == nil {
+		minPrice = new(big.Int)
+	}
 	pendingMinPrice := gpo.backend.GetPendingRules().Economy.MinGasPrice
+	if pendingMinPrice == nil {
+		pendingMinPrice = new(big.Int)
+	}
 	adjustedMinGasPrice := math.BigMax(minPrice, pendingMinPrice)
 
 	reactive := gpo.reactiveGasPrice(certainty)

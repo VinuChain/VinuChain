@@ -59,8 +59,8 @@ func validateRulesBounds(r Rules) error {
 	if r.Economy.MinGasPrice == nil {
 		return errors.New("Economy.MinGasPrice cannot be nil")
 	}
-	if r.Economy.MinGasPrice.Sign() < 0 {
-		return errors.New("Economy.MinGasPrice cannot be negative")
+	if r.Economy.MinGasPrice.Sign() <= 0 {
+		return errors.New("Economy.MinGasPrice must be positive")
 	}
 	if r.Economy.ShortGasPower.AllocPerSec == 0 {
 		return errors.New("Economy.ShortGasPower.AllocPerSec cannot be zero")

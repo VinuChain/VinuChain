@@ -114,6 +114,22 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 	require.Error(err, "ParentGas that makes maxEmptyEventGas exceed MaxEventGas should be rejected")
 }
 
+// TestValidateRulesBounds_MinGasPriceZero verifies that MinGasPrice=0 is rejected by
+// validateRulesBounds. A zero base fee removes all spam protection — any number of
+// zero-cost transactions can flood the mempool and halt the chain.
+func TestValidateRulesBounds_MinGasPriceZero(t *testing.T) {
+	require := require.New(t)
+	base := FakeNetRules()
+
+	_, err := UpdateRules(base, []byte(`{"Economy":{"MinGasPrice":0}}`))
+	require.Error(err, "MinGasPrice=0 should be rejected")
+	require.Contains(err.Error(), "MinGasPrice")
+
+	// Positive value must be accepted
+	_, err = UpdateRules(base, []byte(`{"Economy":{"MinGasPrice":1}}`))
+	require.NoError(err, "MinGasPrice=1 must be accepted")
+}
+
 // TestValidateRulesBounds_MaxAllocPeriodMinimum verifies that MaxAllocPeriod values below
 // 1 second are rejected for both Short and Long gas power rules. Values below 1 second
 // cause maxTotalGasPower() to return 0 after integer division (AllocPerSec×MaxAllocPeriod/1e9),

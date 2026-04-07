@@ -343,6 +343,30 @@ func TestOracle_SuggestTip(t *testing.T) {
 	require.Equal(t, "0", gpo2.SuggestTip(AsDefaultCertainty).String())
 }
 
+// TestSuggestTip_NilMinGasPrice verifies that suggestTip does not panic when
+// GetRules().Economy.MinGasPrice is nil. A corrupted DB read or a rules object
+// constructed without initializing MinGasPrice produces nil, which math.BigMax
+// dereferences immediately.
+func TestSuggestTip_NilMinGasPrice(t *testing.T) {
+	rules := opera.FakeNetRules()
+	rules.Economy.MinGasPrice = nil // simulate corrupted DB or uninitialised rules
+
+	backend := &TestBackend{
+		block:             1,
+		totalGasPowerLeft: 0,
+		rules:             rules,
+		pendingRules:      opera.FakeNetRules(),
+	}
+
+	gpo := NewOracle(Config{})
+	gpo.backend = backend
+
+	// Must not panic; result must be a non-negative tip.
+	result := gpo.SuggestTip(AsDefaultCertainty)
+	require.NotNil(t, result)
+	require.True(t, result.Sign() >= 0, "SuggestTip must return non-negative tip even with nil MinGasPrice")
+}
+
 // TestConstructiveGasPrice_ZeroMaxTotalGasPower verifies that constructiveGasPrice does not
 // panic when maxTotalGasPower() returns zero. This can happen when governance sets
 // MaxAllocPeriod to a value below 1 second (AllocPerSec × MaxAllocPeriod / 1e9 floors to 0).
