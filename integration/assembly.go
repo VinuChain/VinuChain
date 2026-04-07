@@ -20,6 +20,7 @@ import (
 	"github.com/status-im/keycard-go/hexutils"
 
 	"github.com/Fantom-foundation/go-opera/gossip"
+	"github.com/Fantom-foundation/go-opera/gossip/evmstore/evmpruner"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/utils/adapters/vecmt2dagidx"
 	"github.com/Fantom-foundation/go-opera/utils/compactdb"
@@ -223,6 +224,15 @@ func makeEngine(chaindataDir string, g *genesis.Genesis, genesisProc bool, cfg C
 			dbs.Close()
 		}
 	}()
+
+	if err = evmpruner.RecoverPruning(
+		chaindataDir,
+		gdb.EvmStore().EvmDb,
+		common.Hash(gdb.GetBlockState().FinalizedStateRoot),
+	); err != nil {
+		err = fmt.Errorf("failed to recover pruning: %v", err)
+		return nil, nil, nil, nil, gossip.BlockProc{}, dbs.Close, err
+	}
 
 	// compare genesis with the input
 	genesisID := gdb.GetGenesisID()
