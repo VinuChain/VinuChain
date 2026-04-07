@@ -9,9 +9,24 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 110)
+Last Session: 2026-04-07 (Cycle 111)
 
 ## What Was Done
+- Cycle 111: Logging Hygiene (Area 26)
+  - LOG-07 (MEDIUM): payback/payback_cache.go:321 — GetAvailablePaybackByAddress
+    used log.Error when called outside block processing. This is a hard invariant;
+    wrong fee refunds applied silently. Changed to log.Crit.
+    Added TestGetAvailablePaybackByAddress_InBlockProcessing (covers normal path
+    through inBlockProcessing guard).
+  - LOG-08 (MEDIUM): 7 log.Error → log.Crit escalations in genesis flush closures:
+    gossip/evmstore/apply_genesis.go (txs, tx positions, receipts),
+    gossip/apply_genesis.go (blocks, block hashes),
+    topicsdb/topicsdb.go (topics, logrecs).
+    Partial genesis from flush failure is unrecoverable; node must not continue.
+  - LOG-09 (LOW, deferred): ethapi/tx_trace.go per-tx log.Info in replay hot paths
+    creates log flood + tx tracking oracle. Noted in audit-log.
+  - LOG-10 (INFO, deferred): ethapi/api.go SubmitTransaction value field in Info log.
+  VinuChain commit: 11b68f7
 - Cycle 110: Consensus Vector Clocks (Area 3 / vecmt/)
   - NC-01 (MEDIUM): NoCheaters had 0% test coverage. Added 4 tests covering
     nil selfParent fast path, no-fork all-pass, fork-detected elemont mode
@@ -171,7 +186,8 @@ Last Session: 2026-04-07 (Cycle 110)
 - Cron audit: /loop active at 15m intervals — next cycle full cycle
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
 - Backlog: NC-02 (INFO) — validatorIdxs map miss in NoCheaters
-- Areas eligible for re-audit: all except FA3/FA37/FA38 (last 3 cycles)
+- Backlog: LOG-09 (LOW) — per-tx log.Info flood in ethapi/tx_trace.go replay paths
+- Areas eligible for re-audit: all except FA26/FA3/FA37 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
