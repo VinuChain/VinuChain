@@ -9,9 +9,26 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 107)
+Last Session: 2026-04-07 (Cycle 109)
 
 ## What Was Done
+- Cycle 109: Pruning Subcommands (Area 38 / MEDIUM design gap)
+  - Unit 1: gossip/store_prune_gossip.go — PruneEpochData on gossip.Store
+    Deletes DAG events, LLR block/epoch votes, vote indexes, BlockEpochStateHistory
+    for epochs up to and including pruneUpTo. Batch writes, LRU cache eviction,
+    range compaction at ≥100k deletions.
+    Tests: TestPruneEpochData_DeletesEvents, TestPruneEpochData_KeepsNewerEpoch.
+  - Unit 2: gossip/evmstore/store_prune_receipts.go — PruneReceiptsUpTo on evmstore.Store
+    Deletes receipts (ordered scan), tx positions (full scan), internal txs for
+    blocks ≤ n. Error propagation from compaction fixed. receiptPruneCompactionThreshold const.
+    Tests: TestPruneReceiptsUpTo_* (3 tests).
+  - CLI: opera snapshot prune-gossip (--prune.keepepochs=2)
+         opera snapshot prune-receipts (--prune.keepblocks=2628000)
+    Both registered in cmd/opera/launcher/snapshotcmd.go.
+  VinuChain commits: 78c2559, f8b2400
+- Cycle 108: Backlog drain — TRC-06 (INFO, ethapi/tx_trace.go)
+  - Removed dead `args.Count == 0 ||` operand from Filter() inner loop.
+  VinuChain commit: 41132c3
 - Cycle 107: Tx Tracing Subsystem (Focus Area 37)
   - TRC-05 (LOW): ethapi/tx_trace.go — traceBlock replay path accessed
     receipts[i] without checking i < len(receipts). DB inconsistency
@@ -141,11 +158,10 @@ Last Session: 2026-04-07 (Cycle 107)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full assessment (backlog non-empty: TRC-06 INFO; exclude 107/106/105 from pool; FA37/FA32/FA36 excluded)
+- Cron audit: /loop active at 15m intervals — next cycle full cycle (backlog empty; exclude 108/107/106 from pool; FA37/FA32/FA36 excluded)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
 - Areas eligible for re-audit: all except FA37/FA32/FA36 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
-- Backlog has TRC-06 (INFO): dead code args.Count==0 in Filter() else branch
 
 ## Blockers / Open Questions
 - TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
