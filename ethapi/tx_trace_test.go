@@ -3,9 +3,16 @@ package ethapi
 import (
 	"context"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
@@ -48,6 +55,63 @@ func TestFilterWorker_PropagatesBlockError(t *testing.T) {
 		}
 	default:
 		t.Fatal("filterWorker swallowed the BlockByNumber error: errCh is empty")
+	}
+}
+
+// receiptMismatchBackend is a minimal Backend stub for TestTraceBlock_ReceiptCountMismatch.
+// It returns a block with one transaction but zero receipts, to trigger the
+// receipts[i] bounds check in traceBlock.
+type receiptMismatchBackend struct {
+	Backend // nil embedded — panics on any uncovered method
+	block   *evmcore.EvmBlock
+	stateDB *state.StateDB
+}
+
+func (b *receiptMismatchBackend) CurrentBlock() *evmcore.EvmBlock { return b.block }
+func (b *receiptMismatchBackend) ChainConfig() *params.ChainConfig { return params.TestChainConfig }
+func (b *receiptMismatchBackend) GetBlockContext(_ *evmcore.EvmHeader) vm.BlockContext {
+	return vm.BlockContext{}
+}
+func (b *receiptMismatchBackend) TxTraceByHash(_ context.Context, _ common.Hash) (*[]txtrace.ActionTrace, error) {
+	return nil, errors.New("not cached")
+}
+func (b *receiptMismatchBackend) StateAndHeaderByNumberOrHash(_ context.Context, _ rpc.BlockNumberOrHash) (*state.StateDB, *evmcore.EvmHeader, error) {
+	return b.stateDB, nil, nil
+}
+func (b *receiptMismatchBackend) GetReceiptsByNumber(_ context.Context, _ rpc.BlockNumber) (types.Receipts, error) {
+	return types.Receipts{}, nil // 0 receipts vs 1 tx in the block — mismatch
+}
+
+// TestTraceBlock_ReceiptCountMismatch verifies that traceBlock returns an error
+// (not a panic) when GetReceiptsByNumber returns fewer receipts than the block
+// has transactions. This guards against DB inconsistency causing an index panic.
+func TestTraceBlock_ReceiptCountMismatch(t *testing.T) {
+	db := rawdb.NewMemoryDatabase()
+	stateDB, err := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	if err != nil {
+		t.Fatalf("state.New: %v", err)
+	}
+
+	// Sign the tx so that tx.AsMessage succeeds and the code reaches receipts[i].
+	key, _ := crypto.GenerateKey()
+	signer := types.MakeSigner(params.TestChainConfig, big.NewInt(10))
+	tx, _ := types.SignTx(
+		types.NewTransaction(0, common.Address{1}, big.NewInt(0), 21000, big.NewInt(1), nil),
+		signer, key,
+	)
+	block := &evmcore.EvmBlock{
+		EvmHeader: evmcore.EvmHeader{
+			Number: big.NewInt(10),
+		},
+		Transactions: types.Transactions{tx},
+	}
+
+	backend := &receiptMismatchBackend{block: block, stateDB: stateDB}
+	api := &PublicTxTraceAPI{b: backend}
+
+	_, traceErr := api.traceBlock(context.Background(), block, nil, nil)
+	if traceErr == nil {
+		t.Fatal("expected error for receipt count mismatch, got nil")
 	}
 }
 

@@ -179,6 +179,9 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 			log.Debug("Cannot get receipts for block", "block", blockNumber, "err", err.Error())
 			return nil, fmt.Errorf("cannot get receipts for block %v, error: %v", block.NumberU64(), err.Error())
 		}
+		if len(receipts) != len(block.Transactions) {
+			return nil, fmt.Errorf("receipt count mismatch for block %d: %d txs but %d receipts", blockNumber, len(block.Transactions), len(receipts))
+		}
 
 		callTrace = txtrace.CallTrace{
 			Actions: make([]txtrace.ActionTrace, 0),
