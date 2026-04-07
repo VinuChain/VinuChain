@@ -14,6 +14,8 @@ import (
 
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/driver"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/driver/driverpos"
 )
 
 func newTestStateDB() *state.StateDB {
@@ -378,6 +380,33 @@ func TestPopInternalTxs_CheaterFeeZeroed_Elemont(t *testing.T) {
 	txs := txor.PopInternalTxs(block, bs, es, true, statedb)
 
 	require.NotEmpty(txs)
+}
+
+func TestAdvanceEpochs_OverflowCappedCorrectly(t *testing.T) {
+	require := require.New(t)
+	rules := opera.Rules{
+		Upgrades: opera.Upgrades{Berlin: true, London: true, Llr: true, Elemont: true},
+		Economy:  opera.EconomyRules{MinGasPrice: big.NewInt(1e9)},
+	}
+	l, _ := newTestListener(rules)
+
+	// Set AdvanceEpochs to 1 first
+	l.bs.AdvanceEpochs = 1
+
+	// Send an AdvanceEpochs log with MaxUint32 value (ABI-encoded as uint256).
+	// Before the fix: idx.Epoch(MaxUint32) + 1 = 0 (overflow), cap doesn't fire.
+	// After the fix: capped to maxAdvanceEpochs regardless of overflow.
+	data := common.LeftPadBytes(big.NewInt(0).SetUint64(0xFFFFFFFF).Bytes(), 32)
+	l.OnNewLog(&types.Log{
+		Address: driver.ContractAddress,
+		Topics:  []common.Hash{driverpos.Topics.AdvanceEpochs},
+		Data:    data,
+	})
+
+	require.LessOrEqual(l.bs.AdvanceEpochs, idx.Epoch(maxAdvanceEpochs),
+		"AdvanceEpochs must not overflow past cap")
+	require.Greater(l.bs.AdvanceEpochs, idx.Epoch(0),
+		"AdvanceEpochs must not wrap to zero")
 }
 
 func TestPopInternalTxs_NoCheaterZeroing_PreElemont(t *testing.T) {

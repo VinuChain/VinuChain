@@ -334,6 +334,9 @@ func (p *DriverTxListener) OnNewLog(l *types.Log) {
 			epochsNum = new(big.Int).SetBytes(l.Data[29:32]).Uint64()
 		}
 
+		if epochsNum > uint64(maxAdvanceEpochs) {
+			epochsNum = maxAdvanceEpochs
+		}
 		p.bs.AdvanceEpochs += idx.Epoch(epochsNum)
 		if p.bs.AdvanceEpochs > maxAdvanceEpochs {
 			p.bs.AdvanceEpochs = maxAdvanceEpochs
