@@ -9,9 +9,61 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07
+Last Session: 2026-04-07 (Cycle 106)
 
 ## What Was Done
+- Cycle 106: go-vinu Fork Delta (Focus Area 32)
+  - GV-01 (INFO): evmcore/state_transition.go — refundGas() had a dead
+    guard: `if feeRefund.Cmp(fee) > 0` after min(fee, availableQuota),
+    which is provably unreachable. Removed 3 dead lines. Added
+    TestFeeRefundBoundaries (5 sub-tests covering nil/zero/partial/exact/full
+    quota cases) to evmcore/state_transition_test.go.
+  - Fork areas audited: FeeRefundActive flag lifecycle (set at startup,
+    no mid-run races), receipt consensus vs storage encoding split
+    (intentional and correct), RLP decode fallback chain (field-count
+    unambiguous), JS tracer depth balance, subscription TOCTOU (acceptable),
+    btcec v2 migration (correct), graphql/RPC FeeRefund exposure (safe).
+  VinuChain commit: 5d50c3e
+- Cycle 105: lachesis-base DAG Layer (Focus Area 36)
+  - LB-01 (INFO): lachesis-base-dev/gossip/dagordering/event_buffer.go —
+    removed unused `deps` field from EventsBuffer struct (dead code).
+    Recent commits audited: IsImportant wiring, spillIncompletes slow path,
+    datasemaphore overflow/shutdown, cheaters list validation — all correct.
+  lachesis-base commit: 0896bca4
+- Cycle 104: Concurrent Utility Structures (Focus Area 18)
+  - CC-01 (LOW): utils/concurrent/ — all 4 thread-safe wrappers had zero tests.
+    Added concurrent_test.go: 8 tests (correctness + goroutine-safety under -race)
+    for ValidatorBlocksSet, ValidatorEventsSet, ValidatorEpochsSet, EventsSet.
+    No production code changed; regression coverage added.
+  VinuChain commit: e029db9
+- Cycle 103: Consensus Vector Clocks (Focus Area 3)
+  - VECMT-01 (INFO): vecmt/median_time_test.go — elemont-gated MedianTime paths
+    lacked direct tests. Added TestMedianTimeAllCheaters (all-validators-cheating
+    guard) and TestMedianTimeElemont_StableSort (stable sort with equal timestamps).
+    No production code changed; regression coverage added.
+  VinuChain commit: c96d433
+- Cycle 102: P2P Message Handling (Focus Area 7)
+  - P2P-01 (LOW): gossip/handler_sync.go — peerRateLimit.Allow() was called after
+    msgSemaphore.Acquire(). Semaphore timeout returned nil before rate check, so
+    counter was never incremented during overload. Moved rate limit check before
+    semaphore so flooding peers are always counted and disconnected. Added 2 tests.
+  VinuChain commit: 2aa8093
+- Cycle 101: Governance Attack Surface (Focus Area 5)
+  - GOV-01 (MEDIUM): opera/marshal.go — validateRulesBounds() did not check the
+    compound formula EventGas+(MaxParents-MaxFreeParents)*ParentGas+MaxExtraData*ExtraDataGas
+    vs MaxEventGas. Governance could set ExtraDataGas or ParentGas to force
+    MaxGasLimit() to return 0, blocking all EVM transactions. Added overflow-safe
+    compound check. Added 2 test cases to TestUpdateRulesGovernanceBounds.
+  VinuChain commit: 495bf16
+- Cycle 100: Backlog drain — IterateEpochPacksRLP it.Error() check (INFO)
+  - LLR-01 (INFO): gossip/store_llr_epoch.go — added it.Error() Crit after loop
+  VinuChain commit: 2164f6c
+- Cycle 99: Epoch Boundary Edge Cases (Focus Area 29)
+  - EP-01 (LOW): gossip/store_epoch.go — getEpochStore() nil deref when epoch store
+    uninitialized. Added `es == nil` guard. Added TestGetEpochStoreNilGuard.
+  - EP-02 (LOW): gossip/store_decided_state.go — ForEachHistoryBlockEpochState()
+    silently discarded it.Error() after loop. Added log.Crit on iterator failure.
+  VinuChain commit: 07addca
 - Cycle 98: Backlog drain — Close() CloseTables error logging (INFO)
   - CL-01 (INFO): gossip/evmstore/store.go + gossip/store.go — changed
     `_ = table.CloseTables(...)` to log at Warn level on error so DB close
@@ -78,9 +130,9 @@ Last Session: 2026-04-07
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle will be full assessment (backlog empty)
+- Cron audit: /loop active at 15m intervals — next cycle full assessment (backlog empty; exclude 106/105/104 from pool; FA32/FA36/FA18 excluded)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit (excluded last 3 cycles: 98-drain/13/12): all others from pool
+- Areas eligible for re-audit: all except FA32/FA36/FA18 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
