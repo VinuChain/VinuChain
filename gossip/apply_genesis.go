@@ -94,10 +94,10 @@ func (s *Store) WrapTablesAsBatched() (unwrap func()) {
 	return func() {
 		unwrapEVM()
 		if err := batchedBlocks.Flush(); err != nil {
-			log.Error("Failed to flush batched blocks during genesis", "err", err)
+			log.Crit("Failed to flush batched blocks during genesis", "err", err)
 		}
 		if err := batchedBlockHashes.Flush(); err != nil {
-			log.Error("Failed to flush batched block hashes during genesis", "err", err)
+			log.Crit("Failed to flush batched block hashes during genesis", "err", err)
 		}
 		s.table = origTables
 	}

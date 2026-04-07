@@ -50,10 +50,10 @@ func (tt *Index) WrapTablesAsBatched() (unwrap func()) {
 	tt.table.Logrec = batchedLogrec
 	return func() {
 		if err := batchedTopic.Flush(); err != nil {
-			log.Error("Failed to flush batched topics during genesis", "err", err)
+			log.Crit("Failed to flush batched topics during genesis", "err", err)
 		}
 		if err := batchedLogrec.Flush(); err != nil {
-			log.Error("Failed to flush batched logrecs during genesis", "err", err)
+			log.Crit("Failed to flush batched logrecs during genesis", "err", err)
 		}
 		tt.table = origTables
 	}

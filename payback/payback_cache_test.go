@@ -254,6 +254,27 @@ func TestDecodeUint256_RejectsOver128Bits(t *testing.T) {
 	}
 }
 
+// TestGetAvailablePaybackByAddress_InBlockProcessing verifies that
+// GetAvailablePaybackByAddress returns zero for a zero address when called
+// during block processing (the inBlockProcessing guard passes). This is the
+// regression test for the LOG-07 fix: escalating the out-of-processing error
+// to log.Crit must not disturb the normal execution path.
+func TestGetAvailablePaybackByAddress_InBlockProcessing(t *testing.T) {
+	pc := &PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+	}
+
+	pc.PrepareForBlock(idx.Epoch(1), opera.Rules{}, time.Now())
+	defer pc.FinishBlock()
+
+	// Zero address must return zero without panicking or calling log.Crit.
+	result := pc.GetAvailablePaybackByAddress(common.Address{}, nil)
+	if result == nil || result.Sign() != 0 {
+		t.Errorf("expected zero for empty address during block processing, got %v", result)
+	}
+}
+
 func TestMaxPaybackEntries_CapsStakesMap(t *testing.T) {
 	pc := &PaybackCache{
 		StakesMap:      make(map[idx.Epoch]*EpochStakes),

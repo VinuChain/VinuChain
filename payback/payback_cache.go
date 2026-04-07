@@ -318,7 +318,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 	processing := pc.inBlockProcessing
 	pc.mu.RUnlock()
 	if !processing {
-		log.Error("GetAvailablePaybackByAddress called outside block processing")
+		log.Crit("GetAvailablePaybackByAddress called outside block processing")
 		return payback
 	}
 

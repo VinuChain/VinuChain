@@ -50,13 +50,13 @@ func (s *Store) WrapTablesAsBatched() (unwrap func()) {
 	s.table.Receipts = batchedReceipts
 	return func() {
 		if err := batchedTxs.Flush(); err != nil {
-			log.Error("Failed to flush batched txs during genesis", "err", err)
+			log.Crit("Failed to flush batched txs during genesis", "err", err)
 		}
 		if err := batchedTxPositions.Flush(); err != nil {
-			log.Error("Failed to flush batched tx positions during genesis", "err", err)
+			log.Crit("Failed to flush batched tx positions during genesis", "err", err)
 		}
 		if err := batchedReceipts.Flush(); err != nil {
-			log.Error("Failed to flush batched receipts during genesis", "err", err)
+			log.Crit("Failed to flush batched receipts during genesis", "err", err)
 		}
 		unwrapLogs()
 		s.table = origTables
