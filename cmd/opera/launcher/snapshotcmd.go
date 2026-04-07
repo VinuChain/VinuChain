@@ -203,6 +203,7 @@ func pruneState(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	if gdb.GetGenesisID() == nil {
 		return errors.New("failed to open snapshot tree: genesis is not written")
@@ -269,6 +270,7 @@ func verifyState(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	genesis := gdb.GetGenesisID()
 	if genesis == nil {
@@ -310,6 +312,7 @@ func traverseState(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	if gdb.GetGenesisID() == nil {
 		return errors.New("failed to open snapshot tree: genesis is not written")
@@ -400,6 +403,7 @@ func traverseRawState(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	if gdb.GetGenesisID() == nil {
 		return errors.New("failed to open snapshot tree: genesis is not written")
@@ -518,6 +522,7 @@ func pruneGossip(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	keepEpochs := idx.Epoch(ctx.Int(PruneKeepEpochsFlag.Name))
 	currentEpoch := gdb.GetEpoch()
@@ -541,6 +546,7 @@ func pruneReceipts(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
+	defer gdb.Close()
 
 	keepBlocks := idx.Block(ctx.Int(PruneKeepBlocksFlag.Name))
 	latestBlock := gdb.GetBlockState().LastBlock.Idx
