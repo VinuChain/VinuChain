@@ -149,10 +149,10 @@ func CheckStateInitialized(chaindataDir string, cfg DBsConfig) error {
 func compactDB(typ multidb.TypeName, name string, producer kvdb.DBProducer) error {
 	humanName := path.Join(string(typ), name)
 	db, err := producer.OpenDB(name)
-	defer db.Close()
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 	return compactdb.Compact(db, humanName)
 }
 
