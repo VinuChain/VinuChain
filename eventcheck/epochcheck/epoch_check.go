@@ -69,7 +69,7 @@ func CalcGasPowerUsed(e inter.EventPayloadI, rules opera.Rules) uint64 {
 
 	bvsGas := uint64(0)
 	if e.BlockVotes().Start != 0 {
-		bvsGas = gasCfg.BlockVotesBaseGas + uint64(len(e.BlockVotes().Votes))*gasCfg.BlockVoteGas
+		bvsGas = safeAddU64(gasCfg.BlockVotesBaseGas, uint64(len(e.BlockVotes().Votes))*gasCfg.BlockVoteGas)
 	}
 
 	ersGas := uint64(0)
