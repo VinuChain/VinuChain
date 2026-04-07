@@ -9,9 +9,20 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 106)
+Last Session: 2026-04-07 (Cycle 107)
 
 ## What Was Done
+- Cycle 107: Tx Tracing Subsystem (Focus Area 37)
+  - TRC-05 (LOW): ethapi/tx_trace.go — traceBlock replay path accessed
+    receipts[i] without checking i < len(receipts). DB inconsistency
+    (fewer receipts than txs) caused panic. Added bounds check after
+    GetReceiptsByNumber; returns descriptive error on mismatch.
+    Added TestTraceBlock_ReceiptCountMismatch (RED: panics, GREEN: passes).
+  - TRC-06 (INFO): args.Count==0 dead code in Filter() else branch — noted
+    in backlog for future cleanup.
+  - EVM determinism verified: all capture functions have recover(); tracer
+    writes only to tracer-local state; no shared EVM state modified.
+  VinuChain commit: 81a6b8f
 - Cycle 106: go-vinu Fork Delta (Focus Area 32)
   - GV-01 (INFO): evmcore/state_transition.go — refundGas() had a dead
     guard: `if feeRefund.Cmp(fee) > 0` after min(fee, availableQuota),
@@ -130,10 +141,11 @@ Last Session: 2026-04-07 (Cycle 106)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full assessment (backlog empty; exclude 106/105/104 from pool; FA32/FA36/FA18 excluded)
+- Cron audit: /loop active at 15m intervals — next cycle full assessment (backlog non-empty: TRC-06 INFO; exclude 107/106/105 from pool; FA37/FA32/FA36 excluded)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit: all except FA32/FA36/FA18 (last 3 cycles)
+- Areas eligible for re-audit: all except FA37/FA32/FA36 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
+- Backlog has TRC-06 (INFO): dead code args.Count==0 in Filter() else branch
 
 ## Blockers / Open Questions
 - TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
