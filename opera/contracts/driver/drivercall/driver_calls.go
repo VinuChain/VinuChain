@@ -69,7 +69,11 @@ func SealEpoch(metrics []ValidatorEpochMetric) []byte {
 		offlineTimes[i] = utils.U64toBig(uint64(m.Missed.Period.Unix()))
 		offlineBlocks[i] = utils.U64toBig(uint64(m.Missed.BlocksNum))
 		uptimes[i] = utils.U64toBig(uint64(m.Uptime.Unix()))
-		originatedTxFees[i] = m.OriginatedTxFee
+		if m.OriginatedTxFee != nil {
+			originatedTxFees[i] = m.OriginatedTxFee
+		} else {
+			originatedTxFees[i] = new(big.Int)
+		}
 	}
 
 	data, err := sAbi.Pack("sealEpoch", offlineTimes, offlineBlocks, uptimes, originatedTxFees)

@@ -273,9 +273,10 @@ func VinuChainTestNetRules() Rules {
 }
 
 // VinuChainMainNetRules returns mainnet rules.
-// Podgorica activation on mainnet is governance-controlled via UpdateNetworkRules.
-// The expected activation path is: deploy payback proxy contract, then submit a
-// governance proposal that sets Podgorica=true and Economy.QuotaCacheAddress.
+// Podgorica activation requires a new binary release that sets Podgorica=true
+// in this function. Governance cannot enable Podgorica via UpdateRules because
+// upgrade flags are protected (marshal.go strips Upgrades from on-chain updates).
+// The QuotaCacheAddress is also protected from governance changes.
 //
 // SfcV2 activation on mainnet requires a new binary release that sets SfcV2: true
 // in this function. Governance cannot enable SfcV2 via UpdateRules because upgrade

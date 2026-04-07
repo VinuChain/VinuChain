@@ -84,6 +84,9 @@ func (s *OperaEpochsSealer) SealEpoch() (iblockproc.BlockState, iblockproc.Epoch
 		}
 		oldValIdx := oldValidators.GetIdx(valID)
 		src := s.bs.ValidatorStates[oldValIdx]
+		if src.Originated == nil {
+			src.Originated = new(big.Int)
+		}
 		src.Originated = new(big.Int).Set(src.Originated)
 		newValidatorBlockStates[newValIdx] = src
 		newValidatorBlockStates[newValIdx].DirtyGasRefund = 0
