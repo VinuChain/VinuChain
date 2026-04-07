@@ -70,7 +70,7 @@ var (
 					utils.BloomFilterSizeFlag,
 				},
 				Description: `
-geth snapshot prune-state <state-root>
+opera snapshot prune-state <state-root>
 will prune historical state data with the help of the state snapshot.
 All trie nodes and contract codes that do not belong to the specified
 version state will be deleted from the database. After pruning, only
@@ -80,7 +80,7 @@ The default pruning target is the HEAD state.
 
 WARNING: It's necessary to delete the trie clean cache after the pruning.
 If you specify another directory for the trie clean cache via "--cache.trie.journal"
-during the use of Geth, please also specify it here for correct deletion. Otherwise
+during the use of opera, please also specify it here for correct deletion. Otherwise
 the trie clean cache with default directory will be deleted.
 `,
 			},

@@ -1,10 +1,8 @@
 package evmpruner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -53,28 +51,18 @@ func TestRecoverPruning_MissingSnapshotWithBloomFile(t *testing.T) {
 // TestFindBloomFilter_WalkError verifies that findBloomFilter propagates
 // filesystem walk errors instead of silently swallowing them.
 func TestFindBloomFilter_WalkError(t *testing.T) {
-	// A path inside a temp dir that does not exist causes filepath.Walk to
-	// invoke the callback with a non-nil err and a nil info. Before the fix
-	// the callback returns nil, masking the error; after the fix it returns
-	// the error so Walk can surface it.
 	nonExistent := filepath.Join(t.TempDir(), "subdir_does_not_exist")
-
 	_, _, err := findBloomFilter(nonExistent)
 	if err == nil {
 		t.Fatal("expected an error from findBloomFilter for non-existent path, got nil")
 	}
 }
 
-// TestPrunerSnapshotsCount verifies that the snapshotsCount constant is 128,
-// matching upstream go-ethereum, and that the "not old enough" error message
-// uses 128 rather than the incorrect value of 1.
+// TestPrunerSnapshotsCount verifies that snapshotsCount is 128, matching
+// the upstream go-ethereum diff layer window size.
 func TestPrunerSnapshotsCount(t *testing.T) {
 	const want = 128
 	if snapshotsCount != want {
 		t.Fatalf("snapshotsCount = %d, want %d", snapshotsCount, want)
-	}
-	msg := fmt.Sprintf("snapshot not old enough yet: need %d more blocks", snapshotsCount)
-	if !strings.Contains(msg, "128") {
-		t.Fatalf("error message must contain 128, got: %s", msg)
 	}
 }

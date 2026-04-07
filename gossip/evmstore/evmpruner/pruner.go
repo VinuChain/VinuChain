@@ -55,6 +55,13 @@ const (
 	// triggering range compaction. It's a quite arbitrary number but just
 	// to avoid triggering range compaction because of small deletion.
 	rangeCompactionThreshold = 100000
+
+	// snapshotsCount is the number of diff layers retrieved when selecting the
+	// prune target. Upstream go-ethereum uses 128 (one layer per block, covering
+	// the full in-memory diff layer window). Using a smaller value leaves
+	// intermediate snapshot roots untracked in middleRoots, which can cause
+	// dangling trie nodes to survive pruning.
+	snapshotsCount = 128
 )
 
 // Pruner is an offline tool to prune the stale state with the
@@ -246,12 +253,12 @@ func (p *Pruner) Prune(root common.Hash) error {
 		// Retrieve all snapshot layers from the current HEAD.
 		// In theory there are 128 difflayers + 1 disk layer present,
 		// so 128 diff layers are expected to be returned.
-		layers = p.snaptree.Snapshots(p.root, 1, false)
+		layers = p.snaptree.Snapshots(p.root, snapshotsCount, false)
 		if len(layers) <= 0 {
 			// Reject if the accumulated diff layers are less than 128. It
 			// means in most of normal cases, there is no associated state
 			// with bottom-most diff layer.
-			return fmt.Errorf("snapshot not old enough yet: need %d more blocks", 1)
+			return fmt.Errorf("snapshot not old enough yet: need %d more blocks", snapshotsCount)
 		}
 		// Use the bottom-most diff layer as the target
 		root = layers[len(layers)-1].Root()
@@ -406,6 +413,9 @@ func findBloomFilter(datadir string) (string, common.Hash, error) {
 		stateBloomRoot common.Hash
 	)
 	if err := filepath.Walk(datadir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if info != nil && !info.IsDir() {
 			ok, root := isBloomFilter(path)
 			if ok {
@@ -424,10 +434,10 @@ const warningLog = `
 
 WARNING!
 
-The clean trie cache is not found. Please delete it by yourself after the 
-pruning. Remember don't start the Geth without deleting the clean trie cache
+The clean trie cache is not found. Please delete it by yourself after the
+pruning. Remember don't start the opera without deleting the clean trie cache
 otherwise the entire database may be damaged!
 
-Check the command description "geth snapshot prune-state --help" for more details.
+Check the command description "opera snapshot prune-state --help" for more details.
 `
 
