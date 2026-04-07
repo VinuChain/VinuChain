@@ -7,6 +7,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestPeerRateLimiter_AllowCountsEachCall verifies that Allow increments the
+// counter on every call, so a rate-limited peer is always tracked regardless
+// of call order relative to other subsystems (e.g. semaphore acquire). If
+// the rate limiter were called only after a semaphore acquire that fails, the
+// counter would not be incremented for dropped messages — weakening the
+// disconnect-on-abuse guarantee under load.
+func TestPeerRateLimiter_AllowCountsEachCall(t *testing.T) {
+	r := newPeerRateLimiter()
+
+	// Fill the bucket to the limit.
+	for i := 0; i < peerRateLimitMaxMsgs; i++ {
+		require.True(t, r.Allow("peer1"), "expected Allow to return true for message %d", i+1)
+	}
+
+	// The very next call must be rejected — counter must have been incremented
+	// for every prior call.
+	require.False(t, r.Allow("peer1"), "expected Allow to return false after exceeding rate limit")
+}
+
+// TestPeerRateLimiter_WindowReset verifies that a new window resets the counter.
+func TestPeerRateLimiter_WindowReset(t *testing.T) {
+	r := newPeerRateLimiter()
+
+	// Exhaust the window.
+	for i := 0; i < peerRateLimitMaxMsgs; i++ {
+		r.Allow("peer1")
+	}
+	require.False(t, r.Allow("peer1"))
+
+	// Manually advance the clock by resetting the bucket's window start.
+	r.mu.Lock()
+	r.buckets["peer1"].windowStart = r.buckets["peer1"].windowStart.Add(-peerRateLimitWindow)
+	r.mu.Unlock()
+
+	// After window expiry, Allow should reset and accept again.
+	require.True(t, r.Allow("peer1"), "expected Allow to return true after window reset")
+}
+
 func TestPeerEventQuota_AcquireRelease(t *testing.T) {
 	q := newPeerEventQuota()
 

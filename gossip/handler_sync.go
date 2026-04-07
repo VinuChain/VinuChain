@@ -439,6 +439,16 @@ func (h *handler) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 	defer msg.Discard()
+	// Rate limit check before semaphore acquisition so that abusive peers are
+	// disconnected immediately, without consuming semaphore capacity. If the
+	// check were deferred until after the acquire, a semaphore timeout would
+	// return nil (keep peer connected) and skip the counter increment, weakening
+	// the disconnect-on-abuse guarantee under load.
+	if !h.peerRateLimit.Allow(p.id) {
+		p.Log().Warn("Peer exceeded message rate limit")
+		return errResp(ErrDecode, "rate limit exceeded")
+	}
+
 	// Acquire semaphore for serialized messages
 	eventsSizeEst := dag.Metric{
 		Num:  1,
@@ -449,11 +459,6 @@ func (h *handler) handleMsg(p *peer) error {
 		return nil
 	}
 	defer h.msgSemaphore.Release(eventsSizeEst)
-
-	if !h.peerRateLimit.Allow(p.id) {
-		p.Log().Warn("Peer exceeded message rate limit")
-		return errResp(ErrDecode, "rate limit exceeded")
-	}
 
 	// Handle the message depending on its contents
 	switch {
