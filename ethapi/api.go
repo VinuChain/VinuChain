@@ -134,7 +134,9 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.Decim
 	}
 	res.OldestBlock.ToInt().SetUint64(uint64(oldest))
 	for i := uint64(0); i < uint64(last-oldest+1); i++ {
-		res.Reward = append(res.Reward, tips)
+		tip := make([]*hexutil.Big, len(tips))
+		copy(tip, tips)
+		res.Reward = append(res.Reward, tip)
 		res.BaseFee = append(res.BaseFee, (*hexutil.Big)(baseFee))
 		res.GasUsedRatio = append(res.GasUsedRatio, 0.99)
 	}
