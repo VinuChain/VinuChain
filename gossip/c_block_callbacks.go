@@ -78,8 +78,14 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 	}
 
 	prev := s.store.GetBlock(from)
+	if prev == nil {
+		log.Crit("Re-execution start block not found", "block", from)
+	}
 	for b := from + 1; b <= to; b++ {
 		block := s.store.GetBlock(b)
+		if block == nil {
+			log.Crit("Re-execution block not found", "block", b)
+		}
 		blockCtx := iblockproc.BlockCtx{
 			Idx:     b,
 			Time:    block.Time,
@@ -92,7 +98,14 @@ func (s *Service) ReexecuteBlocks(from, to idx.Block) {
 			// unrecoverable; continuing would produce wrong chain state.
 			log.Crit("Failure to re-execute blocks", "err", err)
 		}
-		es := s.store.GetHistoryEpochState(s.store.FindBlockEpoch(b))
+		epoch := s.store.FindBlockEpoch(b)
+		if epoch == 0 {
+			log.Crit("Block epoch mapping not found", "block", b)
+		}
+		es := s.store.GetHistoryEpochState(epoch)
+		if es == nil {
+			log.Crit("Epoch state not found for re-execution", "block", b, "epoch", epoch)
+		}
 
 		evmProcessor := blockProc.EVMModule.Start(blockCtx, statedb, evmStateReader, func(t *types.Log) {}, es.Rules, opera.DefaultVMConfig, es.Rules.EvmChainConfig(upgradeHeights), reexecCache, es.Epoch)
 		txs := s.store.GetBlockTxs(b, block)
