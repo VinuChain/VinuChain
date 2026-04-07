@@ -487,6 +487,7 @@ func mayMakeAllConfigs(ctx *cli.Context) (*config, error) {
 		return nil, err
 	}
 	cfg.Node = nodeConfigWithFlags(ctx, cfg.Node)
+	cfg.Node.MaxConcurrentRPC = cfg.Opera.MaxConcurrentRPC
 	cfg.DBs = setDBConfig(ctx, cfg.DBs, cacheRatio)
 
 	err = setValidator(ctx, &cfg.Emitter)
