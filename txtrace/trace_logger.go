@@ -369,6 +369,7 @@ func (tr *TraceStructLogger) ProcessTx() {
 
 // SaveTrace persists the trace to the KV store and resets the logger.
 func (tr *TraceStructLogger) SaveTrace() {
+	defer tr.reset()
 	if tr.rootTrace == nil {
 		tr.rootTrace = &CallTrace{}
 		tr.rootTrace.AddTrace(GetErrorTraceFromLogger(tr))
@@ -377,11 +378,17 @@ func (tr *TraceStructLogger) SaveTrace() {
 		tr.rootTrace.Actions[0].FeeRefund = (*hexutil.Big)(tr.feeRefund)
 	}
 	if tr.store != nil {
-		tracesBytes, _ := json.Marshal(tr.rootTrace.Actions)
-		tr.store.SetTxTrace(tr.tx, tracesBytes)
+		tracesBytes, err := json.Marshal(tr.rootTrace.Actions)
+		if err != nil {
+			log.Error("Failed to marshal tx trace", "txHash", tr.tx.String(), "err", err)
+			return
+		}
+		if err := tr.store.SetTxTrace(tr.tx, tracesBytes); err != nil {
+			log.Error("Failed to store tx trace", "txHash", tr.tx.String(), "err", err)
+			return
+		}
 		log.Debug("Added tx trace", "txHash", tr.tx.String())
 	}
-	tr.reset()
 }
 
 // GetTraceActions returns the collected action traces.

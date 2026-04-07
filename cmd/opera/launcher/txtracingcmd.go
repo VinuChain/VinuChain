@@ -97,7 +97,9 @@ func importTxTraces(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		gdb.TxTraceStore().SetTxTrace(e.Key, e.Traces)
+		if err := gdb.TxTraceStore().SetTxTrace(e.Key, e.Traces); err != nil {
+			return fmt.Errorf("failed to store trace for tx %s: %w", e.Key.Hex(), err)
+		}
 		counter++
 		if time.Since(reported) >= statsReportLimit {
 			log.Info("Importing transaction traces", "imported", counter, "elapsed", common.PrettyDuration(time.Since(start)))

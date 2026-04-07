@@ -215,8 +215,8 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 						callTrace.AddTraces(txTraces, traceIndex)
 						if jsonTraceBytes, marshalErr := json.Marshal(txTraces); marshalErr != nil {
 							log.Error("Cannot marshal tx traces for storage", "txHash", tx.Hash().String(), "err", marshalErr)
-						} else {
-							s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes)
+						} else if saveErr := s.b.TxTraceSave(ctx, tx.Hash(), jsonTraceBytes); saveErr != nil {
+							log.Error("Cannot save tx trace to store", "txHash", tx.Hash().String(), "err", saveErr)
 						}
 					}
 				}
@@ -224,7 +224,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 					break
 				}
 			} else if txHash != nil {
-				log.Info("Replaying transaction without trace", "txHash", tx.Hash().String())
+				log.Debug("Replaying transaction without trace", "txHash", tx.Hash().String())
 				msg, err := tx.AsMessage(signer, block.BaseFee)
 				if err != nil {
 					return nil, fmt.Errorf("cannot decode tx %s: %w", tx.Hash().String(), err)
