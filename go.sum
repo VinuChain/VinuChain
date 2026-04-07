@@ -36,8 +36,10 @@ github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIO
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
 github.com/VictoriaMetrics/fastcache v1.6.0/go.mod h1:0qHz5QP0GMX4pfmMA/zt5RgfNuXJrTP0zS7DqpHGGTw=
-github.com/VinuChain/go-vinu v1.20.10-quota h1:S+4qfVoKIP0ch68A3VH6kU9HBSgtLDM1lcJrWpBV334=
-github.com/VinuChain/go-vinu v1.20.10-quota/go.mod h1:d2zx32ZruITxrxzp2nNLY9jUM4grPP+goepZwjpKkVo=
+github.com/VinuChain/go-vinu v1.20.11-quota h1:nu529lpT0MP3Ts93ZxFBd/r8kH+TnxaL8CeYUxjpqN8=
+github.com/VinuChain/go-vinu v1.20.11-quota/go.mod h1:d2zx32ZruITxrxzp2nNLY9jUM4grPP+goepZwjpKkVo=
+github.com/VinuChain/lachesis-base v0.1.5-elemont h1:5i+h9QBQmdySiJgwNw8r1BHvjCmUynhCVPYun+zpfwo=
+github.com/VinuChain/lachesis-base v0.1.5-elemont/go.mod h1:UkU9+H43DrcH5qS9O8IxJyaR8hoDbR6Ol9iCouSuKOk=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=

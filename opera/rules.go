@@ -220,11 +220,12 @@ func FakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:  true,
-			London:  true,
-			Llr:     true,
-			SfcV2:   true,
-			Elemont: true,
+			Berlin:    true,
+			London:    true,
+			Llr:       true,
+			Podgorica: true,
+			SfcV2:     true,
+			Elemont:   true,
 		},
 	}
 }
@@ -241,11 +242,12 @@ func LegacyFakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:  true,
-			London:  true,
-			Llr:     true,
-			SfcV2:   true,
-			Elemont: true,
+			Berlin:    true,
+			London:    true,
+			Llr:       true,
+			Podgorica: true,
+			SfcV2:     true,
+			Elemont:   true,
 		},
 	}
 }
@@ -263,11 +265,12 @@ func VinuChainTestNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:  true,
-			London:  true,
-			Llr:     true,
-			SfcV2:   true,
-			Elemont: true,
+			Berlin:    true,
+			London:    true,
+			Llr:       true,
+			Podgorica: true,
+			SfcV2:     true,
+			Elemont:   true,
 		},
 	}
 }
@@ -295,9 +298,12 @@ func VinuChainMainNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin: true,
-			London: true,
-			Llr:    true,
+			Berlin:    true,
+			London:    true,
+			Llr:       true,
+			Podgorica: true,
+			SfcV2:     true,
+			Elemont:   true,
 		},
 	}
 }
@@ -330,6 +336,7 @@ func DefaultEconomyRules() EconomyRules {
 		MinGasPrice:            big.NewInt(1e9),
 		ShortGasPower:          DefaultShortGasPowerRules(),
 		LongGasPower:           DefaultLongGasPowerRules(),
+		QuotaCacheAddress:      common.HexToAddress("0x9D6Aa03a8D4AcF7b43c562f349Ee45b3214c3bbF"),
 		QuotaCacheMaxAddresses: 10000,
 	}
 }
