@@ -19,10 +19,12 @@ package launcher
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"time"
 
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -45,6 +47,16 @@ var (
 	PruneGenesisCommand = cli.BoolTFlag{
 		Name:  "prune.genesis",
 		Usage: `prune genesis state (true by default)`,
+	}
+	PruneKeepEpochsFlag = cli.IntFlag{
+		Name:  "prune.keepepochs",
+		Usage: "number of finalized epochs to retain beyond the current epoch",
+		Value: 2,
+	}
+	PruneKeepBlocksFlag = cli.IntFlag{
+		Name:  "prune.keepblocks",
+		Usage: "number of recent blocks whose receipts and tx data are retained",
+		Value: 2628000,
 	}
 	snapshotCommand = cli.Command{
 		Name:        "snapshot",
@@ -144,9 +156,43 @@ geth snapshot traverse-rawstate <state-root>
 will traverse the whole state from the given root and will abort if any referenced
 trie node or contract code is missing. This command can be used for state integrity
 verification. The default checking target is the HEAD state. It's basically identical
-to traverse-state, but the check granularity is smaller. 
+to traverse-state, but the check granularity is smaller.
 
 It's also usable without snapshot enabled.
+`,
+			},
+			{
+				Name:      "prune-gossip",
+				Usage:     "Prune old gossip epoch data (events, votes, epoch state history)",
+				ArgsUsage: "[--prune.keepepochs=2]",
+				Action:    utils.MigrateFlags(pruneGossip),
+				Category:  "MISCELLANEOUS COMMANDS",
+				Flags: []cli.Flag{
+					PruneKeepEpochsFlag,
+					DataDirFlag,
+				},
+				Description: `
+opera snapshot prune-gossip
+deletes gossip-layer data (events, LLR votes, epoch state history) for all epochs
+older than currentEpoch - keepEpochs - 1. After pruning, historical event and log
+queries for those epochs will no longer be available.
+`,
+			},
+			{
+				Name:      "prune-receipts",
+				Usage:     "Prune old EVM receipts and transaction data",
+				ArgsUsage: "[--prune.keepblocks=2628000]",
+				Action:    utils.MigrateFlags(pruneReceipts),
+				Category:  "MISCELLANEOUS COMMANDS",
+				Flags: []cli.Flag{
+					PruneKeepBlocksFlag,
+					DataDirFlag,
+				},
+				Description: `
+opera snapshot prune-receipts
+deletes EVM receipt data, tx positions, and internal tx records for blocks older
+than latestBlock - keepBlocks. After pruning, eth_getTransactionReceipt and
+eth_getTransaction will fail for the pruned block range.
 `,
 			},
 		},
@@ -465,6 +511,52 @@ func traverseRawState(ctx *cli.Context) error {
 		return accIter.Error()
 	}
 	log.Info("State is complete", "nodes", nodes, "accounts", accounts, "slots", slots, "codes", codes, "elapsed", common.PrettyDuration(time.Since(start)))
+	return nil
+}
+
+func pruneGossip(ctx *cli.Context) error {
+	cfg := makeAllConfigs(ctx)
+	rawDbs := makeDirectDBsProducer(cfg)
+	gdb := makeGossipStore(rawDbs, cfg)
+
+	keepEpochs := idx.Epoch(ctx.Int(PruneKeepEpochsFlag.Name))
+	currentEpoch := gdb.GetEpoch()
+	if currentEpoch <= keepEpochs+1 {
+		return fmt.Errorf("not enough epochs to prune: current=%d, keepEpochs=%d", currentEpoch, keepEpochs)
+	}
+	pruneUpTo := currentEpoch - keepEpochs - 1
+
+	log.Warn("Pruning gossip epoch data — historical event/log queries will fail for pruned epochs",
+		"pruneUpTo", pruneUpTo, "keepEpochs", keepEpochs)
+
+	count, err := gdb.PruneEpochData(pruneUpTo)
+	if err != nil {
+		return err
+	}
+	log.Info("Gossip pruning complete", "deleted", count)
+	return nil
+}
+
+func pruneReceipts(ctx *cli.Context) error {
+	cfg := makeAllConfigs(ctx)
+	rawDbs := makeDirectDBsProducer(cfg)
+	gdb := makeGossipStore(rawDbs, cfg)
+
+	keepBlocks := idx.Block(ctx.Int(PruneKeepBlocksFlag.Name))
+	latestBlock := gdb.GetBlockState().LastBlock.Idx
+	if latestBlock <= keepBlocks {
+		return fmt.Errorf("not enough blocks to prune: latest=%d, keepBlocks=%d", latestBlock, keepBlocks)
+	}
+	pruneUpTo := latestBlock - keepBlocks
+
+	log.Warn("Pruning EVM receipt data — eth_getTransactionReceipt will fail for pruned blocks",
+		"pruneUpTo", pruneUpTo, "keepBlocks", keepBlocks)
+
+	count, err := gdb.EvmStore().PruneReceiptsUpTo(pruneUpTo)
+	if err != nil {
+		return err
+	}
+	log.Info("Receipt pruning complete", "deleted", count)
 	return nil
 }
 

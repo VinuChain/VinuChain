@@ -28,7 +28,9 @@ func (s *Store) PruneReceiptsUpTo(n idx.Block) (int, error) {
 	}
 
 	if count >= receiptPruneCompactionThreshold {
-		s.compactPrunedTables()
+		if err := s.compactPrunedTables(); err != nil {
+			log.Error("Failed to compact pruned tables", "err", err)
+		}
 	}
 
 	return count, nil
