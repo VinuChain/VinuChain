@@ -101,7 +101,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.9-quota
+replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.10-quota
 
 replace github.com/Fantom-foundation/lachesis-base => /home/gypsey/lachesis-base-dev
 

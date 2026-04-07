@@ -101,8 +101,9 @@ type (
 		// RPCTimeout is a global time limit for RPC methods execution.
 		RPCTimeout time.Duration
 
-		// MaxConcurrentRPC limits the number of in-flight HTTP/WS RPC requests.
+		// MaxConcurrentRPC limits the number of in-flight HTTP RPC requests.
 		// Requests beyond this limit receive HTTP 503. Zero means unlimited.
+		// WebSocket and IPC connections are not subject to this limit.
 		// For per-IP rate limiting, use a reverse proxy (e.g., nginx, HAProxy).
 		MaxConcurrentRPC int
 
