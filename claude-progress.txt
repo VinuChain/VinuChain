@@ -9,9 +9,19 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 109)
+Last Session: 2026-04-07 (Cycle 110)
 
 ## What Was Done
+- Cycle 110: Consensus Vector Clocks (Area 3 / vecmt/)
+  - NC-01 (MEDIUM): NoCheaters had 0% test coverage. Added 4 tests covering
+    nil selfParent fast path, no-fork all-pass, fork-detected elemont mode
+    (merged validator-indexed view), fork-detected pre-elemont mode (raw branch view).
+    Fork scenario: two seq=1 events from same creator → engine allocates new branch
+    → observer event sees both → creator marked fork-detected → NoCheaters filters.
+    Coverage: 0% → 82.6%. Package: 86.0%.
+  - NC-02 (INFO): validatorIdxs map miss returns 0 silently → added to backlog.
+  - M-01 (FALSE POSITIVE): GetHighestBefore not propagating elemont — intentional design.
+  VinuChain commit: 61af720
 - Cycle 109: Pruning Subcommands (Area 38 / MEDIUM design gap)
   - Unit 1: gossip/store_prune_gossip.go — PruneEpochData on gossip.Store
     Deletes DAG events, LLR block/epoch votes, vote indexes, BlockEpochStateHistory
@@ -158,9 +168,10 @@ Last Session: 2026-04-07 (Cycle 109)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full cycle (backlog empty; exclude 108/107/106 from pool; FA37/FA32/FA36 excluded)
+- Cron audit: /loop active at 15m intervals — next cycle full cycle
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit: all except FA37/FA32/FA36 (last 3 cycles)
+- Backlog: NC-02 (INFO) — validatorIdxs map miss in NoCheaters
+- Areas eligible for re-audit: all except FA3/FA37/FA38 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
