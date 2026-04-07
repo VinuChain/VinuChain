@@ -2,13 +2,34 @@ package payback
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Fantom-foundation/go-opera/inter"
+	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/Fantom-foundation/go-opera/payback/contract/paybackProxy"
 )
+
+// stubStore is a minimal Store implementation for testing AddTransaction.
+type stubStore struct{}
+
+func (s *stubStore) GetLatestBlockIndex() uint64                             { return 1 }
+func (s *stubStore) GetBlockTransactionsAndReceipts(uint64) (types.Transactions, types.Receipts) {
+	return nil, nil
+}
+func (s *stubStore) FindBlockEpoch(idx.Block) idx.Epoch                     { return 1 }
+func (s *stubStore) GetHistoryEpochState(idx.Epoch) *iblockproc.EpochState  { return nil }
+func (s *stubStore) GetRules() opera.Rules                                  { return opera.Rules{} }
+func (s *stubStore) GetCurrentEpoch() idx.Epoch                             { return 1 }
+func (s *stubStore) GetBlock(idx.Block) *inter.Block                        { return nil }
 
 // TestEpochCleanupRunsDuringPrepareForBlock verifies that PaybackUsedMap is
 // reset when the epoch advances. This is the regression test for RA-PB-001:
@@ -306,5 +327,63 @@ func TestMaxPaybackEntries_CapsStakesMap(t *testing.T) {
 	pc.mu.Unlock()
 	if count != maxPaybackEntries {
 		t.Fatalf("expected %d entries, got %d", maxPaybackEntries, count)
+	}
+}
+
+// TestAddTransaction_FeeRefundCappedAtTxFee verifies that FeeRefund values
+// exceeding the transaction fee are capped rather than blindly accumulated.
+func TestAddTransaction_FeeRefundCappedAtTxFee(t *testing.T) {
+	contractABI, _ := abi.JSON(strings.NewReader(paybackProxy.QuotaProxyABI))
+
+	var addr common.Address
+	pc := &PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+		store:          &stubStore{},
+		contractABI:    &contractABI,
+		blkCtx: &blockContext{
+			epoch:     1,
+			rules:     opera.Rules{},
+			blockTime: time.Now(),
+		},
+		inBlockProcessing: true,
+	}
+
+	gasPrice := big.NewInt(1e9) // 1 gwei
+	gasUsed := uint64(21000)
+	txFee := new(big.Int).Mul(big.NewInt(int64(gasUsed)), gasPrice) // 21000 gwei
+
+	// Create and sign a tx so tx.From() returns a real address.
+	key, _ := crypto.GenerateKey()
+	signer := types.HomesteadSigner{}
+	tx, _ := types.SignTx(
+		types.NewTransaction(0, common.HexToAddress("0xBBBB"), big.NewInt(0), 21000, gasPrice, nil),
+		signer, key,
+	)
+	addr = crypto.PubkeyToAddress(key.PublicKey)
+	// Cache the sender so tx.From() works.
+	types.Sender(signer, tx)
+
+	// FeeRefund is 10x the actual tx fee — should be capped.
+	oversizedRefund := new(big.Int).Mul(txFee, big.NewInt(10))
+	receipt := &types.Receipt{
+		Status:    types.ReceiptStatusSuccessful,
+		GasUsed:   gasUsed,
+		FeeRefund: oversizedRefund,
+	}
+
+	if err := pc.AddTransaction(tx, receipt); err != nil {
+		t.Fatalf("AddTransaction failed: %v", err)
+	}
+
+	used := pc.PaybackUsedMap[addr]
+	if used == nil {
+		t.Fatal("expected PaybackUsedMap entry for sender")
+	}
+	if used.Cmp(txFee) > 0 {
+		t.Fatalf("PaybackUsedMap should be capped at txFee=%v, got %v", txFee, used)
+	}
+	if used.Cmp(txFee) != 0 {
+		t.Fatalf("expected PaybackUsedMap=%v (capped to txFee), got %v", txFee, used)
 	}
 }
