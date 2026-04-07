@@ -9,9 +9,17 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 113)
+Last Session: 2026-04-07 (Cycle 114)
 
 ## What Was Done
+- Cycle 114: Backlog drain (GP-02 MEDIUM)
+  - GP-02 (MEDIUM): opera/marshal.go + gossip/gasprice/gasprice.go
+    (1) validateRulesBounds accepted MinGasPrice==0 → governance could zero-out spam
+    floor, enabling free-cost tx flooding. Fixed: Sign()<0 → Sign()<=0.
+    (2) suggestTip read MinGasPrice from rules without nil guard → math.BigMax(nil,x)
+    panic on corrupted DB. Fixed: nil-to-zero guards for minPrice+pendingMinPrice.
+    Tests: TestValidateRulesBounds_MinGasPriceZero + TestSuggestTip_NilMinGasPrice.
+  VinuChain commit: 5a8586f
 - Cycle 113: Gas Oracle (Area 20)
   - GP-01 (CRITICAL): gossip/gasprice/constructive.go:35 + opera/marshal.go —
     maxTotalGasPower() = AllocPerSec × MaxAllocPeriod / 1e9. validateRulesBounds
@@ -206,9 +214,9 @@ Last Session: 2026-04-07 (Cycle 113)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — backlog has GP-02 (MEDIUM), implement next cycle
+- Cron audit: /loop active at 15m intervals — next cycle full audit (backlog empty)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit: all except FA20/FA26/FA38 (last 3 cycles)
+- Areas eligible for re-audit: all except FA20/FA26/FA3 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 - Seed file: update SEED-LOWER-BOUND in docs/audit/attack-seeds.md
 
