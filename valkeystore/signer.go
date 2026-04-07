@@ -32,6 +32,7 @@ func (s *Signer) Sign(pubkey validatorpk.PubKey, digest []byte) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer zeroPrivateKey(key)
 
 	secp256k1Key, ok := key.Decoded.(*ecdsa.PrivateKey)
 	if !ok {
@@ -45,4 +46,16 @@ func (s *Signer) Sign(pubkey validatorpk.PubKey, digest []byte) ([]byte, error) 
 	sigRS := make([]byte, 64)
 	copy(sigRS, sigRSV[:64])
 	return sigRS, nil
+}
+
+// zeroPrivateKey overwrites the key material in a PrivateKey copy so it
+// doesn't persist on the Go heap waiting for GC.
+func zeroPrivateKey(key *encryption.PrivateKey) {
+	for i := range key.Bytes {
+		key.Bytes[i] = 0
+	}
+	if ecKey, ok := key.Decoded.(*ecdsa.PrivateKey); ok && ecKey != nil && ecKey.D != nil {
+		ecKey.D.SetUint64(0)
+	}
+	key.Decoded = nil
 }
