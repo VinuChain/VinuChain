@@ -106,7 +106,7 @@ func (s *PublicTxTraceAPI) traceTx(
 		return &at, nil
 	}
 	if vmenv.Cancelled() {
-		log.Info("EVM was canceled due to timeout when replaying transaction", "txHash", tx.Hash().String())
+		log.Warn("EVM was canceled due to timeout when replaying transaction", "txHash", tx.Hash().String())
 		return nil, fmt.Errorf("timeout when replaying tx")
 	}
 	if result != nil && result.Err != nil {
@@ -189,7 +189,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 
 		for i, tx := range block.Transactions {
 			if txHash == nil || *txHash == tx.Hash() {
-				log.Info("Replaying transaction", "txHash", tx.Hash().String())
+				log.Debug("Replaying transaction", "txHash", tx.Hash().String())
 				index := uint64(i)
 				msg, err := tx.AsMessage(signer, block.BaseFee)
 				if err != nil {
@@ -275,7 +275,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 func (s *PublicTxTraceAPI) Block(ctx context.Context, numberOrHash rpc.BlockNumberOrHash) (*[]txtrace.ActionTrace, error) {
 	blockNr, _ := numberOrHash.Number()
 	defer func(start time.Time) {
-		log.Info("Executing trace_block call finished", "blockNr", blockNr.Int64(), "runtime", time.Since(start))
+		log.Debug("Executing trace_block call finished", "blockNr", blockNr.Int64(), "runtime", time.Since(start))
 	}(time.Now())
 	block, err := s.b.BlockByNumber(ctx, blockNr)
 	if err != nil {
@@ -288,7 +288,7 @@ func (s *PublicTxTraceAPI) Block(ctx context.Context, numberOrHash rpc.BlockNumb
 // Transaction implements trace_transaction: returns traces for a single transaction.
 func (s *PublicTxTraceAPI) Transaction(ctx context.Context, hash common.Hash) (*[]txtrace.ActionTrace, error) {
 	defer func(start time.Time) {
-		log.Info("Executing trace_transaction call finished", "txHash", hash.String(), "runtime", time.Since(start))
+		log.Debug("Executing trace_transaction call finished", "txHash", hash.String(), "runtime", time.Since(start))
 	}(time.Now())
 	return s.traceTxHash(ctx, hash, nil)
 }
@@ -296,7 +296,7 @@ func (s *PublicTxTraceAPI) Transaction(ctx context.Context, hash common.Hash) (*
 // Get implements trace_get: returns the trace at the specified index position.
 func (s *PublicTxTraceAPI) Get(ctx context.Context, hash common.Hash, traceIndex []hexutil.Uint) (*[]txtrace.ActionTrace, error) {
 	defer func(start time.Time) {
-		log.Info("Executing trace_get call finished", "txHash", hash.String(), "index", traceIndex, "runtime", time.Since(start))
+		log.Debug("Executing trace_get call finished", "txHash", hash.String(), "index", traceIndex, "runtime", time.Since(start))
 	}(time.Now())
 	return s.traceTxHash(ctx, hash, &traceIndex)
 }
@@ -366,7 +366,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 			data = append(data, "toBlock", args.ToBlock.BlockNumber.Int64())
 		}
 		data = append(data, "time", time.Since(start))
-		log.Info("Executing trace_filter call finished", data...)
+		log.Debug("Executing trace_filter call finished", data...)
 	}(time.Now())
 
 	var (

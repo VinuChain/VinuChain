@@ -30,7 +30,11 @@ func (vi *Index) NoCheaters(selfParent *hash.Event, options hash.Events) hash.Ev
 			if e == nil {
 				vi.crit(errors.New("event not found"))
 			}
-			if !merged.VSeq.Get(vi.validatorIdxs[e.Creator()]).IsForkDetected() {
+			vIdx, ok := vi.validatorIdxs[e.Creator()]
+			if !ok {
+				continue
+			}
+			if !merged.VSeq.Get(vIdx).IsForkDetected() {
 				filtered.Add(id)
 			}
 		}
@@ -42,7 +46,10 @@ func (vi *Index) NoCheaters(selfParent *hash.Event, options hash.Events) hash.Ev
 			if e == nil {
 				vi.crit(errors.New("event not found"))
 			}
-			creatorIdx := vi.validatorIdxs[e.Creator()]
+			creatorIdx, ok := vi.validatorIdxs[e.Creator()]
+			if !ok {
+				continue
+			}
 			if !seqBefore.Get(creatorIdx).IsForkDetected() {
 				filtered.Add(id)
 			}
