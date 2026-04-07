@@ -9,9 +9,21 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 112)
+Last Session: 2026-04-07 (Cycle 113)
 
 ## What Was Done
+- Cycle 113: Gas Oracle (Area 20)
+  - GP-01 (CRITICAL): gossip/gasprice/constructive.go:35 + opera/marshal.go —
+    maxTotalGasPower() = AllocPerSec × MaxAllocPeriod / 1e9. validateRulesBounds
+    checked MaxAllocPeriod != 0 but not >= 1 second. Setting MaxAllocPeriod=1ns passes
+    bounds, floors product to 0, causes big.Int.Div(x,0) panic in constructiveGasPrice
+    on every node accepting the governance proposal. Single governance proposal → network
+    halt. Fixed: < inter.Timestamp(time.Second) lower bound in marshal.go for both Short
+    and Long; defensive max.Sign()==0 guard in constructive.go.
+    Tests: TestValidateRulesBounds_MaxAllocPeriodMinimum + TestConstructiveGasPrice_ZeroMaxTotalGasPower.
+    Seed born: SEED-LOWER-BOUND (check !=(0) guards on ns durations fed to /1e9 division).
+  - GP-02 (MEDIUM, deferred): gasprice.go:134 suggestTip nil MinGasPrice → panic.
+  VinuChain commit: be9859b
 - Cycle 112: Backlog drain (NC-02 INFO + LOG-09 LOW — batch)
   - NC-02 (INFO): vecmt/no_cheaters.go — vi.validatorIdxs[e.Creator()] for unknown
     ValidatorID returned Go zero value (0), silently treating unknown creator as
@@ -194,10 +206,11 @@ Last Session: 2026-04-07 (Cycle 112)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full audit (backlog empty)
+- Cron audit: /loop active at 15m intervals — backlog has GP-02 (MEDIUM), implement next cycle
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Areas eligible for re-audit: all except FA26/FA38/FA3 (last 3 cycles)
+- Areas eligible for re-audit: all except FA20/FA26/FA38 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
+- Seed file: update SEED-LOWER-BOUND in docs/audit/attack-seeds.md
 
 ## Blockers / Open Questions
 - TestSFC/SFC_upgrade fails with go test -race ./... due to pre-existing lachesis-base race
