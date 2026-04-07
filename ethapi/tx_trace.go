@@ -499,7 +499,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 					break
 				}
 				for _, trace := range *traces {
-					if args.Count == 0 || traceAdded < args.Count {
+					if traceAdded < args.Count {
 						addTrace := true
 						if args.FromAddress != nil || args.ToAddress != nil {
 							if args.FromAddress != nil {
