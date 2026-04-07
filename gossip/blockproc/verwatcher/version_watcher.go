@@ -45,6 +45,9 @@ func (w *VerWarcher) OnNewLog(l *types.Log) {
 	if l.Address != driver.ContractAddress {
 		return
 	}
+	if len(l.Topics) == 0 {
+		return
+	}
 	if l.Topics[0] == driverpos.Topics.UpdateNetworkVersion && len(l.Data) >= 32 {
 		netVersion := new(big.Int).SetBytes(l.Data[24:32]).Uint64()
 		w.store.SetNetworkVersion(netVersion)
