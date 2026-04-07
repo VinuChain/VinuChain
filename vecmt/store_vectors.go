@@ -38,9 +38,15 @@ func (vi *Index) GetHighestBeforeTime(id hash.Event) *HighestBeforeTime {
 
 // GetHighestBefore reads the vector from DB
 func (vi *Index) GetHighestBefore(id hash.Event) *HighestBefore {
+	vseq := vi.Base.GetHighestBefore(id)
+	vtime := vi.GetHighestBeforeTime(id)
+	if vseq == nil || vtime == nil {
+		return nil
+	}
 	return &HighestBefore{
-		VSeq:  vi.Base.GetHighestBefore(id),
-		VTime: vi.GetHighestBeforeTime(id),
+		VSeq:    vseq,
+		VTime:   vtime,
+		elemont: vi.elemont,
 	}
 }
 
