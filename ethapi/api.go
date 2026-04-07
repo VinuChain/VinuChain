@@ -1443,7 +1443,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	from, _ := internaltx.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 
-	feeRefundValue := new(hexutil.Big)
+	var feeRefundValue *hexutil.Big
 	if feeRefund != nil {
 		feeRefundValue = feeRefund
 	}
