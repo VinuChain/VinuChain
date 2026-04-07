@@ -131,7 +131,11 @@ func (s *Service) switchEpochTo(newEpoch idx.Epoch) {
 	s.store.resetEpochStore(newEpoch)
 	es := s.store.getEpochStore(newEpoch)
 	s.dagIndexer.Reset(s.store.GetValidators(), es.table.DagIndex, func(id hash.Event) dag.Event {
-		return s.store.GetEvent(id)
+		e := s.store.GetEvent(id)
+		if e == nil {
+			return nil
+		}
+		return e
 	})
 	// notify event checkers about new validation data
 	rules := s.store.GetRules()

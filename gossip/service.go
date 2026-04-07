@@ -235,7 +235,11 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.store.loadEpochStore(svc.store.GetEpoch())
 	es := svc.store.getEpochStore(svc.store.GetEpoch())
 	svc.dagIndexer.Reset(svc.store.GetValidators(), es.table.DagIndex, func(id hash.Event) dag.Event {
-		return svc.store.GetEvent(id)
+		e := svc.store.GetEvent(id)
+		if e == nil {
+			return nil
+		}
+		return e
 	})
 	svc.dagIndexer.SetElemont(store.GetRules().Upgrades.Elemont)
 
