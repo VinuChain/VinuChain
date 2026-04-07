@@ -524,7 +524,11 @@ func pruneGossip(ctx *cli.Context) error {
 	gdb := makeGossipStore(rawDbs, cfg)
 	defer gdb.Close()
 
-	keepEpochs := idx.Epoch(ctx.Int(PruneKeepEpochsFlag.Name))
+	keepEpochsInt := ctx.Int(PruneKeepEpochsFlag.Name)
+	if keepEpochsInt < 0 {
+		return fmt.Errorf("--%s must be non-negative, got %d", PruneKeepEpochsFlag.Name, keepEpochsInt)
+	}
+	keepEpochs := idx.Epoch(keepEpochsInt)
 	currentEpoch := gdb.GetEpoch()
 	if currentEpoch <= keepEpochs+1 {
 		return fmt.Errorf("not enough epochs to prune: current=%d, keepEpochs=%d", currentEpoch, keepEpochs)
@@ -548,7 +552,11 @@ func pruneReceipts(ctx *cli.Context) error {
 	gdb := makeGossipStore(rawDbs, cfg)
 	defer gdb.Close()
 
-	keepBlocks := idx.Block(ctx.Int(PruneKeepBlocksFlag.Name))
+	keepBlocksInt := ctx.Int(PruneKeepBlocksFlag.Name)
+	if keepBlocksInt < 0 {
+		return fmt.Errorf("--%s must be non-negative, got %d", PruneKeepBlocksFlag.Name, keepBlocksInt)
+	}
+	keepBlocks := idx.Block(keepBlocksInt)
 	latestBlock := gdb.GetBlockState().LastBlock.Idx
 	if latestBlock <= keepBlocks {
 		return fmt.Errorf("not enough blocks to prune: latest=%d, keepBlocks=%d", latestBlock, keepBlocks)
