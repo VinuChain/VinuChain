@@ -22,6 +22,12 @@ func (gpo *Oracle) effectiveMinGasPrice() *big.Int {
 
 func (gpo *Oracle) constructiveGasPrice(gasOffestAbs uint64, gasOffestRatio uint64, adjustedMinPrice *big.Int) *big.Int {
 	max := gpo.maxTotalGasPower()
+	if max.Sign() == 0 {
+		// maxTotalGasPower should never be zero (requires MaxAllocPeriod >= 1s via
+		// validateRulesBounds). Guard here prevents div-by-zero if rules are
+		// somehow misconfigured; treat the network as fully congested (0% free).
+		return gpo.constructiveGasPriceOf(0, adjustedMinPrice)
+	}
 
 	current64 := gpo.backend.TotalGasPowerLeft()
 	if current64 > gasOffestAbs {

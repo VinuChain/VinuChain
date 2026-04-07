@@ -65,14 +65,14 @@ func validateRulesBounds(r Rules) error {
 	if r.Economy.ShortGasPower.AllocPerSec == 0 {
 		return errors.New("Economy.ShortGasPower.AllocPerSec cannot be zero")
 	}
-	if r.Economy.ShortGasPower.MaxAllocPeriod == 0 {
-		return errors.New("Economy.ShortGasPower.MaxAllocPeriod cannot be zero")
+	if r.Economy.ShortGasPower.MaxAllocPeriod < inter.Timestamp(time.Second) {
+		return errors.New("Economy.ShortGasPower.MaxAllocPeriod must be at least 1 second")
 	}
 	if r.Economy.LongGasPower.AllocPerSec == 0 {
 		return errors.New("Economy.LongGasPower.AllocPerSec cannot be zero")
 	}
-	if r.Economy.LongGasPower.MaxAllocPeriod == 0 {
-		return errors.New("Economy.LongGasPower.MaxAllocPeriod cannot be zero")
+	if r.Economy.LongGasPower.MaxAllocPeriod < inter.Timestamp(time.Second) {
+		return errors.New("Economy.LongGasPower.MaxAllocPeriod must be at least 1 second")
 	}
 	// Upper bounds on gas power allocation — astronomical values distort the constructive gas price multiplier
 	if r.Economy.ShortGasPower.AllocPerSec > 1e12 {

@@ -114,6 +114,38 @@ func TestUpdateRulesGovernanceBounds(t *testing.T) {
 	require.Error(err, "ParentGas that makes maxEmptyEventGas exceed MaxEventGas should be rejected")
 }
 
+// TestValidateRulesBounds_MaxAllocPeriodMinimum verifies that MaxAllocPeriod values below
+// 1 second are rejected for both Short and Long gas power rules. Values below 1 second
+// cause maxTotalGasPower() to return 0 after integer division (AllocPerSec×MaxAllocPeriod/1e9),
+// which triggers a div-by-zero panic in constructiveGasPrice on all accepting nodes.
+func TestValidateRulesBounds_MaxAllocPeriodMinimum(t *testing.T) {
+	require := require.New(t)
+	base := FakeNetRules()
+
+	// 1 ns — passes non-zero check but product floors to 0 after /1e9
+	_, err := UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"MaxAllocPeriod":1}}}`))
+	require.Error(err, "ShortGasPower.MaxAllocPeriod=1ns should be rejected (< 1 second)")
+	require.Contains(err.Error(), "ShortGasPower.MaxAllocPeriod")
+
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"MaxAllocPeriod":1}}}`))
+	require.Error(err, "LongGasPower.MaxAllocPeriod=1ns should be rejected (< 1 second)")
+	require.Contains(err.Error(), "LongGasPower.MaxAllocPeriod")
+
+	// 999,999,999 ns — one nanosecond below 1 second, still floors to 0
+	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"MaxAllocPeriod":999999999}}}`))
+	require.Error(err, "ShortGasPower.MaxAllocPeriod=999999999ns should be rejected (< 1 second)")
+
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"MaxAllocPeriod":999999999}}}`))
+	require.Error(err, "LongGasPower.MaxAllocPeriod=999999999ns should be rejected (< 1 second)")
+
+	// Exactly 1 second (1,000,000,000 ns) — must be accepted
+	_, err = UpdateRules(base, []byte(`{"Economy":{"ShortGasPower":{"MaxAllocPeriod":1000000000}}}`))
+	require.NoError(err, "ShortGasPower.MaxAllocPeriod=1s must be accepted")
+
+	_, err = UpdateRules(base, []byte(`{"Economy":{"LongGasPower":{"MaxAllocPeriod":1000000000}}}`))
+	require.NoError(err, "LongGasPower.MaxAllocPeriod=1s must be accepted")
+}
+
 func TestMainNetRulesRLP(t *testing.T) {
 	rules := MainNetRules()
 	require := require.New(t)

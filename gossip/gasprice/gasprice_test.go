@@ -343,6 +343,31 @@ func TestOracle_SuggestTip(t *testing.T) {
 	require.Equal(t, "0", gpo2.SuggestTip(AsDefaultCertainty).String())
 }
 
+// TestConstructiveGasPrice_ZeroMaxTotalGasPower verifies that constructiveGasPrice does not
+// panic when maxTotalGasPower() returns zero. This can happen when governance sets
+// MaxAllocPeriod to a value below 1 second (AllocPerSec × MaxAllocPeriod / 1e9 floors to 0).
+// Without the defensive guard, the division in constructiveGasPrice panics on all nodes.
+func TestConstructiveGasPrice_ZeroMaxTotalGasPower(t *testing.T) {
+	rules := opera.FakeNetRules()
+	// AllocPerSec=1, MaxAllocPeriod=1ns → 1×1/1e9 = 0 after integer division
+	rules.Economy.LongGasPower.AllocPerSec = 1
+	rules.Economy.LongGasPower.MaxAllocPeriod = 1
+
+	backend := &TestBackend{
+		totalGasPowerLeft: 0,
+		rules:             rules,
+		pendingRules:      rules,
+	}
+
+	gpo := NewOracle(Config{})
+	gpo.backend = backend
+
+	// Must not panic; result must be a non-negative price.
+	result := gpo.constructiveGasPrice(0, 0, big.NewInt(1000000000))
+	require.NotNil(t, result)
+	require.True(t, result.Sign() >= 0, "constructiveGasPrice must return non-negative price even when maxTotalGasPower is zero")
+}
+
 func TestOracle_StartStop(t *testing.T) {
 	backend := &TestBackend{
 		block:             1,
