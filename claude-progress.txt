@@ -9,9 +9,89 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 115)
+Last Session: 2026-04-07 (Cycle 131)
 
 ## What Was Done
+- Cycle 131: Key Management (Focus Area 14)
+  - VK-01 (MEDIUM): valkeystore/signer.go — private key copy not zeroized after Sign().
+    Added defer zeroPrivateKey. VinuChain commit: bb4a2e0
+- Cycle 130: Serialization from Untrusted Peers (Focus Area 17)
+  - SER-17-01 (LOW): event_serializer.go — MedianTime int64 overflow guard.
+  - SER-17-02 (LOW): inter_llr.go — LastBlock() empty Votes underflow guard.
+  VinuChain commit: 56a0946
+- Cycle 129: Backlog drain (LB-06 MEDIUM)
+  - LB-06 (MEDIUM): dagprocessor quit path — drain checkedC, call Released callbacks.
+  lachesis-base commit: ef887d7d
+- Cycle 128: lachesis-base DAG Layer (Focus Area 36)
+  - LB-02 (LOW): vecfc/index.go:94 — cache size copy-paste bug. Fixed.
+  - LB-03 (MEDIUM): datasemaphore/semaphore.go — Acquire timeout never enforced. Fixed.
+  - LB-06 (MEDIUM): dagprocessor quit path leak — deferred to backlog.
+  lachesis-base commit: 9024e77d
+- Cycle 127: Consensus Vector Clocks (Focus Area 3)
+  - VECMT-02 (LOW): store_vectors.go — GetHighestBefore missing elemont flag. Fixed.
+  - VECMT-03 (INFO): same function — nil guard for crash-recovery. Fixed.
+  VinuChain commit: 20b4678
+- Cycle 126: Block Processing Pipeline (Focus Area 2)
+  - BP-01 (MEDIUM): verwatcher/version_watcher.go:48 — panic on zero-topic log.
+    Added len(l.Topics)==0 guard. Test: TestOnNewLog_EmptyTopics.
+  VinuChain commit: 6c4d083
+- Cycle 125: Error Propagation Audit (Focus Area 22)
+  - Swept gossip/emitter, gossip/blockproc, vecmt, integration for _ = discards and panics.
+  - No actionable findings. All discards are cleanup paths or infallible constructors.
+  - Packages saturated for error propagation.
+- Cycle 124: Payback/Fee Refund System (Focus Area 1)
+  - PB-09 (MEDIUM): payback_cache.go:180 — AddTransaction FeeRefund not capped at tx fee.
+    Added defense-in-depth cap with log.Error. Test: TestAddTransaction_FeeRefundCappedAtTxFee.
+  VinuChain commit: 5887fd6
+- Cycle 123: CLI Security (Focus Area 16)
+  - CLI-06 (MEDIUM): snapshotcmd.go — 6 functions never closed gossip.Store (LevelDB leak).
+    Added defer gdb.Close() to all six. VinuChain commit: 978f44a
+  - Deferred: CLI-01 MEDIUM (negative flag wrap), CLI-02/03/04 LOW
+- Cycle 122: go-vinu Internal Data Races (Focus Area 33)
+  - Race detector sweep: core/types, core/state, core/vm, eth/tracers all clean.
+  - Intermittent test-only races in core/ tx pool tests (inherited upstream, not production).
+  - GV-06 (LOW): Fixed receipt RLP test fixture (+1 byte for FeeRefund).
+  - GV-08 (INFO): Fixed Go 1.25 vet errors in core/rawdb tests.
+  go-vinu commit: 38c8384e4
+- Cycle 121: go-vinu Fork Delta Re-Audit (Focus Area 32)
+  - GV-05 (MEDIUM): rpc/websocket.go — WS held HTTP concurrency semaphore for lifetime.
+    Idle WS connections blocked all HTTP with 503. Removed semaphore from WS handler.
+    go-vinu commit: 07dc0aee7, tag v1.20.10-quota. VinuChain commit: 2328bb8.
+- Cycle 120: Backlog drain (CB-05 LOW + CB-06 INFO batch)
+  - CB-05 (LOW): sealmodule/sealer.go:87 + driver_calls.go:72 — nil guard on Originated.
+  - CB-06 (INFO): opera/rules.go:276 — corrected misleading Podgorica governance comment.
+  VinuChain commit: 73e4d2e
+- Cycle 119: Cross-Boundary Data Flow Audit (Focus Area 34)
+  - CB-04 (LOW): ethapi/api.go:1446 — newRPCTransaction defeated omitempty on FeeRefund.
+    Non-nil zero pointer emitted "feeRefund":"0x0" on every tx. Fixed: use nil pointer.
+    Tests: TestNewRPCTransaction_NilFeeRefund_OmitsField, _WithFeeRefund_IncludesField
+  - Deferred: CB-05 LOW (nil guard OriginatedTxFee), CB-06 INFO (misleading comment),
+    S-3 MEDIUM (evmmodule/sealmodule test coverage), S-2 LOW (magic 1e10)
+  VinuChain commit: ab83c6b
+- Cycle 118: Backlog drain (TRC-11 LOW + TRC-12 LOW batch)
+  - TRC-11 (LOW): ethapi/tx_trace.go — trace_filter Count==0 accumulated unbounded results.
+    Added maxFilterResultCount=10000 with early termination via sync.Once stop signal.
+  - TRC-12 (LOW): tracing/tx-tracing.go — SetEnabled(false) didn't drain txSpans map.
+    Added finish+delete loop on disable.
+  VinuChain commit: 26b46fe
+- Cycle 117: Tx Tracing Re-Audit (Focus Area 37)
+  - TRC-07 (MEDIUM): txtrace/trace_logger.go:380-381 — SaveTrace discarded json.Marshal
+    and SetTxTrace errors. Fixed: check both, log.Error, defer reset.
+  - TRC-08 (MEDIUM): txtracingcmd.go:100 — SetTxTrace error discarded during import. Fixed.
+  - TRC-09 (LOW): ethapi/tx_trace.go:219 — TxTraceSave error discarded. Fixed: log.Error.
+  - TRC-10 (LOW): ethapi/tx_trace.go:227 — log.Info missed by LOG-09. Changed to log.Debug.
+  - Tests: TestSaveTrace_StoresValidJSON, _ResetAlwaysCalled, _NilStore
+  VinuChain commit: d22f6a6
+- Cycle 116: Backlog drain (RPC-05 MEDIUM)
+  - RPC-05 (MEDIUM): go-vinu rpc/server.go — added semaphore-based in-process concurrency
+    limiting. SetConcurrencyLimit(n) caps in-flight HTTP/WS requests; excess get 503.
+    Wired through node.Config.MaxConcurrentRPC to HTTP+WS servers. VinuChain passes
+    gossip.Config.MaxConcurrentRPC through to node config.
+  - Pre-existing race fix: Server.Stop() callWG.Wait() raced with startCallProc() callWG.Add(1).
+    Added stopping flag on serviceRegistry checked under mutex. TestClientNotify now race-clean.
+  - Tests: TestServeHTTP_ConcurrencyLimit_Rejects, _Zero_Unlimited, _AllowsAfterRelease
+  - go-vinu commit: 450ab2dfb, VinuChain commit: ab4bd17
+  - go-vinu tag needed: changes require new go-vinu tag, then VinuChain go.mod update.
 - Cycle 115: RPC Filter & Subscription Audit (Focus Area 39)
   - RPC-01 (MEDIUM): ethapi/api.go:986-991 — StateOverride.Apply accepted code blobs
     larger than params.MaxCodeSize (24576 bytes). An attacker could supply up to ~2.5MB
@@ -234,7 +314,10 @@ Last Session: 2026-04-07 (Cycle 115)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Backlog has 5 items (RPC-02 HIGH, RPC-03 HIGH, RPC-04 MEDIUM, RPC-07 LOW, RPC-08 MEDIUM) — next cycle is backlog drain
+- Backlog is empty — next cycle is full audit (Phases 1-6)
+- go-vinu: v1.20.10-quota tag published, VinuChain go.mod updated
+- Noted but not backlogged: S-3 MEDIUM (evmmodule/sealmodule test coverage), GV-02 MEDIUM (startCallProc silent drop), S-1 MEDIUM (FeeRefundActive test gap)
+- go-vinu: v1.20.9-quota tag published and go.mod updated (commit 36d2e4d)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
 - Areas eligible for re-audit: all except FA8/FA20/FA26 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
