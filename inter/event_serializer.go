@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/dag"
@@ -173,6 +174,15 @@ func eventUnmarshalCSER(r *cser.Reader, e *MutableEventPayload) (err error) {
 	e.SetSeq(idx.Event(seq))
 	e.SetFrame(idx.Frame(frame))
 	e.SetCreationTime(Timestamp(creationTime))
+	// The diff is computed as int64(creation) - int64(median) during
+	// serialization (line 49). The inverse is int64(creation) - diff.
+	// Guard: reject if medianTimeDiff == math.MinInt64, which cannot be
+	// produced by the serializer (it would require creation=0 and
+	// median=MaxInt64+1, but int64(MaxInt64+1) wraps to MinInt64,
+	// making the diff 0-MinInt64 which overflows int64 itself).
+	if medianTimeDiff == math.MinInt64 {
+		return cser.ErrMalformedEncoding
+	}
 	e.SetMedianTime(Timestamp(int64(creationTime) - medianTimeDiff))
 	e.SetGasPowerUsed(gasPowerUsed)
 	e.SetGasPowerLeft(GasPowerLeft{[2]uint64{gasPowerLeft0, gasPowerLeft1}})

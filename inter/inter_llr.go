@@ -15,6 +15,9 @@ type LlrBlockVotes struct {
 }
 
 func (bvs LlrBlockVotes) LastBlock() idx.Block {
+	if len(bvs.Votes) == 0 {
+		return 0
+	}
 	return bvs.Start + idx.Block(len(bvs.Votes)) - 1
 }
 
