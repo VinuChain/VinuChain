@@ -9,9 +9,20 @@
 ## Current State
 Status: clean (all committed)
 Branch: elemont
-Last Session: 2026-04-07 (Cycle 111)
+Last Session: 2026-04-07 (Cycle 112)
 
 ## What Was Done
+- Cycle 112: Backlog drain (NC-02 INFO + LOG-09 LOW — batch)
+  - NC-02 (INFO): vecmt/no_cheaters.go — vi.validatorIdxs[e.Creator()] for unknown
+    ValidatorID returned Go zero value (0), silently treating unknown creator as
+    validator index 0 in the fork-cheater filter. If index 0 is clean, unknown events
+    pass. Added explicit ok-check guard in both elemont + pre-elemont branches.
+    Added buildForkIndexNodeBForks helper + 2 tests (Elemont, PreElemont) — RED before
+    fix, GREEN after. Coverage improved.
+  - LOG-09 (LOW): ethapi/tx_trace.go — 6 log.Info → lower severity:
+    EVM timeout cancel: Info→Warn; per-tx replay log: Info→Debug;
+    trace_block/trace_transaction/trace_get/trace_filter defers: Info→Debug.
+  VinuChain commit: b82ea9e
 - Cycle 111: Logging Hygiene (Area 26)
   - LOG-07 (MEDIUM): payback/payback_cache.go:321 — GetAvailablePaybackByAddress
     used log.Error when called outside block processing. This is a hard invariant;
@@ -183,11 +194,9 @@ Last Session: 2026-04-07 (Cycle 111)
 - Previous sessions: Cycles 50-89 — full 32 focus area coverage, all findings fixed
 
 ## What's Next
-- Cron audit: /loop active at 15m intervals — next cycle full cycle
+- Cron audit: /loop active at 15m intervals — next cycle full audit (backlog empty)
 - lachesis-base: publish new tag from fix/deferred-audit-c57 branch, update VinuChain go.mod
-- Backlog: NC-02 (INFO) — validatorIdxs map miss in NoCheaters
-- Backlog: LOG-09 (LOW) — per-tx log.Info flood in ethapi/tx_trace.go replay paths
-- Areas eligible for re-audit: all except FA26/FA3/FA37 (last 3 cycles)
+- Areas eligible for re-audit: all except FA26/FA38/FA3 (last 3 cycles)
 - Noted in cycle 97: same isEmptyDB pattern in compactdb and legacy_migrate (INFO/CLI-only)
 
 ## Blockers / Open Questions
