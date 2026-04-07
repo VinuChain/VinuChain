@@ -99,6 +99,7 @@ type (
 		RPCTxFeeCap float64 `toml:",omitempty"`
 
 		// RPCTimeout is a global time limit for RPC methods execution.
+		// RPC concurrency limiting is not handled here; use a reverse proxy (nginx, HAProxy).
 		RPCTimeout time.Duration
 
 		// MaxConcurrentRPC limits the number of concurrent RPC requests; 0 = unlimited.
