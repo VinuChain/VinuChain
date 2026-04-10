@@ -28,6 +28,7 @@ const (
 	podgoricaBit             = 1 << 3
 	sfcV2Bit                 = 1 << 4
 	elemontBit               = 1 << 5
+	sfcV2PatchBit            = 1 << 6
 )
 
 var DefaultVMConfig = vm.Config{
@@ -145,6 +146,16 @@ type Upgrades struct {
 	// GatherFrom tie-breaking, MedianTime stable sort, and empty-pubkey
 	// validator skip at epoch seal. All changes activate atomically.
 	Elemont bool
+	// SfcV2Patch re-flashes the SFC V2 bytecode at sfc.ContractAddress on
+	// activation, overwriting whatever bytecode the prior SfcV2 transition
+	// installed. It exists so networks that activated SfcV2 with an earlier
+	// (buggy) version of the V2 bytecode can upgrade to a corrected version
+	// without needing a second hard fork or chain reset. On networks that
+	// have not yet activated SfcV2, this flag is a no-op — the initial
+	// SfcV2 activation already installs whatever GetContractBin() currently
+	// returns, so mainnet operators do not need to enable SfcV2Patch when
+	// performing their first SfcV2 activation.
+	SfcV2Patch bool
 }
 
 type UpgradeHeight struct {
@@ -265,12 +276,13 @@ func VinuChainTestNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:    true,
-			London:    true,
-			Llr:       true,
-			Podgorica: true,
-			SfcV2:     true,
-			Elemont:   true,
+			Berlin:     true,
+			London:     true,
+			Llr:        true,
+			Podgorica:  true,
+			SfcV2:      true,
+			Elemont:    true,
+			SfcV2Patch: true,
 		},
 	}
 }
@@ -286,6 +298,16 @@ func VinuChainTestNetRules() Rules {
 // flags are stripped from on-chain rule updates. This is intentional — the SfcV2
 // upgrade replaces SFC contract bytecode at startup, which must be coordinated
 // across all validators via a code release, not an on-chain governance proposal.
+//
+// SfcV2Patch is intentionally NOT set here. The flag exists only to re-flash
+// the SFC bytecode on networks that already activated SfcV2 with an earlier
+// (buggy) version of the V2 bytecode. Mainnet has not yet activated SfcV2, so
+// its first SfcV2 transition will install whatever GetContractBin() currently
+// returns — which is the latest corrected bytecode — and no re-flash is
+// needed. Leave SfcV2Patch unset here; adding it would be a harmless no-op
+// but would also obscure the invariant that mainnet's first SfcV2 activation
+// already picks up every subsequent correctness fix to the V2 bytecode
+// automatically.
 func VinuChainMainNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Mainnet",

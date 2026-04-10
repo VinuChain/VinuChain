@@ -375,6 +375,19 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Applying SFC V2 bytecode upgrade", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
+	// SfcV2Patch re-flashes the SFC V2 bytecode on activation. This path
+	// exists so a network that already activated SfcV2 with an earlier
+	// (buggy) version of the V2 bytecode can overwrite the stored bytecode
+	// with whatever GetContractBin() currently returns, without needing a
+	// chaindata wipe or a second SfcV2 transition. On networks that haven't
+	// yet activated SfcV2, this is either a no-op (if SfcV2 is also being
+	// staged in the same transition, the SetCode above already installed
+	// the latest bytecode) or an idempotent re-install (if SfcV2 was already
+	// active, the bytecode is the same and the second SetCode is harmless).
+	if bp.es.Rules.Upgrades.SfcV2Patch && !prevUpg.SfcV2Patch {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*
 	// epoch rules, NOT from staged DirtyRules — so on a binary upgrade where
