@@ -1692,9 +1692,11 @@ func TestProcessEpochVotesOneValidatorMultipleEvsDiffLamport(t *testing.T) {
 	er := ier.LlrIdxFullEpochRecord{Idx: idx.Epoch(startEpoch) + 1}
 	erHash := er.Hash()
 
-	for i := 0; i < 10; i++ {
-		randLamport := idx.Lamport(rand.Intn(1000))
-		e := fakeEventWithLamport(inter.LlrBlockVotes{}, getEv(startEpoch+1, erHash), randLamport)
+	// Lamports must be distinct so each fake event has a unique ID; otherwise
+	// the second event with a colliding Lamport is rejected as already processed.
+	lamports := rand.Perm(1000)[:10]
+	for _, l := range lamports {
+		e := fakeEventWithLamport(inter.LlrBlockVotes{}, getEv(startEpoch+1, erHash), idx.Lamport(l))
 		require.NoError(env.ProcessEpochVote(inter.AsSignedEpochVote(e)))
 	}
 
