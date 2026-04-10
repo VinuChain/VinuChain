@@ -241,6 +241,12 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 		}
 		return e
 	})
+	// Initialize the dag indexer's Elemont flag from the *stored* rules,
+	// which reflects the consensus rules currently in effect. If Elemont is
+	// staged in DirtyRules but not yet sealed, the value here is still false;
+	// switchEpochTo in c_event_callbacks.go re-applies SetElemont with the
+	// post-seal value when DirtyRules takes effect, keeping the indexer in
+	// lockstep with the in-effect rules. Update both call sites together.
 	svc.dagIndexer.SetElemont(store.GetRules().Upgrades.Elemont)
 
 	// load caches for mutable values to avoid race condition
@@ -264,37 +270,51 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	svc.heavyCheckReader.Store = store
 	svc.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(svc.store, svc.store.GetEpoch()))                                          // read pub keys of current epoch from DB
 	svc.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(svc.store, svc.store.GetValidators(), svc.store.GetEpoch(), net.Economy, net.Upgrades.Podgorica)) // read gaspower check data from DB
-	types.FeeRefundActive.Store(net.Upgrades.Podgorica)                                                                                                  // gate FeeRefund in receipt encoding
-	// Propagate upgrade flags from hardcoded binary rules into stored epoch state.
-	// This activates SfcV2/Podgorica when a new binary ships with the flag enabled
-	// but the stored epoch state still has it disabled (no on-chain governance path exists).
+	// FeeRefundActive is initialized from the *stored* (in-effect) Podgorica
+	// flag, not from staged DirtyRules. This is intentional: pre-seal blocks
+	// processed in the staging window are executed under stored rules, where
+	// payback computation is gated by Podgorica=false (see payback_cache.go
+	// resolveContractAddress) and produces nil receipt.FeeRefund. A nil
+	// FeeRefund encodes to the same RLP bytes regardless of this atomic.
+	// block_processor.sealEpochIfNeeded re-flips the atomic at the same seal
+	// that activates Podgorica on consensus rules, keeping it in lockstep
+	// with the in-effect rules so the first block whose receipts may carry a
+	// non-nil FeeRefund encodes them correctly.
+	types.FeeRefundActive.Store(net.Upgrades.Podgorica)
+	// Propagate upgrade flags from hardcoded binary rules by staging them as
+	// pending DirtyRules on the block state. The sealer applies DirtyRules at
+	// the next epoch seal, which triggers the false→true Upgrades transitions
+	// that block_processor.go needs to install side effects (notably the SFC
+	// V2 bytecode swap). Writing the new flags directly into es.Rules here
+	// would defeat that transition guard and silently leave on-chain side
+	// effects unapplied on a binary upgrade.
 	if hardcoded := opera.MainNetRulesForNetwork(net.NetworkID); hardcoded != nil {
 		es := store.GetEpochState()
+		bs := store.GetBlockState()
+		pending := es.Rules.Copy()
+		if bs.DirtyRules != nil {
+			pending = bs.DirtyRules.Copy()
+		}
 		changed := false
-		if hardcoded.Upgrades.SfcV2 && !es.Rules.Upgrades.SfcV2 {
-			es.Rules.Upgrades.SfcV2 = true
+		if hardcoded.Upgrades.SfcV2 && !pending.Upgrades.SfcV2 {
+			pending.Upgrades.SfcV2 = true
 			changed = true
-			log.Info("Activated SfcV2 upgrade from binary rules")
+			log.Info("Staged SfcV2 upgrade from binary rules; will activate at next epoch seal")
 		}
-		if hardcoded.Upgrades.Podgorica && !es.Rules.Upgrades.Podgorica {
-			es.Rules.Upgrades.Podgorica = true
+		if hardcoded.Upgrades.Podgorica && !pending.Upgrades.Podgorica {
+			pending.Upgrades.Podgorica = true
 			changed = true
-			log.Info("Activated Podgorica upgrade from binary rules")
+			log.Info("Staged Podgorica upgrade from binary rules; will activate at next epoch seal")
 		}
-		if hardcoded.Upgrades.Elemont && !es.Rules.Upgrades.Elemont {
-			es.Rules.Upgrades.Elemont = true
+		if hardcoded.Upgrades.Elemont && !pending.Upgrades.Elemont {
+			pending.Upgrades.Elemont = true
 			changed = true
-			log.Info("Activated Elemont upgrade from binary rules")
+			log.Info("Staged Elemont upgrade from binary rules; will activate at next epoch seal")
 		}
 		if changed {
-			store.SetBlockEpochState(store.GetBlockState(), es)
+			bs.DirtyRules = &pending
+			store.SetBlockEpochState(bs, es)
 			store.FlushBlockEpochState()
-			// Re-sync FeeRefundActive in case Podgorica was just activated.
-			// The Store() at line 263 read the pre-activation stored state;
-			// re-apply it here so receipt encoding is correct from this block on.
-			if es.Rules.Upgrades.Podgorica {
-				types.FeeRefundActive.Store(true)
-			}
 		}
 	}
 	svc.checkers = makeCheckers(config.HeavyCheck, txSigner, &svc.heavyCheckReader, &svc.gasPowerCheckReader, svc.store)

@@ -375,6 +375,18 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Applying SFC V2 bytecode upgrade", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
+	// FeeRefundActive gates whether receipt encoding emits a non-zero
+	// FeeRefund field. service.go initializes the atomic from the *stored*
+	// epoch rules, NOT from staged DirtyRules — so on a binary upgrade where
+	// Podgorica is staged but not yet sealed, the atomic is still false at
+	// startup. This seal-time re-flip is the load-bearing transition: it
+	// fires exactly when DirtyRules.Podgorica activates on consensus rules,
+	// keeping the atomic in lockstep with the in-effect rules so that the
+	// first post-seal block whose receipts may carry FeeRefund encodes them.
+	if bp.es.Rules.Upgrades.Podgorica && !prevUpg.Podgorica {
+		log.Info("Activating Podgorica fee refund encoding", "block", bp.blockCtx.Idx)
+		types.FeeRefundActive.Store(true)
+	}
 	bp.store.SetBlockEpochState(bp.bs, bp.es)
 	bp.newValidators = bp.es.Validators
 	bp.txListener.Update(bp.bs, bp.es)
