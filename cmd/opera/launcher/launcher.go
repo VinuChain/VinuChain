@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -273,10 +274,31 @@ func Launch(args []string) error {
 // opera is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
+// startupBanner is printed on node startup so operators can visually confirm
+// they are running the expected release after an upgrade.
+const startupBanner = `
+ ██╗   ██╗██╗███╗   ██╗██╗   ██╗ ██████╗██╗  ██╗ █████╗ ██╗███╗   ██╗
+ ██║   ██║██║████╗  ██║██║   ██║██╔════╝██║  ██║██╔══██╗██║████╗  ██║
+ ██║   ██║██║██╔██╗ ██║██║   ██║██║     ███████║███████║██║██╔██╗ ██║
+ ╚██╗ ██╔╝██║██║╚██╗██║██║   ██║██║     ██╔══██║██╔══██║██║██║╚██╗██║
+  ╚████╔╝ ██║██║ ╚████║╚██████╔╝╚██████╗██║  ██║██║  ██║██║██║ ╚████║
+   ╚═══╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
+
+                        v2.0  -  ELEMONT
+`
+
+func printStartupBanner() {
+	fmt.Fprint(os.Stderr, startupBanner)
+	fmt.Fprintf(os.Stderr, "  Version: %d.%d.%d-%s\n\n",
+		params.VersionMajor, params.VersionMinor, params.VersionPatch, params.VersionMeta)
+}
+
 func vinuChainMain(ctx *cli.Context) error {
 	if args := ctx.Args(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
+
+	printStartupBanner()
 
 	// TODO: tracing flags
 	//tracingStop, err := tracing.Start(ctx)
