@@ -414,8 +414,12 @@ func (em *Emitter) createEvent(sortedTxs *types.TransactionsByPriceAndNonce) (*i
 	}
 
 	// Pre-check if event should be emitted
-	// It is checked in advance to avoid adding transactions just to immediately drop the event later
-	if !em.isAllowedToEmit(mutEvent, false, metric, selfParentHeader) {
+	// It is checked in advance to avoid adding transactions just to immediately drop the event later.
+	// eTxs=true is deliberate: the pre-check is optimistic (assume txs will follow), so an idle
+	// validator with pending txs in the pool is not blocked by the idle gate in isAllowedToEmit.
+	// The real authoritative gate is the post-check below (line ~428), which runs only if
+	// addTxs added nothing and uses the actual Txs().Len() != 0.
+	if !em.isAllowedToEmit(mutEvent, true, metric, selfParentHeader) {
 		return nil, nil
 	}
 
