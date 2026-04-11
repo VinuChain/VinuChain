@@ -3,6 +3,8 @@ package payback
 import (
 	"math/big"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,15 +23,27 @@ import (
 // stubStore is a minimal Store implementation for testing AddTransaction.
 type stubStore struct{}
 
-func (s *stubStore) GetLatestBlockIndex() uint64                             { return 1 }
+func (s *stubStore) GetLatestBlockIndex() uint64 { return 1 }
 func (s *stubStore) GetBlockTransactionsAndReceipts(uint64) (types.Transactions, types.Receipts) {
 	return nil, nil
 }
-func (s *stubStore) FindBlockEpoch(idx.Block) idx.Epoch                     { return 1 }
-func (s *stubStore) GetHistoryEpochState(idx.Epoch) *iblockproc.EpochState  { return nil }
-func (s *stubStore) GetRules() opera.Rules                                  { return opera.Rules{} }
-func (s *stubStore) GetCurrentEpoch() idx.Epoch                             { return 1 }
-func (s *stubStore) GetBlock(idx.Block) *inter.Block                        { return nil }
+func (s *stubStore) FindBlockEpoch(idx.Block) idx.Epoch                    { return 1 }
+func (s *stubStore) GetHistoryEpochState(idx.Epoch) *iblockproc.EpochState { return nil }
+func (s *stubStore) GetRules() opera.Rules                                 { return opera.Rules{} }
+func (s *stubStore) GetCurrentEpoch() idx.Epoch                            { return 1 }
+func (s *stubStore) GetBlock(idx.Block) *inter.Block                       { return nil }
+
+// countingStore wraps stubStore with an atomic call counter on
+// GetHistoryEpochState, used to verify per-block memoization.
+type countingStore struct {
+	stubStore
+	getHistoryEpochStateCalls atomic.Int64
+}
+
+func (s *countingStore) GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState {
+	s.getHistoryEpochStateCalls.Add(1)
+	return s.stubStore.GetHistoryEpochState(i)
+}
 
 // TestEpochCleanupRunsDuringPrepareForBlock verifies that PaybackUsedMap is
 // reset when the epoch advances. This is the regression test for RA-PB-001:
@@ -332,6 +346,97 @@ func TestMaxPaybackEntries_CapsStakesMap(t *testing.T) {
 
 // TestAddTransaction_FeeRefundCappedAtTxFee verifies that FeeRefund values
 // exceeding the transaction fee are capped rather than blindly accumulated.
+// TestGetPaybackData_PrevEpochStateMemoizedPerBlock verifies that
+// store.GetHistoryEpochState is called exactly once per block regardless of
+// how many times GetAvailablePaybackByAddress's inner data-gathering path
+// runs within the block. This guards the lock-contention fix in getPaybackData.
+func TestGetPaybackData_PrevEpochStateMemoizedPerBlock(t *testing.T) {
+	store := &countingStore{}
+	pc := &PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+		store:          store,
+	}
+
+	addrs := []common.Address{
+		common.HexToAddress("0x1111"),
+		common.HexToAddress("0x2222"),
+		common.HexToAddress("0x3333"),
+		common.HexToAddress("0x4444"),
+		common.HexToAddress("0x5555"),
+	}
+
+	// Block 1 in epoch 5: five getPaybackData calls must produce exactly one
+	// store.GetHistoryEpochState call (memoized across txs in the block).
+	pc.PrepareForBlock(idx.Epoch(5), opera.Rules{}, time.Now())
+	for _, a := range addrs {
+		_, _, _, ok := pc.getPaybackData(a)
+		if !ok {
+			t.Fatalf("getPaybackData returned !ok for %v in block 1", a)
+		}
+	}
+	pc.FinishBlock()
+
+	if got := store.getHistoryEpochStateCalls.Load(); got != 1 {
+		t.Fatalf("expected exactly 1 GetHistoryEpochState call after block 1, got %d", got)
+	}
+
+	// Block 2 in epoch 5: memoization is per-block, so a fresh call must
+	// trigger one more store hit (total == 2).
+	pc.PrepareForBlock(idx.Epoch(5), opera.Rules{}, time.Now())
+	for _, a := range addrs {
+		_, _, _, ok := pc.getPaybackData(a)
+		if !ok {
+			t.Fatalf("getPaybackData returned !ok for %v in block 2", a)
+		}
+	}
+	pc.FinishBlock()
+
+	if got := store.getHistoryEpochStateCalls.Load(); got != 2 {
+		t.Fatalf("expected exactly 2 GetHistoryEpochState calls after block 2, got %d", got)
+	}
+}
+
+// TestPaybackCache_GetAvailablePayback_Race spawns many concurrent goroutines
+// hitting getPaybackData for the same block and asserts that memoization is
+// race-safe: exactly one store.GetHistoryEpochState call despite 32 racers.
+// Must be run with -race to catch data races on blkCtx.prevEpochState.
+func TestPaybackCache_GetAvailablePayback_Race(t *testing.T) {
+	store := &countingStore{}
+	pc := &PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+		store:          store,
+	}
+
+	pc.PrepareForBlock(idx.Epoch(7), opera.Rules{}, time.Now())
+
+	const goroutines = 32
+	const iterations = 10
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		g := g
+		go func() {
+			defer wg.Done()
+			addr := common.BigToAddress(big.NewInt(int64(g)))
+			for i := 0; i < iterations; i++ {
+				if _, _, _, ok := pc.getPaybackData(addr); !ok {
+					t.Errorf("getPaybackData returned !ok for goroutine %d iter %d", g, i)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	if got := store.getHistoryEpochStateCalls.Load(); got != 1 {
+		t.Fatalf("expected exactly 1 GetHistoryEpochState call under concurrency, got %d", got)
+	}
+
+	pc.FinishBlock()
+}
+
 func TestAddTransaction_FeeRefundCappedAtTxFee(t *testing.T) {
 	contractABI, _ := abi.JSON(strings.NewReader(paybackProxy.QuotaProxyABI))
 
