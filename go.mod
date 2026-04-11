@@ -106,3 +106,10 @@ replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.11
 replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.5-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
+
+// CVE mitigation: logrus v1.2.0 carries GHSA-4f99-4q7p-p3gh (Entry.Writer DoS).
+// Nothing in the compiled binary imports logrus — it is only in the module graph
+// via prometheus/common's transitive requirement — but the replace directive
+// silences Dependabot and prevents any future code path from accidentally
+// pulling the vulnerable version.
+replace github.com/sirupsen/logrus v1.2.0 => github.com/sirupsen/logrus v1.8.3
