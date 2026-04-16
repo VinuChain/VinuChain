@@ -1,10 +1,10 @@
 package evmmodule
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -72,9 +72,25 @@ type OperaEVMProcessor struct {
 }
 
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
-	baseFee := p.net.Economy.MinGasPrice
-	if !p.net.Upgrades.London {
-		baseFee = nil
+	var baseFee *big.Int
+	if p.net.Upgrades.London {
+		baseFee = p.net.Economy.MinGasPrice
+		if p.block.Idx != 0 {
+			parentHeader := p.reader.GetHeader(p.prevBlockHash, uint64(p.block.Idx-1))
+			if parentHeader != nil {
+				// Build the ETH-formatted parent header for CalcBaseFee, overriding
+				// GasLimit to MaxBlockGas to handle old stored blocks that have
+				// math.MaxUint64 as their gas limit.
+				parentEth := parentHeader.EthHeader()
+				parentEth.GasLimit = p.net.Blocks.MaxBlockGas
+				computed := misc.CalcBaseFee(p.evmCfg, parentEth)
+				// Clamp to the floor so base fee never drops below MinGasPrice.
+				if computed.Cmp(p.net.Economy.MinGasPrice) < 0 {
+					computed = new(big.Int).Set(p.net.Economy.MinGasPrice)
+				}
+				baseFee = computed
+			}
+		}
 	}
 	h := &evmcore.EvmHeader{
 		Number:     p.blockIdx,
@@ -83,7 +99,7 @@ func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlo
 		Root:       common.Hash{},
 		Time:       p.block.Time,
 		Coinbase:   common.Address{},
-		GasLimit:   math.MaxUint64,
+		GasLimit:   p.net.Blocks.MaxBlockGas,
 		GasUsed:    p.gasUsed,
 		BaseFee:    baseFee,
 	}

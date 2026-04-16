@@ -17,7 +17,6 @@
 package evmcore
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/Fantom-foundation/lachesis-base/hash"
@@ -81,7 +80,7 @@ func ToEvmHeader(block *inter.Block, index idx.Block, prevHash hash.Event, rules
 		Root:       common.Hash(block.Root),
 		Number:     big.NewInt(int64(index)),
 		Time:       block.Time,
-		GasLimit:   math.MaxUint64,
+		GasLimit:   rules.Blocks.MaxBlockGas,
 		GasUsed:    block.GasUsed,
 		BaseFee:    baseFee,
 	}
@@ -93,7 +92,7 @@ func ConvertFromEthHeader(h *types.Header) *EvmHeader {
 	return &EvmHeader{
 		Number:     h.Number,
 		Coinbase:   h.Coinbase,
-		GasLimit:   math.MaxUint64,
+		GasLimit:   h.GasLimit,
 		GasUsed:    h.GasUsed,
 		Root:       h.Root,
 		TxHash:     h.TxHash,
@@ -113,7 +112,7 @@ func (h *EvmHeader) EthHeader() *types.Header {
 	ethHeader := &types.Header{
 		Number:     h.Number,
 		Coinbase:   h.Coinbase,
-		GasLimit:   0xffffffffffff, // don't use h.GasLimit (too much bits) here to avoid parsing issues
+		GasLimit:   h.GasLimit,
 		GasUsed:    h.GasUsed,
 		Root:       h.Root,
 		TxHash:     h.TxHash,
