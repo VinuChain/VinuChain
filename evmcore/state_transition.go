@@ -344,10 +344,15 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	// When the network is congested (base fee above the chain-configured floor),
 	// suppress quota refunds so EIP-1559 fee escalation can deter spam.
-	// BaseFeeFloor is nil on simulation contexts (eth_call, estimateGas, tracers),
-	// where the guard is intentionally inert.
-	ctx := st.evm.Context
-	if ctx.BaseFeeFloor != nil && ctx.BaseFee != nil && ctx.BaseFee.Cmp(ctx.BaseFeeFloor) > 0 {
+	//
+	// Simulation paths (eth_call, estimateGas, tracers) also populate BaseFeeFloor
+	// since they fetch headers via ToEvmHeader. The guard may fire during simulation,
+	// but those callers pass availableQuota = 0, so the refund branch is already a
+	// no-op and the guard's effect is not observable. If a future simulation passes
+	// a non-zero quota, it will hit this guard under congestion — that's the correct
+	// behavior, not a bug.
+	baseFee, floor := st.evm.Context.BaseFee, st.evm.Context.BaseFeeFloor
+	if floor != nil && baseFee != nil && baseFee.Cmp(floor) > 0 {
 		st.state.AddBalance(st.msg.From(), remaining)
 		st.gp.AddGas(st.gas)
 		return
