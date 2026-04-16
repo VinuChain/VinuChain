@@ -16,3 +16,4 @@ feature-progress.json
 chainlist/
 *.code-workspace
 aws/
+.serena/
