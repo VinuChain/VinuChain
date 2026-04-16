@@ -1189,15 +1189,14 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	// because of another transaction (e.g. higher gas price).
 	if reset != nil {
 		pool.demoteUnexecutables()
-		if pool.chain.MinGasPrice() != nil {
-			// Opera-specific base fee
-			pool.priced.SetBaseFee(pool.chain.MinGasPrice())
-		} else {
-			// for tests only
-			if reset.newHead != nil && pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead.EthHeader())
-				pool.priced.SetBaseFee(pendingBaseFee)
+		if reset.newHead != nil && pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
+			pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead.EthHeader())
+			if pool.chain.MinGasPrice() != nil && pendingBaseFee.Cmp(pool.chain.MinGasPrice()) < 0 {
+				pendingBaseFee = new(big.Int).Set(pool.chain.MinGasPrice())
 			}
+			pool.priced.SetBaseFee(pendingBaseFee)
+		} else if pool.chain.MinGasPrice() != nil {
+			pool.priced.SetBaseFee(pool.chain.MinGasPrice())
 		}
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
