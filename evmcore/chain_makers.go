@@ -252,14 +252,6 @@ func makeHeader(parent *EvmBlock, _ *state.StateDB) *EvmHeader {
 	return header
 }
 
-// makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *EvmBlock, n int, db ethdb.Database, seed int) []*EvmBlock {
-	blocks, _, _ := GenerateChain(params.TestChainConfig, parent, db, n, func(i int, b *BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-	})
-	return blocks
-}
-
 type fakeChainReader struct {
 	config  *params.ChainConfig
 	genesis *EvmBlock
