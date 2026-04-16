@@ -43,10 +43,8 @@ type (
 		GasUsed  uint64
 
 		BaseFee *big.Int
-		// BaseFeeFloor is the chain-configured minimum base fee (Rules.Economy.MinGasPrice)
-		// threaded into vm.BlockContext so EVM consumers can detect congestion.
-		// Not round-tripped through types.Header (stock Ethereum has no such field);
-		// nil on headers built for simulation leaves the congestion guard inert.
+		// BaseFeeFloor threads rules.Economy.MinGasPrice into vm.BlockContext for congestion detection.
+		// Not serialized through types.Header (stock Ethereum has no such field).
 		BaseFeeFloor *big.Int
 	}
 
@@ -73,6 +71,17 @@ func NewEvmBlock(h *EvmHeader, txs types.Transactions) *EvmBlock {
 	return b
 }
 
+// BaseFeeFloorFor returns the chain-configured base fee floor for the given rules.
+// Callers pass this into EvmHeader.BaseFeeFloor so that NewEVMBlockContext can
+// propagate it to vm.BlockContext for congestion detection.
+// Returns nil if London is not active (no EIP-1559, no congestion concept).
+func BaseFeeFloorFor(rules opera.Rules) *big.Int {
+	if !rules.Upgrades.London {
+		return nil
+	}
+	return rules.Economy.MinGasPrice
+}
+
 // ToEvmHeader converts inter.Block to EvmHeader.
 func ToEvmHeader(block *inter.Block, index idx.Block, prevHash hash.Event, rules opera.Rules) *EvmHeader {
 	baseFee := rules.Economy.MinGasPrice
@@ -88,7 +97,7 @@ func ToEvmHeader(block *inter.Block, index idx.Block, prevHash hash.Event, rules
 		GasLimit:     rules.Blocks.MaxBlockGas,
 		GasUsed:      block.GasUsed,
 		BaseFee:      baseFee,
-		BaseFeeFloor: rules.Economy.MinGasPrice,
+		BaseFeeFloor: BaseFeeFloorFor(rules),
 	}
 }
 
@@ -145,8 +154,9 @@ func (b *EvmBlock) Header() *EvmHeader {
 	if b.BaseFee != nil {
 		h.BaseFee = new(big.Int).Set(b.BaseFee)
 	}
-	// BaseFeeFloor is shared from rules; the rules→context boundary copies
-	// defensively in NewEVMBlockContext, so referencing the rules pointer is safe.
+	if b.BaseFeeFloor != nil {
+		h.BaseFeeFloor = new(big.Int).Set(b.BaseFeeFloor)
+	}
 
 	return &h
 }

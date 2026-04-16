@@ -104,7 +104,7 @@ func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlo
 		GasLimit:     p.net.Blocks.MaxBlockGas,
 		GasUsed:      p.gasUsed,
 		BaseFee:      baseFee,
-		BaseFeeFloor: p.net.Economy.MinGasPrice,
+		BaseFeeFloor: evmcore.BaseFeeFloorFor(p.net),
 	}
 
 	return evmcore.NewEvmBlock(h, txs)
