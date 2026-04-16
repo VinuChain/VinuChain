@@ -339,6 +339,14 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 		return
 	}
 
+	// When the network is congested (base fee above floor), suppress quota refunds
+	// so EIP-1559 fee escalation can deter spam.
+	if st.evm.Context.BaseFee != nil && st.evm.Context.BaseFee.Cmp(new(big.Int).SetUint64(params.InitialBaseFee)) > 0 {
+		st.state.AddBalance(st.msg.From(), remaining)
+		st.gp.AddGas(st.gas)
+		return
+	}
+
 	if st.msg.From() != (common.Address{}) && st.availableQuota.Cmp(big.NewInt(0)) != 0 {
 		log.Debug("refundGas: QuotaValue", "address", st.msg.From().String(), "available", st.availableQuota.String())
 		log.Debug("refundGas: Fee", "address", st.msg.From().String(), "fee", fee.String())
