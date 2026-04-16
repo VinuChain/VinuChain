@@ -231,12 +231,13 @@ func FakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:    true,
-			London:    true,
-			Llr:       true,
-			Podgorica: true,
-			SfcV2:     true,
-			Elemont:   true,
+			Berlin:     true,
+			London:     true,
+			Llr:        true,
+			Podgorica:  true,
+			SfcV2:      true,
+			Elemont:    true,
+			SfcV2Patch: true,
 		},
 	}
 }
@@ -253,12 +254,13 @@ func LegacyFakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:    true,
-			London:    true,
-			Llr:       true,
-			Podgorica: true,
-			SfcV2:     true,
-			Elemont:   true,
+			Berlin:     true,
+			London:     true,
+			Llr:        true,
+			Podgorica:  true,
+			SfcV2:      true,
+			Elemont:    true,
+			SfcV2Patch: true,
 		},
 	}
 }
