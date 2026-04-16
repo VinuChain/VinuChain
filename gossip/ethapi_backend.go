@@ -222,7 +222,7 @@ func (b *EthAPIBackend) GetHeads(ctx context.Context, epoch rpc.BlockNumber) (he
 	return
 }
 
-func (b *EthAPIBackend) epochWithDefault(ctx context.Context, epoch rpc.BlockNumber) (requested idx.Epoch, err error) {
+func (b *EthAPIBackend) epochWithDefault(_ context.Context, epoch rpc.BlockNumber) (requested idx.Epoch, err error) {
 	current := b.svc.store.GetEpoch()
 
 	switch {

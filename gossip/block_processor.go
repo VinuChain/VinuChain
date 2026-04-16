@@ -193,7 +193,7 @@ func (bp *BlockProcessor) applyEvent(_e dag.Event) {
 			log.Crit("Event payload not found for confirmed event with misbehaviour proofs", "id", e.ID())
 			return
 		}
-		reportCheater := func(reporter, cheater idx.ValidatorID) {
+		reportCheater := func(_, cheater idx.ValidatorID) {
 			bp.mpsCheatersMap[cheater] = struct{}{}
 		}
 		mps := payload.MisbehaviourProofs()

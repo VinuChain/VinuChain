@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"bytes"
+	"context"
 	"sync/atomic"
 	"testing"
 
@@ -145,7 +146,7 @@ func TestSfcV2BytecodeSwapAfterRuntimeActivation(t *testing.T) {
 
 	// Sanity: at startup the SFC contract holds V1 bytecode (genesis did not
 	// pre-install V2 because rules.Upgrades.SfcV2 was false at genesis).
-	gotAtStart, err := env.CodeAt(nil, sfc.ContractAddress, nil)
+	gotAtStart, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(gotAtStart, v1Bin), "expected V1 SFC bytecode at startup, got %d bytes", len(gotAtStart))
 
@@ -159,7 +160,7 @@ func TestSfcV2BytecodeSwapAfterRuntimeActivation(t *testing.T) {
 	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
 	require.NoError(t, err)
 
-	gotAfterSeal, err := env.CodeAt(nil, sfc.ContractAddress, nil)
+	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(gotAfterSeal, v2Bin),
 		"expected V2 SFC bytecode (%d bytes) after epoch seal but got %d bytes; "+
@@ -236,7 +237,7 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
 	require.NoError(t, err)
 
-	gotAfterSeal, err := env.CodeAt(nil, sfc.ContractAddress, nil)
+	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(gotAfterSeal, v2Bin),
 		"SFC V2 bytecode swap must still fire after governance interleaving")

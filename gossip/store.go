@@ -116,7 +116,7 @@ func NewStore(dbs kvdb.FlushableDBProducer, cfg StoreConfig) *Store {
 		cfg:           cfg,
 		Instance:      logger.New("gossip-store"),
 		prevFlushTime: time.Now(),
-		rlp:           rlpstore.Helper{logger.New("rlp")},
+		rlp:           rlpstore.Helper{Instance: logger.New("rlp")},
 	}
 
 	err := table.OpenTables(&s.table, dbs, "gossip")

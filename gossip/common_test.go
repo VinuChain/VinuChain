@@ -306,7 +306,7 @@ func (env *testEnv) EmitUntil(stop func() bool) error {
 
 func (env *testEnv) Transfer(from, to idx.ValidatorID, amount *big.Int) *types.Transaction {
 	sender := env.Address(from)
-	nonce, _ := env.PendingNonceAt(nil, sender)
+	nonce, _ := env.PendingNonceAt(context.TODO(), sender)
 	env.incNonce(sender)
 	key := env.privateKey(from)
 	receiver := env.Address(to)
@@ -322,7 +322,7 @@ func (env *testEnv) Transfer(from, to idx.ValidatorID, amount *big.Int) *types.T
 
 func (env *testEnv) Contract(from idx.ValidatorID, amount *big.Int, hex string) *types.Transaction {
 	sender := env.Address(from)
-	nonce, _ := env.PendingNonceAt(nil, sender)
+	nonce, _ := env.PendingNonceAt(context.TODO(), sender)
 	env.incNonce(sender)
 	key := env.privateKey(from)
 	gp := env.store.GetRules().Economy.MinGasPrice
@@ -350,7 +350,7 @@ func (env *testEnv) Address(n idx.ValidatorID) common.Address {
 func (env *testEnv) Payer(n idx.ValidatorID, amounts ...*big.Int) *bind.TransactOpts {
 	key := env.privateKey(n)
 	t, _ := bind.NewKeyedTransactorWithChainID(key, new(big.Int).SetUint64(env.store.GetRules().NetworkID))
-	nonce, _ := env.PendingNonceAt(nil, env.Address(n))
+	nonce, _ := env.PendingNonceAt(context.TODO(), env.Address(n))
 	t.Nonce = big.NewInt(int64(nonce))
 	t.Value = big.NewInt(0)
 	for _, amount := range amounts {
@@ -430,7 +430,7 @@ func (env *testEnv) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 // callContract implements common code between normal and pending contract calls.
 // state is modified during execution, make sure to copy it if necessary.
 func (env *testEnv) callContract(
-	ctx context.Context, call ethereum.CallMsg, block *evmcore.EvmBlock, state *state.StateDB,
+	_ context.Context, call ethereum.CallMsg, block *evmcore.EvmBlock, state *state.StateDB,
 ) (
 	ret []byte, usedGas uint64, failed bool, err error,
 ) {

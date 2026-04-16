@@ -223,7 +223,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 				if txHash != nil {
 					break
 				}
-			} else if txHash != nil {
+			} else {
 				log.Debug("Replaying transaction without trace", "txHash", tx.Hash().String())
 				msg, err := tx.AsMessage(signer, block.BaseFee)
 				if err != nil {
@@ -549,7 +549,7 @@ func (s *PublicTxTraceAPI) Filter(ctx context.Context, args FilterArgs) (*[]txtr
 	return &callTrace.Actions, nil
 }
 
-func filterWorker(id int,
+func filterWorker(_ int,
 	s *PublicTxTraceAPI,
 	ctx context.Context,
 	blocks <-chan rpc.BlockNumber,

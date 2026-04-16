@@ -251,7 +251,7 @@ func (c *Config) Validate() error {
 		log.Warn("AllowUnprotectedTxs is enabled — this allows replay-vulnerable transactions")
 	}
 	p := c.Protocol
-	defaultChunkSize := dag.Metric{idx.Event(p.DagStreamLeecher.Session.DefaultChunkItemsNum), p.DagStreamLeecher.Session.DefaultChunkItemsSize}
+	defaultChunkSize := dag.Metric{Num: idx.Event(p.DagStreamLeecher.Session.DefaultChunkItemsNum), Size: p.DagStreamLeecher.Session.DefaultChunkItemsSize}
 	if defaultChunkSize.Num > hardLimitItems-1 {
 		return fmt.Errorf("DefaultChunkSize.Num has to be at not greater than %d", hardLimitItems-1)
 	}

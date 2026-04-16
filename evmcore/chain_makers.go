@@ -234,7 +234,7 @@ func GenerateChain(config *params.ChainConfig, parent *EvmBlock, db ethdb.Databa
 	return blocks, receipts, chain
 }
 
-func makeHeader(parent *EvmBlock, state *state.StateDB) *EvmHeader {
+func makeHeader(parent *EvmBlock, _ *state.StateDB) *EvmHeader {
 	var t inter.Timestamp
 	if parent.Time == 0 {
 		t = 10
@@ -250,19 +250,6 @@ func makeHeader(parent *EvmBlock, state *state.StateDB) *EvmHeader {
 		Time:       t,
 	}
 	return header
-}
-
-// makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *EvmHeader, n int, db ethdb.Database, seed int) []*EvmHeader {
-	block := &EvmBlock{}
-	block.EvmHeader = *parent
-
-	blocks := makeBlockChain(block, n, db, seed)
-	headers := make([]*EvmHeader, len(blocks))
-	for i, block := range blocks {
-		headers[i] = block.Header()
-	}
-	return headers
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.

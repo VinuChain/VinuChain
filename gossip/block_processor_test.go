@@ -21,7 +21,6 @@ import (
 // dispatchBlock takes, confirming that both code paths exist and are reachable.
 // The actual defer/recover pattern in each branch is verified by code review.
 func TestDispatchBlockSyncPathRecoversPanic(t *testing.T) {
-	var flag uint32
 	var wg sync.WaitGroup
 	quit := make(chan struct{})
 	defer close(quit)
@@ -30,9 +29,6 @@ func TestDispatchBlockSyncPathRecoversPanic(t *testing.T) {
 	defer tasks.Drain()
 
 	bp := &BlockProcessor{
-		parallelTasks:   tasks,
-		wg:              &wg,
-		blockBusyFlag:   &flag,
 		confirmedEvents: make(hash.OrderedEvents, 0),
 	}
 
@@ -60,8 +56,6 @@ func TestDispatchBlockAsyncPathHasRecovery(t *testing.T) {
 	defer tasks.Drain()
 
 	bp := &BlockProcessor{
-		parallelTasks:   tasks,
-		wg:              &wg,
 		blockBusyFlag:   &flag,
 		confirmedEvents: hash.OrderedEvents{hash.ZeroEvent},
 	}

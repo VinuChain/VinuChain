@@ -112,9 +112,7 @@ func fetchEvs(generator *testEnv) map[idx.Epoch][]*inter.LlrSignedEpochVote {
 			generator.store.Log.Crit("Failed to decode epoch vote", "err", err)
 		}
 
-		if ev != nil {
-			m[ev.Val.Epoch] = append(m[ev.Val.Epoch], ev)
-		}
+		m[ev.Val.Epoch] = append(m[ev.Val.Epoch], ev)
 	}
 	return m
 }
@@ -152,10 +150,8 @@ func fetchBvsBlockIdxs(generator *testEnv) ([]*inter.LlrSignedBlockVotes, []idx.
 			generator.store.Log.Crit("Failed to decode block vote while running ", "err", err)
 		}
 
-		if bv != nil {
-			fillblockIdxCountMap(bv)
-			bvs = append(bvs, bv)
-		}
+		fillblockIdxCountMap(bv)
+		bvs = append(bvs, bv)
 	}
 
 	return bvs, fetchBlockIdxs(blockIdxCountMap)
@@ -286,11 +282,9 @@ func fetchTxsbyBlock(env *testEnv) map[idx.Block]types.Transactions {
 			env.store.Log.Crit("Failed to decode block", "err", err)
 		}
 
-		if block != nil {
-			n := idx.BytesToBlock(it.Key())
-			txs := env.store.GetBlockTxs(n, block)
-			m[n] = txs
-		}
+		n := idx.BytesToBlock(it.Key())
+		txs := env.store.GetBlockTxs(n, block)
+		m[n] = txs
 	}
 	return m
 }
@@ -795,9 +789,7 @@ func (s *IntegrationTestSuite) TestFullRepeater() {
 				if err := rlp.DecodeBytes(it.Value(), e); err != nil {
 					s.generator.store.Log.Crit("Failed to decode event", "err", err)
 				}
-				if e != nil {
-					events = append(events, e)
-				}
+				events = append(events, e)
 			}
 			return
 		}()
@@ -975,7 +967,7 @@ func fakeEvent(bvsNum int, bvEpoch idx.Epoch, ersNum bool, evEpoch idx.Epoch, va
 	random.SetCreationTime(inter.Timestamp(r.Uint64()))
 	random.SetMedianTime(inter.Timestamp(r.Uint64()))
 	random.SetGasPowerUsed(r.Uint64())
-	random.SetGasPowerLeft(inter.GasPowerLeft{[2]uint64{r.Uint64(), r.Uint64()}})
+	random.SetGasPowerLeft(inter.GasPowerLeft{Gas: [2]uint64{r.Uint64(), r.Uint64()}})
 
 	bvs := inter.LlrBlockVotes{}
 	if bvsNum > 0 {
@@ -1013,44 +1005,6 @@ func fakeEvent(bvsNum int, bvEpoch idx.Epoch, ersNum bool, evEpoch idx.Epoch, va
 	return random.Build()
 }
 
-func randBig(r *rand.Rand) *big.Int {
-	b := make([]byte, r.Intn(8))
-	_, _ = r.Read(b)
-	if len(b) == 0 {
-		b = []byte{0}
-	}
-	return new(big.Int).SetBytes(b)
-}
-
-func randBytes(r *rand.Rand, size int) []byte {
-	b := make([]byte, size)
-	r.Read(b)
-	return b
-}
-
-func randAddrPtr(r *rand.Rand) *common.Address {
-	addr := randAddr(r)
-	return &addr
-}
-
-func randAddr(r *rand.Rand) common.Address {
-	addr := common.Address{}
-	r.Read(addr[:])
-	return addr
-}
-
-func randAccessList(r *rand.Rand, maxAddrs, maxKeys int) types.AccessList {
-	accessList := make(types.AccessList, r.Intn(maxAddrs))
-	for i := range accessList {
-		accessList[i].Address = randAddr(r)
-		accessList[i].StorageKeys = make([]common.Hash, r.Intn(maxKeys))
-		for j := range accessList[i].StorageKeys {
-			r.Read(accessList[i].StorageKeys[j][:])
-		}
-	}
-	return accessList
-}
-
 func TestEpochRecordWithDiffValidators(t *testing.T) {
 	const (
 		validatorsNum = 10
@@ -1085,7 +1039,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 
 	// process ER of 3rd epoch
 	er := ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, esCopy},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
 		Idx:                idx.Epoch(startEpoch + 1),
 	}
 	erHash := er.Hash()
@@ -1106,7 +1060,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 
 	// put es and bs of 3rd apoch at LlrIdxFullEpochRecord of epoch 4
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 2)}
 	erHash = er.Hash()
 
@@ -1149,7 +1103,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 	esCopy.Validators = newVals
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, esCopy},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
 		Idx:                idx.Epoch(startEpoch + 3),
 	}
 	erHash = er.Hash()
@@ -1166,7 +1120,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 	bs, es = env.store.GetHistoryBlockEpochState(startEpoch + 3)
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 4),
 	}
 	erHash = er.Hash()
@@ -1229,7 +1183,7 @@ func TestProcessEpochVotesWonErNil(t *testing.T) {
 	esCopy.Validators = newVals
 
 	er := ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, esCopy},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
 		Idx:                idx.Epoch(startEpoch + 1),
 	}
 	erHash := er.Hash()
@@ -1246,7 +1200,7 @@ func TestProcessEpochVotesWonErNil(t *testing.T) {
 	bs, es = env.store.GetHistoryBlockEpochState(startEpoch + 1)
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 2),
 	}
 	erHash = er.Hash()
@@ -1317,7 +1271,7 @@ func TestProcessEpochVotesWonErNotNilDoubleSign(t *testing.T) {
 	esCopy.Validators = newVals
 
 	er := ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, esCopy},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
 		Idx:                idx.Epoch(startEpoch + 1),
 	}
 	erHash := er.Hash()
@@ -1334,7 +1288,7 @@ func TestProcessEpochVotesWonErNotNilDoubleSign(t *testing.T) {
 	bs, es = env.store.GetHistoryBlockEpochState(startEpoch + 1)
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 2),
 	}
 
@@ -1387,7 +1341,7 @@ func TestProcessEpochVotesWonErNotNilDoubleSign(t *testing.T) {
 	bs, es = env.store.GetHistoryBlockEpochState(startEpoch + 2)
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 3),
 	}
 
@@ -1527,7 +1481,7 @@ func TestBlockVotesTests(t *testing.T) {
 
 	// process ER of 3rd epoch
 	er := ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, esCopy},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
 		Idx:                idx.Epoch(startEpoch + 1),
 	}
 	erHash := er.Hash()
@@ -1552,7 +1506,7 @@ func TestBlockVotesTests(t *testing.T) {
 	bs, es = env.store.GetHistoryBlockEpochState(startEpoch + 1)
 
 	er = ier.LlrIdxFullEpochRecord{
-		LlrFullEpochRecord: ier.LlrFullEpochRecord{*bs, *es},
+		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 2)}
 	erHash = er.Hash()
 
