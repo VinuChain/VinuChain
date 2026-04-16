@@ -88,9 +88,7 @@ func (s *PublicTxTraceAPI) traceTx(
 
 	gp := new(evmcore.GasPool).AddGas(msg.Gas())
 	state.Prepare(tx.Hash(), int(index))
-	// Tracer re-executes a historical tx for debug output; baseFeeFloor nil
-	// keeps the congestion guard inert (no state is persisted).
-	result, err := evmcore.ApplyMessage(vmenv, msg, gp, big.NewInt(0), nil)
+	result, err := evmcore.ApplyMessage(vmenv, msg, gp, big.NewInt(0))
 
 	if result != nil {
 		txTracer.SetGasUsed(result.UsedGas)
@@ -237,8 +235,7 @@ func (s *PublicTxTraceAPI) traceBlock(ctx context.Context, block *evmcore.EvmBlo
 				vmConfig.Debug = false
 				vmConfig.Tracer = nil
 				vmenv := vm.NewEVM(blockCtx, evmcore.NewEVMTxContext(msg), stateDB, s.b.ChainConfig(), vmConfig)
-				// Tracer replay simulation; baseFeeFloor nil disables the congestion guard.
-				res, applyErr := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0), nil)
+				res, applyErr := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0))
 				failed := applyErr != nil
 				if applyErr != nil {
 					log.Error("Cannot replay transaction", "txHash", tx.Hash().String(), "err", applyErr.Error())

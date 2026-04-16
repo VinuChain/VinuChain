@@ -75,7 +75,8 @@ type OperaEVMProcessor struct {
 
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
 	if p.cachedBaseFee == nil && p.net.Upgrades.London {
-		p.cachedBaseFee = p.net.Economy.MinGasPrice
+		// Defensive copy: rules pointer is shared across blocks and callers.
+		p.cachedBaseFee = new(big.Int).Set(p.net.Economy.MinGasPrice)
 		if p.block.Idx != 0 {
 			parentHeader := p.reader.GetHeader(p.prevBlockHash, uint64(p.block.Idx-1))
 			if parentHeader != nil {
@@ -94,15 +95,16 @@ func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlo
 	}
 	baseFee := p.cachedBaseFee
 	h := &evmcore.EvmHeader{
-		Number:     p.blockIdx,
-		Hash:       common.Hash(p.block.Atropos),
-		ParentHash: p.prevBlockHash,
-		Root:       common.Hash{},
-		Time:       p.block.Time,
-		Coinbase:   common.Address{},
-		GasLimit:   p.net.Blocks.MaxBlockGas,
-		GasUsed:    p.gasUsed,
-		BaseFee:    baseFee,
+		Number:       p.blockIdx,
+		Hash:         common.Hash(p.block.Atropos),
+		ParentHash:   p.prevBlockHash,
+		Root:         common.Hash{},
+		Time:         p.block.Time,
+		Coinbase:     common.Address{},
+		GasLimit:     p.net.Blocks.MaxBlockGas,
+		GasUsed:      p.gasUsed,
+		BaseFee:      baseFee,
+		BaseFeeFloor: p.net.Economy.MinGasPrice,
 	}
 
 	return evmcore.NewEvmBlock(h, txs)
@@ -130,7 +132,7 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 		// Note: l.Index is properly set before
 		l.TxIndex += txsOffset
 		p.onNewLog(l)
-	}, p.paybackCache, p.net.Economy.MinGasPrice)
+	}, p.paybackCache)
 	if err != nil {
 		// log.Crit exits without flush — acceptable here because an EVM
 		// internal error (distinct from a reverted tx) signals a consensus-

@@ -33,8 +33,9 @@ type DummyChain interface {
 // NewEVMBlockContext creates a new context for use in the EVM.
 func NewEVMBlockContext(header *EvmHeader, chain DummyChain, author *common.Address) vm.BlockContext {
 	var (
-		beneficiary common.Address
-		baseFee     *big.Int
+		beneficiary  common.Address
+		baseFee      *big.Int
+		baseFeeFloor *big.Int
 	)
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	if author == nil {
@@ -45,16 +46,21 @@ func NewEVMBlockContext(header *EvmHeader, chain DummyChain, author *common.Addr
 	if header.BaseFee != nil {
 		baseFee = new(big.Int).Set(header.BaseFee)
 	}
+	if header.BaseFeeFloor != nil {
+		// Defensive copy: the rules pointer is shared across blocks and callers.
+		baseFeeFloor = new(big.Int).Set(header.BaseFeeFloor)
+	}
 	return vm.BlockContext{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
-		GetHash:     GetHashFn(header, chain),
-		Coinbase:    beneficiary,
-		BlockNumber: new(big.Int).Set(header.Number),
-		Time:        new(big.Int).SetUint64(uint64(header.Time.Unix())),
-		Difficulty:  big.NewInt(1),
-		BaseFee:     baseFee,
-		GasLimit:    header.GasLimit,
+		CanTransfer:  CanTransfer,
+		Transfer:     Transfer,
+		GetHash:      GetHashFn(header, chain),
+		Coinbase:     beneficiary,
+		BlockNumber:  new(big.Int).Set(header.Number),
+		Time:         new(big.Int).SetUint64(uint64(header.Time.Unix())),
+		Difficulty:   big.NewInt(1),
+		BaseFee:      baseFee,
+		BaseFeeFloor: baseFeeFloor,
+		GasLimit:     header.GasLimit,
 	}
 }
 

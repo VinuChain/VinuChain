@@ -100,8 +100,7 @@ func (b *BlockGen) AddTxWithChain(bc DummyChain, tx *types.Transaction) {
 	b.statedb.Prepare(tx.Hash(), len(b.txs))
 	blockContext := NewEVMBlockContext(b.header, bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, b.statedb, b.config, opera.DefaultVMConfig)
-	// Test block generator; baseFeeFloor is nil so the congestion guard is inert.
-	receipt, _, _, err := applyTransaction(msg, b.config, b.gasPool, b.statedb, b.header.Number, b.header.Hash, tx, &b.header.GasUsed, vmenv, func(log *types.Log, db *state.StateDB) {}, nil, nil)
+	receipt, _, _, err := applyTransaction(msg, b.config, b.gasPool, b.statedb, b.header.Number, b.header.Hash, tx, &b.header.GasUsed, vmenv, func(log *types.Log, db *state.StateDB) {}, nil)
 	if err != nil {
 		panic(err)
 	}
