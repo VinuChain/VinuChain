@@ -64,6 +64,8 @@ type OperaEVMProcessor struct {
 
 	gasUsed uint64
 
+	cachedBaseFee *big.Int // computed once from parent header, reused in Finalize
+
 	incomingTxs types.Transactions
 	skippedTxs  []uint32
 	receipts    types.Receipts
@@ -72,9 +74,8 @@ type OperaEVMProcessor struct {
 }
 
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
-	var baseFee *big.Int
-	if p.net.Upgrades.London {
-		baseFee = p.net.Economy.MinGasPrice
+	if p.cachedBaseFee == nil && p.net.Upgrades.London {
+		p.cachedBaseFee = p.net.Economy.MinGasPrice
 		if p.block.Idx != 0 {
 			parentHeader := p.reader.GetHeader(p.prevBlockHash, uint64(p.block.Idx-1))
 			if parentHeader != nil {
@@ -84,14 +85,14 @@ func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlo
 				parentEth := parentHeader.EthHeader()
 				parentEth.GasLimit = p.net.Blocks.MaxBlockGas
 				computed := misc.CalcBaseFee(p.evmCfg, parentEth)
-				// Clamp to the floor so base fee never drops below MinGasPrice.
 				if computed.Cmp(p.net.Economy.MinGasPrice) < 0 {
 					computed = new(big.Int).Set(p.net.Economy.MinGasPrice)
 				}
-				baseFee = computed
+				p.cachedBaseFee = computed
 			}
 		}
 	}
+	baseFee := p.cachedBaseFee
 	h := &evmcore.EvmHeader{
 		Number:     p.blockIdx,
 		Hash:       common.Hash(p.block.Atropos),

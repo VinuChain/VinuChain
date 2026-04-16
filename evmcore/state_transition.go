@@ -29,6 +29,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+// bigInitialBaseFee is the EIP-1559 initial base fee (1 Gwei) as a *big.Int,
+// used to detect congestion without allocating on every transaction.
+var bigInitialBaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+
 var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 /*
@@ -341,7 +345,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 
 	// When the network is congested (base fee above floor), suppress quota refunds
 	// so EIP-1559 fee escalation can deter spam.
-	if st.evm.Context.BaseFee != nil && st.evm.Context.BaseFee.Cmp(new(big.Int).SetUint64(params.InitialBaseFee)) > 0 {
+	if st.evm.Context.BaseFee != nil && st.evm.Context.BaseFee.Cmp(bigInitialBaseFee) > 0 {
 		st.state.AddBalance(st.msg.From(), remaining)
 		st.gp.AddGas(st.gas)
 		return
