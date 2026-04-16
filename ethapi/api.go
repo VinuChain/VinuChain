@@ -1067,7 +1067,9 @@ func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash 
 
 	// Execute the message.
 	gp := new(evmcore.GasPool).AddGas(math.MaxUint64)
-	result, err := evmcore.ApplyMessage(evm, msg, gp, big.NewInt(0))
+	// eth_call / estimateGas are read-only simulations; baseFeeFloor is nil so
+	// the congestion guard in refundGas is inert.
+	result, err := evmcore.ApplyMessage(evm, msg, gp, big.NewInt(0), nil)
 	if err := vmError(); err != nil {
 		return nil, err
 	}
@@ -1621,7 +1623,8 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		res, err := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0))
+		// createAccessList simulation; baseFeeFloor nil disables the congestion guard.
+		res, err := evmcore.ApplyMessage(vmenv, msg, new(evmcore.GasPool).AddGas(msg.Gas()), big.NewInt(0), nil)
 		if err != nil {
 			return nil, 0, nil, fmt.Errorf("failed to apply transaction: %v err: %v", args.toTransaction().Hash(), err)
 		}

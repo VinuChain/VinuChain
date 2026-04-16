@@ -89,6 +89,8 @@ func precacheTransaction(msg types.Message, config *params.ChainConfig, gaspool 
 	// Update the evm with the new transaction context.
 	evm.Reset(NewEVMTxContext(msg), statedb)
 	// Add addresses to access list if applicable
-	_, err := ApplyMessage(evm, msg, gaspool, big.NewInt(0))
+	// Prefetch is a read-only prefetcher; baseFeeFloor is nil so the congestion
+	// guard in refundGas does not fire.
+	_, err := ApplyMessage(evm, msg, gaspool, big.NewInt(0), nil)
 	return err
 }

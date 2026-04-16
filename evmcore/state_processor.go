@@ -65,6 +65,7 @@ func (p *StateProcessor) Process(
 	usedGas *uint64,
 	onNewLog func(*types.Log, *state.StateDB),
 	paybackCache *payback.PaybackCache,
+	baseFeeFloor *big.Int,
 ) (
 	receipts types.Receipts, allLogs []*types.Log, skipped []uint32, err error,
 ) {
@@ -95,7 +96,7 @@ func (p *StateProcessor) Process(
 
 		statedb.Prepare(tx.Hash(), i)
 
-		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, paybackCache)
+		receipt, _, skip, err = applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, onNewLog, paybackCache, baseFeeFloor)
 		if skip {
 			skipped = append(skipped, uint32(i))
 			err = nil
@@ -129,6 +130,7 @@ func applyTransaction(
 	evm *vm.EVM,
 	onNewLog func(*types.Log, *state.StateDB),
 	paybackCache *payback.PaybackCache,
+	baseFeeFloor *big.Int,
 ) (
 	*types.Receipt,
 	uint64,
@@ -155,7 +157,7 @@ func applyTransaction(
 	availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From(), evm)
 
 	// Apply the transaction to the current state (included in the env).
-	result, err := ApplyMessage(evm, msg, gp, availablePayback)
+	result, err := ApplyMessage(evm, msg, gp, availablePayback, baseFeeFloor)
 	if err != nil {
 		return nil, 0, result == nil, err
 	}

@@ -29,10 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// bigInitialBaseFee is the EIP-1559 initial base fee (1 Gwei) as a *big.Int,
-// used to detect congestion without allocating on every transaction.
-var bigInitialBaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
-
 var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 /*
@@ -66,6 +62,11 @@ type StateTransition struct {
 	evm            *vm.EVM
 	availableQuota *big.Int
 	feeRefund      *big.Int
+	// baseFeeFloor is the chain-configured minimum base fee (Rules.Economy.MinGasPrice).
+	// When the block's actual base fee exceeds this floor, the network is congested and
+	// quota refunds are suppressed so EIP-1559 escalation can deter spam.
+	// nil disables the guard — used by simulations and tests that don't care about congestion.
+	baseFeeFloor *big.Int
 }
 
 // Message represents a message sent to a contract.
@@ -159,7 +160,10 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 }
 
 // NewStateTransition initialises and returns a new state transition object.
-func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) *StateTransition {
+//
+// baseFeeFloor is the chain-configured minimum base fee; when nil, the congestion
+// guard in refundGas is disabled (appropriate for read-only simulations).
+func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int, baseFeeFloor *big.Int) *StateTransition {
 	return &StateTransition{
 		gp:             gp,
 		evm:            evm,
@@ -170,6 +174,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *b
 		state:          evm.StateDB,
 		availableQuota: availableQuota,
 		feeRefund:      big.NewInt(0),
+		baseFeeFloor:   baseFeeFloor,
 	}
 }
 
@@ -180,8 +185,11 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *b
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int) (*ExecutionResult, error) {
-	res, err := NewStateTransition(evm, msg, gp, availableQuota).TransitionDb()
+//
+// baseFeeFloor is the chain-configured minimum base fee; when nil, the congestion
+// guard in refundGas is disabled (appropriate for read-only simulations).
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, availableQuota *big.Int, baseFeeFloor *big.Int) (*ExecutionResult, error) {
+	res, err := NewStateTransition(evm, msg, gp, availableQuota, baseFeeFloor).TransitionDb()
 	if err != nil {
 		log.Debug("Tx skipped", "err", err)
 	}
@@ -343,9 +351,11 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 		return
 	}
 
-	// When the network is congested (base fee above floor), suppress quota refunds
-	// so EIP-1559 fee escalation can deter spam.
-	if st.evm.Context.BaseFee != nil && st.evm.Context.BaseFee.Cmp(bigInitialBaseFee) > 0 {
+	// When the network is congested (base fee above the chain-configured floor),
+	// suppress quota refunds so EIP-1559 fee escalation can deter spam.
+	// baseFeeFloor is nil for simulations (eth_call, estimateGas, tracers), where the
+	// guard is intentionally inert.
+	if st.baseFeeFloor != nil && st.evm.Context.BaseFee != nil && st.evm.Context.BaseFee.Cmp(st.baseFeeFloor) > 0 {
 		st.state.AddBalance(st.msg.From(), remaining)
 		st.gp.AddGas(st.gas)
 		return

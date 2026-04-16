@@ -78,7 +78,9 @@ func TestFeeRefundBoundaries(t *testing.T) {
 			)
 
 			gp := new(GasPool).AddGas(gasLimit)
-			result, err := ApplyMessage(evm, msg, gp, tc.availableQuota)
+			// baseFeeFloor is nil: the block BaseFee is 0 so the congestion guard
+			// is irrelevant; this keeps the test focused on refund-boundary logic.
+			result, err := ApplyMessage(evm, msg, gp, tc.availableQuota, nil)
 			if err != nil {
 				t.Fatalf("ApplyMessage: %v", err)
 			}

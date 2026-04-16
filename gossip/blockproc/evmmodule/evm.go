@@ -130,7 +130,7 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 		// Note: l.Index is properly set before
 		l.TxIndex += txsOffset
 		p.onNewLog(l)
-	}, p.paybackCache)
+	}, p.paybackCache, p.net.Economy.MinGasPrice)
 	if err != nil {
 		// log.Crit exits without flush — acceptable here because an EVM
 		// internal error (distinct from a reverted tx) signals a consensus-
