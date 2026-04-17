@@ -388,6 +388,15 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
+	// SfcV2Patch2 installs the current GetContractBin() over testnet's stuck
+	// b7ab5b5-era bytecode (43,743 bytes). SfcV2Patch is exhausted on testnet
+	// (it fired when GetContractBin still returned the old bytecode), so this
+	// second one-shot transition brings testnet to the Cycle-158 45,240-byte
+	// bytecode without a chain reset.
+	if bp.es.Rules.Upgrades.SfcV2Patch2 && !prevUpg.SfcV2Patch2 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 2)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*
 	// epoch rules, NOT from staged DirtyRules — so on a binary upgrade where

@@ -29,6 +29,7 @@ const (
 	sfcV2Bit                 = 1 << 4
 	elemontBit               = 1 << 5
 	sfcV2PatchBit            = 1 << 6
+	sfcV2Patch2Bit           = 1 << 7
 )
 
 var DefaultVMConfig = vm.Config{
@@ -156,6 +157,16 @@ type Upgrades struct {
 	// returns, so mainnet operators do not need to enable SfcV2Patch when
 	// performing their first SfcV2 activation.
 	SfcV2Patch bool
+	// SfcV2Patch2 re-flashes the SFC V2 bytecode a second time. It exists
+	// because testnet activated SfcV2Patch while GetContractBin() still
+	// returned the b7ab5b5-era 43,743-byte bytecode (missing the
+	// reentrancyguard fix and all Cycle 158 hardening). SfcV2Patch is now
+	// exhausted on testnet and cannot fire again. SfcV2Patch2 provides a
+	// new one-shot transition so the current 45,240-byte Cycle-158 bytecode
+	// is installed on testnet without a chain reset. Mainnet does not need
+	// this flag — its first SfcV2 activation installs the latest bytecode
+	// directly.
+	SfcV2Patch2 bool
 }
 
 type UpgradeHeight struct {
@@ -231,13 +242,14 @@ func FakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:     true,
-			London:     true,
-			Llr:        true,
-			Podgorica:  true,
-			SfcV2:      true,
-			Elemont:    true,
-			SfcV2Patch: true,
+			Berlin:      true,
+			London:      true,
+			Llr:         true,
+			Podgorica:   true,
+			SfcV2:       true,
+			Elemont:     true,
+			SfcV2Patch:  true,
+			SfcV2Patch2: true,
 		},
 	}
 }
@@ -254,13 +266,14 @@ func LegacyFakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:     true,
-			London:     true,
-			Llr:        true,
-			Podgorica:  true,
-			SfcV2:      true,
-			Elemont:    true,
-			SfcV2Patch: true,
+			Berlin:      true,
+			London:      true,
+			Llr:         true,
+			Podgorica:   true,
+			SfcV2:       true,
+			Elemont:     true,
+			SfcV2Patch:  true,
+			SfcV2Patch2: true,
 		},
 	}
 }
@@ -278,13 +291,14 @@ func VinuChainTestNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:     true,
-			London:     true,
-			Llr:        true,
-			Podgorica:  true,
-			SfcV2:      true,
-			Elemont:    true,
-			SfcV2Patch: true,
+			Berlin:      true,
+			London:      true,
+			Llr:         true,
+			Podgorica:   true,
+			SfcV2:       true,
+			Elemont:     true,
+			SfcV2Patch:  true,
+			SfcV2Patch2: true,
 		},
 	}
 }
@@ -301,15 +315,14 @@ func VinuChainTestNetRules() Rules {
 // upgrade replaces SFC contract bytecode at startup, which must be coordinated
 // across all validators via a code release, not an on-chain governance proposal.
 //
-// SfcV2Patch is intentionally NOT set here. The flag exists only to re-flash
-// the SFC bytecode on networks that already activated SfcV2 with an earlier
-// (buggy) version of the V2 bytecode. Mainnet has not yet activated SfcV2, so
+// SfcV2Patch and SfcV2Patch2 are intentionally NOT set here. Both flags exist
+// only to re-flash the SFC bytecode on networks that activated SfcV2 with
+// stale bytecode (testnet only). Mainnet has not yet activated SfcV2, so
 // its first SfcV2 transition will install whatever GetContractBin() currently
 // returns — which is the latest corrected bytecode — and no re-flash is
-// needed. Leave SfcV2Patch unset here; adding it would be a harmless no-op
-// but would also obscure the invariant that mainnet's first SfcV2 activation
-// already picks up every subsequent correctness fix to the V2 bytecode
-// automatically.
+// needed. Leave both unset here; adding them would be harmless no-ops but
+// would obscure the invariant that mainnet's first SfcV2 activation already
+// picks up every subsequent correctness fix to the V2 bytecode automatically.
 func VinuChainMainNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Mainnet",
