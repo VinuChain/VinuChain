@@ -1004,7 +1004,7 @@
 ### [R2-M-7] No validation of PeerProgress values — Score: 15
 
 **Resolved**: Cycle 8, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: validatePeerProgress() with epoch/block drift constants, returns errResp to disconnect misbehaving peers
 **Verified by**: go test ./gossip/... passes
 
@@ -1017,21 +1017,21 @@
 ### [R2-M-10] cryptoRandIntn behavior documented — Score: 12
 
 **Resolved**: Cycle 8, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: Doc comment added explaining log.Crit is intentional for unrecoverable crypto/rand failure
 **Verified by**: go test ./gossip/... passes
 
 ### [R2-M-11] SfcV2 activation path documented — Score: 10
 
 **Resolved**: Cycle 8, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: Comment added to VinuChainMainNetRules() explaining SfcV2 requires code release
 **Verified by**: Code review of opera/rules.go
 
 ### [R2-M-14] Genesis tests enhanced — Score: 10
 
 **Resolved**: Cycle 8, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: assertGenesisStructure checks validator count, epoch timestamps, NetworkID, block indices, EVM items
 **Verified by**: go test ./integration/makefakegenesis/... passes
 
@@ -1081,14 +1081,14 @@
 ### [R2-L-14] Linux data dir migration documented — Score: 5
 
 **Resolved**: Cycle 9, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: Comment clarifies .vinuchain default with .opera legacy fallback migration path
 **Verified by**: Code review of cmd/opera/launcher/defaults.go
 
 ### [R2-L-19] parseFakeGen error propagated — Score: 5
 
 **Resolved**: Cycle 9, 2026-03-27
-**Commit**: Pending (this cycle)
+**Commit**: `9278d71` (Round 2 bulk)
 **Regression test**: Error now returned as fmt.Errorf instead of log.Warn, caller terminates with clear message
 **Verified by**: go test ./cmd/opera/launcher/... passes
 
