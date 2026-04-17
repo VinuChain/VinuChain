@@ -3,7 +3,7 @@ package launcher
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -19,7 +19,7 @@ import (
 func addFakeValidatorKey(_ *cli.Context, key *ecdsa.PrivateKey, pubkey validatorpk.PubKey, valKeystore valkeystore.RawKeystoreI) {
 	// add fake validator key
 	if key != nil && !valKeystore.Has(pubkey) {
-		err := valKeystore.Add(pubkey, crypto.FromECDSA(key), validatorpk.FakePassword)
+		err := valKeystore.Add(pubkey, crypto.FromECDSA(key), "fakepassword")
 		if err != nil {
 			utils.Fatalf("Failed to add fake validator key: %v", err)
 		}
@@ -37,7 +37,7 @@ func getValKeystoreDir(cfg node.Config) string {
 // makeValidatorPasswordList reads password lines from the file specified by the global --validator.password flag.
 func makeValidatorPasswordList(ctx *cli.Context) []string {
 	if path := ctx.GlobalString(validatorPasswordFlag.Name); path != "" {
-		text, err := ioutil.ReadFile(path)
+		text, err := os.ReadFile(path)
 		if err != nil {
 			utils.Fatalf("Failed to read password file: %v", err)
 		}
@@ -49,7 +49,7 @@ func makeValidatorPasswordList(ctx *cli.Context) []string {
 		return lines
 	}
 	if ctx.GlobalIsSet(FakeNetFlag.Name) {
-		return []string{validatorpk.FakePassword}
+		return []string{"fakepassword"}
 	}
 	return nil
 }

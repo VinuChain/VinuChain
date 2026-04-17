@@ -5,14 +5,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// FakePassword is the passphrase used to encrypt validator keys on fakenet
-	// and in test fixtures. It is intentionally compiled into the production
-	// binary so that the fakenet CLI (--fakenet) can decrypt keys without user
-	// interaction. It must never be used for real validator key encryption.
-	FakePassword = "fakepassword"
-)
-
 type PubKey struct {
 	Type uint8
 	Raw  []byte

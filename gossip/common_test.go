@@ -183,8 +183,8 @@ func newTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *testEnv {
 		cfg.EmitIntervals = emitter.EmitIntervals{}
 		cfg.MaxParents = idx.Event(validatorsNum/2 + 1)
 		cfg.MaxTxsPerAddress = 10000000
-		_ = valKeystore.Add(pubkey, crypto.FromECDSA(makefakegenesis.FakeKey(vid)), validatorpk.FakePassword)
-		_ = valKeystore.Unlock(pubkey, validatorpk.FakePassword)
+		_ = valKeystore.Add(pubkey, crypto.FromECDSA(makefakegenesis.FakeKey(vid)), "fakepassword")
+		_ = valKeystore.Unlock(pubkey, "fakepassword")
 		world := env.EmitterWorld(env.signer)
 		world.External = testEmitterWorldExternal{world.External, env}
 		em := emitter.NewEmitter(cfg, world)

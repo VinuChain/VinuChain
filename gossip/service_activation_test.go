@@ -18,7 +18,6 @@ import (
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
 	"github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
 	"github.com/Fantom-foundation/go-opera/inter"
-	"github.com/Fantom-foundation/go-opera/inter/validatorpk"
 	"github.com/Fantom-foundation/go-opera/logger"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
@@ -97,8 +96,8 @@ func newPreElemontTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *te
 		cfg.EmitIntervals = emitter.EmitIntervals{}
 		cfg.MaxParents = idx.Event(validatorsNum/2 + 1)
 		cfg.MaxTxsPerAddress = 10000000
-		_ = valKeystore.Add(pubkey, crypto.FromECDSA(makefakegenesis.FakeKey(vid)), validatorpk.FakePassword)
-		_ = valKeystore.Unlock(pubkey, validatorpk.FakePassword)
+		_ = valKeystore.Add(pubkey, crypto.FromECDSA(makefakegenesis.FakeKey(vid)), "fakepassword")
+		_ = valKeystore.Unlock(pubkey, "fakepassword")
 		world := env.EmitterWorld(env.signer)
 		world.External = testEmitterWorldExternal{world.External, env}
 		em := emitter.NewEmitter(cfg, world)
