@@ -1,6 +1,7 @@
 package evmmodule
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -101,7 +102,7 @@ func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlo
 		Root:         common.Hash{},
 		Time:         p.block.Time,
 		Coinbase:     common.Address{},
-		GasLimit:     p.net.Blocks.MaxBlockGas,
+		GasLimit:     math.MaxUint64,
 		GasUsed:      p.gasUsed,
 		BaseFee:      baseFee,
 		BaseFeeFloor: evmcore.BaseFeeFloorFor(p.net),
