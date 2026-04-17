@@ -17,3 +17,4 @@ chainlist/
 *.code-workspace
 aws/
 .serena/
+x-ray/
