@@ -120,6 +120,9 @@ func CalcValidatorGasPower(e inter.EventI, eTime, prevTime inter.Timestamp, prev
 			prevGasPowerLeft = startup
 		}
 	}
+	if prevGasPowerLeft > maxGasPower {
+		prevGasPowerLeft = maxGasPower
+	}
 
 	if prevTime > eTime {
 		prevTime = eTime

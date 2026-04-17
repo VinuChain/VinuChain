@@ -141,3 +141,80 @@ func TestCalcGasPower_GasRefundSaturation(t *testing.T) {
 			got, wantMin)
 	}
 }
+
+// TestCalcGasPower_GasRefundSaturation_NonZeroElapsedTime verifies that when
+// prevGasPowerLeft is saturated to math.MaxUint64 (from DirtyGasRefund accumulation)
+// and the event has non-zero elapsed time (allocating additional gas), CalcValidatorGasPower
+// does not overflow when adding the allocated gas to the saturated prevGasPowerLeft.
+//
+// Without the clamp inside CalcValidatorGasPower, the unsigned addition
+//
+//	allocatedGas (e.g. 1_000_000) + math.MaxUint64
+//
+// wraps to a near-zero value, causing the validator's events to be rejected by peers.
+func TestCalcGasPower_GasRefundSaturation_NonZeroElapsedTime(t *testing.T) {
+	const validatorID idx.ValidatorID = 1
+	const epochNum idx.Epoch = 2
+	const prevGasPowerLeftVal uint64 = 1
+
+	builder := pos.NewBuilder()
+	builder.Set(validatorID, pos.Weight(1_000_000))
+	validators := builder.Build()
+
+	// Non-zero elapsed time: 1 second between prevEvent and new event.
+	// This causes CalcValidatorGasPower to allocate 1_000_000 gas (AllocPerSec).
+	const prevTimestamp inter.Timestamp = 1_000_000
+	const currTimestamp inter.Timestamp = prevTimestamp + inter.Timestamp(time.Second)
+
+	prevEvent := iblockproc.EventInfo{
+		GasPowerLeft: inter.GasPowerLeft{
+			Gas: [inter.GasPowerConfigs]uint64{prevGasPowerLeftVal, prevGasPowerLeftVal},
+		},
+		Time: prevTimestamp,
+	}
+	prevEvent.ID[0] = 0x01
+
+	validatorState := ValidatorState{
+		PrevEpochEvent: prevEvent,
+		GasRefund:      math.MaxUint64,
+	}
+
+	cfg := Config{
+		Idx:                0,
+		AllocPerSec:        1_000_000,
+		MaxAllocPeriod:     inter.Timestamp(time.Hour),
+		MinEnsuredAlloc:    1_000_000,
+		StartupAllocPeriod: 0,
+		MinStartupGas:      0,
+		Podgorica:          false,
+	}
+
+	ctx := &ValidationContext{
+		Epoch:           epochNum,
+		Configs:         [inter.GasPowerConfigs]Config{cfg, cfg},
+		EpochStart:      prevTimestamp,
+		Validators:      validators,
+		ValidatorStates: []ValidatorState{validatorState},
+	}
+
+	event := &mockEvent{
+		epoch:      epochNum,
+		creator:    validatorID,
+		selfParent: nil,
+		medianTime: currTimestamp,
+	}
+
+	got := calcGasPower(event, nil, ctx, cfg)
+
+	// maxGasPower = AllocPerSec(1_000_000) × MaxAllocPeriod(3600s) = 3_600_000_000.
+	// After clamp: prevGasPowerLeft = 3_600_000_000; allocated = 1_000_000;
+	// sum = 4_600_000_000 > maxGasPower → caps to 3_600_000_000.
+	//
+	// Without the clamp: prevGasPowerLeft = math.MaxUint64; allocated(1_000_000) + MaxUint64
+	// wraps to 999_999; result = 999_999, far below any reasonable threshold.
+	const maxGasPower uint64 = 3_600_000_000
+	if got != maxGasPower {
+		t.Errorf("calcGasPower = %d, want %d: CalcValidatorGasPower overflows when prevGasPowerLeft is math.MaxUint64 and elapsed time is non-zero",
+			got, maxGasPower)
+	}
+}
