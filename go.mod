@@ -3,7 +3,7 @@ module github.com/Fantom-foundation/go-opera
 go 1.25.8
 
 require (
-	github.com/Fantom-foundation/lachesis-base v0.1.5-elemont
+	github.com/Fantom-foundation/lachesis-base v0.1.6-elemont
 	github.com/cespare/cp v1.1.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
@@ -103,7 +103,7 @@ require (
 
 replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.14-quota
 
-replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.5-elemont
+replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.6-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
 
