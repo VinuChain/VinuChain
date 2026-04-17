@@ -2,6 +2,7 @@ package gaspowercheck
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"time"
 
@@ -101,7 +102,11 @@ func calcGasPower(e inter.EventI, selfParent inter.EventI, ctx *ValidationContex
 			prevGasPowerLeft = 0
 			prevTime = ctx.EpochStart
 		}
-		prevGasPowerLeft += validatorState.GasRefund
+		if validatorState.GasRefund > math.MaxUint64-prevGasPowerLeft {
+			prevGasPowerLeft = math.MaxUint64
+		} else {
+			prevGasPowerLeft += validatorState.GasRefund
+		}
 	}
 
 	return CalcValidatorGasPower(e, e.MedianTime(), prevTime, prevGasPowerLeft, ctx.Validators, config)
