@@ -1,6 +1,8 @@
 package gossip
 
 import (
+	"math"
+
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -59,7 +61,12 @@ func (b *GPOBackend) TotalGasPowerLeft() uint64 {
 	for _, tip := range set.Val {
 		e := b.store.GetEvent(tip)
 		left := e.GasPowerLeft().Gas[inter.LongTermGas]
-		left += bs.GetValidatorState(e.Creator(), es.Validators).DirtyGasRefund
+		dirty := bs.GetValidatorState(e.Creator(), es.Validators).DirtyGasRefund
+		if dirty > math.MaxUint64-left {
+			left = math.MaxUint64
+		} else {
+			left += dirty
+		}
 
 		_, max, _ := gaspowercheck.CalcValidatorGasPowerPerSec(e.Creator(), es.Validators, gasPowerCheckCfg)
 		if left > max {
@@ -74,7 +81,12 @@ func (b *GPOBackend) TotalGasPowerLeft() uint64 {
 		vid := es.Validators.GetID(i)
 		if !metValidators[vid] {
 			left := es.ValidatorStates[i].PrevEpochEvent.GasPowerLeft.Gas[inter.LongTermGas]
-			left += es.ValidatorStates[i].GasRefund
+			refund := es.ValidatorStates[i].GasRefund
+			if refund > math.MaxUint64-left {
+				left = math.MaxUint64
+			} else {
+				left += refund
+			}
 
 			_, max, startup := gaspowercheck.CalcValidatorGasPowerPerSec(vid, es.Validators, gasPowerCheckCfg)
 			if left > max {

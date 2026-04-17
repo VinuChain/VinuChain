@@ -53,13 +53,6 @@ func (e *mockEvent) AnyEpochVote() bool                { return false }
 func (e *mockEvent) AnyMisbehaviourProofs() bool       { return false }
 func (e *mockEvent) PayloadHash() hash.Hash            { return hash.Hash{} }
 
-// mockReader implements Reader for tests.
-type mockReader struct {
-	ctx *ValidationContext
-}
-
-func (r *mockReader) GetValidationContext() *ValidationContext { return r.ctx }
-
 // TestCalcGasPower_GasRefundSaturation verifies that when a validator's GasRefund
 // is math.MaxUint64 (saturated by DirtyGasRefund) and prevGasPowerLeft > 0, the
 // addition saturates at math.MaxUint64 rather than wrapping around.
@@ -67,7 +60,7 @@ func (r *mockReader) GetValidationContext() *ValidationContext { return r.ctx }
 // The observable symptom before the fix: the wrapped prevGasPowerLeft of 0 propagates
 // into CalcValidatorGasPower, which (with zero elapsed time) yields a final gas power
 // of 0. After the fix, prevGasPowerLeft saturates at MaxUint64 and CalcValidatorGasPower
-// caps the result at maxGasPower (1_000_000 in this config).
+// caps the result at maxGasPower (3_600_000_000 = AllocPerSec 1_000_000 × MaxAllocPeriod 3600s).
 //
 // Using prevTime == medianTime (zero elapsed time) ensures that no freshly allocated
 // gas obscures the difference between the two code paths.
@@ -102,7 +95,7 @@ func TestCalcGasPower_GasRefundSaturation(t *testing.T) {
 	}
 
 	// StartupAllocPeriod=0 keeps startup gas = 0 so the startup floor cannot rescue
-	// a wrapped prevGasPowerLeft. MinEnsuredAlloc sets maxGasPower = 1_000_000.
+	// a wrapped prevGasPowerLeft. maxGasPower = AllocPerSec × MaxAllocPeriod = 3_600_000_000.
 	cfg := Config{
 		Idx:                0,
 		AllocPerSec:        1_000_000,
@@ -135,8 +128,8 @@ func TestCalcGasPower_GasRefundSaturation(t *testing.T) {
 
 	// With saturation fix:
 	//   prevGasPowerLeft = 1 + MaxUint64 → saturates to MaxUint64
-	//   CalcValidatorGasPower: 0 allocated + MaxUint64 → capped at maxGasPower = 1_000_000
-	//   result = 1_000_000
+	//   CalcValidatorGasPower: 0 allocated + MaxUint64 → capped at maxGasPower = 3_600_000_000
+	//   result = 3_600_000_000 >= wantMin (1_000_000)
 	//
 	// Without saturation fix:
 	//   prevGasPowerLeft = 1 + MaxUint64 → wraps to 0
