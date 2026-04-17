@@ -46,36 +46,41 @@ func TestDispatchBlockSyncPathRecoversPanic(t *testing.T) {
 	}
 }
 
-// TestSfcV2BytecodeInstalledBeforeProcessBlock is a structural regression test
-// that locks in the ordering invariant documented in sealEpochIfNeeded:
-// endBlock must call sealEpochIfNeeded (which installs SFC V2 bytecode) before
-// calling dispatchBlock (which calls processBlock). This guarantees that
-// post-internal and user transactions in the activation block see V2 bytecode.
+// TestSealEpochCalledBeforeDispatchBlockInEndBlock is a structural call-order
+// pin for endBlock in block_processor.go. It asserts that bp.sealEpochIfNeeded()
+// appears before bp.dispatchBlock() in the source file so that any mechanical
+// swap of those two call-sites fails CI immediately.
 //
-// The test reads the source file and asserts relative line ordering so that
-// any refactor that accidentally defers the SetCode to after processBlock will
-// cause an immediate CI failure.
-func TestSfcV2BytecodeInstalledBeforeProcessBlock(t *testing.T) {
+// This is a source-order guard, not a behavioral one: it catches transposed
+// lines but does not verify that the SFC V2 SetCode inside sealEpochIfNeeded
+// actually executes before processBlock's post-internal transactions run.
+func TestSealEpochCalledBeforeDispatchBlockInEndBlock(t *testing.T) {
 	src, err := os.ReadFile("block_processor.go")
 	require.NoError(t, err)
 
 	lines := strings.Split(string(src), "\n")
 
 	var sealLine, dispatchLine int
+	var sealCount, dispatchCount int
 	for i, line := range lines {
 		if strings.Contains(line, "bp.sealEpochIfNeeded()") {
-			sealLine = i + 1
+			if sealCount == 0 {
+				sealLine = i + 1
+			}
+			sealCount++
 		}
 		if strings.Contains(line, "bp.dispatchBlock()") {
-			dispatchLine = i + 1
+			if dispatchCount == 0 {
+				dispatchLine = i + 1
+			}
+			dispatchCount++
 		}
 	}
 
-	require.NotZero(t, sealLine, "bp.sealEpochIfNeeded() call not found in block_processor.go")
-	require.NotZero(t, dispatchLine, "bp.dispatchBlock() call not found in block_processor.go")
+	require.Equal(t, 1, sealCount, "expected exactly one call to bp.sealEpochIfNeeded() in block_processor.go")
+	require.Equal(t, 1, dispatchCount, "expected exactly one call to bp.dispatchBlock() in block_processor.go")
 	require.Less(t, sealLine, dispatchLine,
-		"sealEpochIfNeeded (line %d) must precede dispatchBlock (line %d) in endBlock; "+
-			"SFC V2 bytecode must be installed before processBlock runs post-internal txs",
+		"sealEpochIfNeeded (line %d) must precede dispatchBlock (line %d) in endBlock",
 		sealLine, dispatchLine)
 }
 
