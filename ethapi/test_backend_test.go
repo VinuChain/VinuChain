@@ -87,7 +87,7 @@ func (b *stubBackend) TxPoolContentFrom(_ common.Address) (types.Transactions, t
 func (b *stubBackend) SubscribeNewTxsNotify(_ chan<- evmcore.NewTxsNotify) event.Subscription {
 	return nil
 }
-func (b *stubBackend) ChainConfig() *params.ChainConfig       { return nil }
+func (b *stubBackend) ChainConfig() *params.ChainConfig       { return &params.ChainConfig{ChainID: new(big.Int)} }
 func (b *stubBackend) CurrentBlock() *evmcore.EvmBlock         { return nil }
 func (b *stubBackend) GetEventPayload(_ context.Context, _ string) (*inter.EventPayload, error) {
 	return nil, nil
@@ -113,6 +113,9 @@ func (b *stubBackend) GetUptime(_ context.Context, _ idx.ValidatorID) (*big.Int,
 }
 func (b *stubBackend) GetOriginatedFee(_ context.Context, _ idx.ValidatorID) (*big.Int, error) {
 	return nil, nil
+}
+func (b *stubBackend) GetPaybackBalance(_ context.Context, _ common.Address, _ *rpc.BlockNumberOrHash) (*big.Int, error) {
+	return new(big.Int), nil
 }
 func (b *stubBackend) GetBlockContext(_ *evmcore.EvmHeader) vm.BlockContext {
 	return vm.BlockContext{}

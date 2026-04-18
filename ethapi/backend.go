@@ -104,6 +104,11 @@ type Backend interface {
 	GetUptime(ctx context.Context, vid idx.ValidatorID) (*big.Int, error)
 	GetOriginatedFee(ctx context.Context, vid idx.ValidatorID) (*big.Int, error)
 
+	// VinuChain payback API: returns the available fee-refund balance for an
+	// address at the requested block. Returns zero (not an error) for unknown
+	// addresses and for networks where the payback system is not active.
+	GetPaybackBalance(ctx context.Context, addr common.Address, blockNrOrHash *rpc.BlockNumberOrHash) (*big.Int, error)
+
 	// Transaction trace API
 	GetBlockContext(header *evmcore.EvmHeader) vm.BlockContext
 	TxTraceByHash(ctx context.Context, h common.Hash) (*[]txtrace.ActionTrace, error)
@@ -191,6 +196,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "vc",
 			Version:   "1.0",
 			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+			Public:    true,
+		}, {
+			Namespace: "vc",
+			Version:   "1.0",
+			Service:   NewPublicPaybackAPI(apiBackend),
 			Public:    true,
 		},
 	}

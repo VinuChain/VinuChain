@@ -544,6 +544,41 @@ func (b *EthAPIBackend) GetBlockContext(header *evmcore.EvmHeader) vm.BlockConte
 	return evmcore.NewEVMBlockContext(header, b.state, nil)
 }
 
+// GetPaybackBalance returns the available payback (fee-refund quota) for the
+// given address at the requested block. The call runs four SFC / payback-proxy
+// StaticCalls against a freshly constructed EVM primed at the target block.
+//
+// Returns zero for unknown addresses, for networks where Podgorica is not
+// active, and for addresses staking below the minimum. Errors bubble up from
+// StateAndHeaderByNumberOrHash (e.g. pruned historical state) unchanged.
+func (b *EthAPIBackend) GetPaybackBalance(ctx context.Context, addr common.Address, blockNrOrHash *rpc.BlockNumberOrHash) (*big.Int, error) {
+	if b.svc.paybackCache == nil {
+		return new(big.Int), nil
+	}
+
+	nrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
+	if blockNrOrHash != nil {
+		nrOrHash = *blockNrOrHash
+	}
+	stateDb, header, err := b.StateAndHeaderByNumberOrHash(ctx, nrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	if stateDb == nil || header == nil {
+		return nil, errors.New("state or header not available")
+	}
+
+	blockCtx := evmcore.NewEVMBlockContext(header, b.state, nil)
+	vmConfig := opera.DefaultVMConfig
+	// Origin is zero-address (no msg sender for an RPC read). GasPrice must
+	// be non-nil so any GASPRICE opcode in view bytecode (current or future
+	// SFC/proxy upgrades) does not nil-deref.
+	txCtx := vm.TxContext{Origin: common.Address{}, GasPrice: new(big.Int)}
+	evm := vm.NewEVM(blockCtx, txCtx, stateDb, b.ChainConfig(), vmConfig)
+
+	return b.svc.paybackCache.GetAvailablePaybackByAddressRPC(ctx, addr, evm)
+}
+
 // TxTraceByHash returns stored transaction traces for the given tx hash.
 func (b *EthAPIBackend) TxTraceByHash(ctx context.Context, h common.Hash) (*[]txtrace.ActionTrace, error) {
 	if b.svc.store.TxTraceStore() == nil {
