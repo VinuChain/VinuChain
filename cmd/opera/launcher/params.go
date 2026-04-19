@@ -75,6 +75,22 @@ var (
 			},
 		},
 
+		// VinuChain testnet with history through epoch 5637 / block 1,423,701 (2026-04-19)
+		// Regenerated from the testnet RPC post-v2.0.8-elemont rollout; replaces the
+		// 2024-06-21 genesis which pre-dated SfcV2 / SfcV2Patch / SfcV2Patch2 and
+		// caused "wrong event epoch hash" divergence on fresh installs under current
+		// binary rules. Distributed at:
+		//   https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260419.g
+		{
+			Name:   "VinuChain testnet with history (2026-04-19)",
+			Header: vinuChainTestnetHeader,
+			Hashes: genesis.Hashes{
+				genesisstore.EpochsSection(0): hash.HexToHash("0x72f1b25236876c877f800fa50038870ef36eef0b4c6f3ba0b1d8b67c37b34c22"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0xf11619ff578754ce5680982eecc805387dd7dde02fd1d59d43ff4d7ead231fa7"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0x459360bfa1fce292e3f9e7c9ea204f91ca89040258126a6aa07c6c0c1e345624"),
+			},
+		},
+
 		// VinuChain test mainnet
 		{
 			Name:   "VinuChain test mainnet without history",
