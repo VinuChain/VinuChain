@@ -38,30 +38,17 @@ import (
 	"github.com/Fantom-foundation/go-opera/inter/ier"
 )
 
-const (
-	// maxPeerEpochDrift is the maximum number of epochs a peer may claim
-	// ahead of our local epoch before we consider it invalid.
-	maxPeerEpochDrift = idx.Epoch(1000)
-	// maxPeerBlockDrift is the maximum number of blocks a peer may claim
-	// ahead of our local head before we consider it invalid.
-	maxPeerBlockDrift = idx.Block(5000)
-)
-
-// validatePeerProgress checks that a peer-reported progress is within
-// plausible bounds relative to our local state. Returns a non-nil error
-// (suitable for errResp) if the progress should be rejected.
+// validatePeerProgress checks that a peer-reported progress message is
+// structurally valid. A peer being arbitrarily ahead of our local state is
+// expected during catch-up — a node that has been offline for a while must
+// be allowed to peer with the current chain tip in order to sync forward.
+// Downstream checks (see lightCheck at line ~89 and the epochcheck package)
+// gate actual state changes on epoch equality, so a lying peer cannot
+// advance our state by claiming a high progress. Returns a non-nil error
+// only for structurally invalid progress.
 func (h *handler) validatePeerProgress(progress PeerProgress) error {
 	if progress.Epoch == 0 {
 		return errResp(ErrDecode, "peer progress with zero epoch")
-	}
-	localEpoch := h.store.GetEpoch()
-	// Skip drift check when syncing from near-genesis to allow catching up
-	if localEpoch > 1 && progress.Epoch > localEpoch+maxPeerEpochDrift {
-		return errResp(ErrDecode, "peer epoch %d too far ahead of local %d", progress.Epoch, localEpoch)
-	}
-	localBlock := h.store.GetLatestBlockIndex()
-	if localBlock > 0 && progress.LastBlockIdx > localBlock+maxPeerBlockDrift {
-		return errResp(ErrDecode, "peer block %d too far ahead of local %d", progress.LastBlockIdx, localBlock)
 	}
 	return nil
 }
