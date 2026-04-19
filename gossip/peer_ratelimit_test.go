@@ -157,6 +157,36 @@ func TestPeerStreamQuota_BlocksWhenFull(t *testing.T) {
 	q.Release(peer, defaultMaxStreamsPerPeer)
 }
 
+// TestPeerEventQuota_FitsFullDagChunk verifies that the per-peer DAG event
+// quota is large enough to accept one full sync chunk (DefaultChunkItemsNum
+// from dagstreamleecher) without rejection. With ParallelChunksDownload up
+// to 6, a single sync session legitimately delivers up to 6×500 = 3000
+// in-flight events from one peer; a quota smaller than that drops every
+// chunk and spams "peer exceeded event processing quota" during normal
+// catch-up.
+func TestPeerEventQuota_FitsFullDagChunk(t *testing.T) {
+	q := newPeerEventQuota()
+	const oneChunk = 500 // dagstreamleecher.DefaultConfig().Session.DefaultChunkItemsNum
+	const parallelChunks = 6
+	require.True(t, q.Acquire("peer1", oneChunk),
+		"quota must accept a single full DAG chunk")
+	for i := 1; i < parallelChunks; i++ {
+		require.True(t, q.Acquire("peer1", oneChunk),
+			"quota must accept up to ParallelChunksDownload in-flight chunks")
+	}
+}
+
+// TestPeerStreamQuota_FitsFullStreamChunk verifies the BV/BR/EP per-peer
+// stream quota accepts one full chunk (DefaultChunkItemsNum) without
+// rejection. Same reasoning as the DAG event variant — BV/BR/EP chunks
+// are sized identically by their leechers.
+func TestPeerStreamQuota_FitsFullStreamChunk(t *testing.T) {
+	q := newPeerStreamQuota()
+	const oneChunk = 500
+	require.True(t, q.Acquire("peer1", oneChunk),
+		"stream quota must accept a single full BV/BR/EP chunk")
+}
+
 // TestPeerEventQuota_ConcurrentSafety verifies no data race under concurrent
 // Acquire/Release from multiple goroutines.
 func TestPeerEventQuota_ConcurrentSafety(t *testing.T) {

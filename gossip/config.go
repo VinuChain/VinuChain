@@ -275,6 +275,18 @@ func (c *Config) Validate() error {
 	if p.DagProcessor.EventsBufferLimit.Size < protocolMaxMsgSize {
 		return fmt.Errorf("EventsBufferLimit.Size has to be at least %d", protocolMaxMsgSize)
 	}
+	// The per-peer in-flight quota must be large enough to hold every chunk
+	// the active sync peer can legitimately deliver between Releases — i.e.
+	// the same value the dagprocessor uses for its own buffer. Anything
+	// smaller drops chunks during normal catch-up (see peer_ratelimit.go).
+	if defaultMaxEventsPerPeer < int(p.DagProcessor.EventsBufferLimit.Num) {
+		return fmt.Errorf("defaultMaxEventsPerPeer (%d) must be >= EventsBufferLimit.Num (%d)",
+			defaultMaxEventsPerPeer, p.DagProcessor.EventsBufferLimit.Num)
+	}
+	if defaultMaxStreamsPerPeer < int(p.DagProcessor.EventsBufferLimit.Num) {
+		return fmt.Errorf("defaultMaxStreamsPerPeer (%d) must be >= EventsBufferLimit.Num (%d)",
+			defaultMaxStreamsPerPeer, p.DagProcessor.EventsBufferLimit.Num)
+	}
 
 	return nil
 }

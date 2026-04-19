@@ -55,9 +55,17 @@ type peerEventQuota struct {
 	maxPerPeer int
 }
 
+// Per-peer in-flight quotas for the heavy-check / processor enqueue paths.
+// Sizing matches dagprocessor.EventsBufferLimit.Num
+// (ParallelChunksDownload * DefaultChunkItemsNum + softLimitItems = 6*500+250)
+// so the active sync session peer — which legitimately delivers up to
+// ParallelChunksDownload chunks of DefaultChunkItemsNum events at a time —
+// is not throttled while still bounding worst-case per-peer queue depth.
+// The global EventsSemaphoreLimit (≥2× this value, enforced by Config.Validate)
+// keeps a single peer below 50% of total capacity, preserving the DoS guard.
 const (
-	defaultMaxEventsPerPeer  = 200
-	defaultMaxStreamsPerPeer = 100
+	defaultMaxEventsPerPeer  = 6*500 + 250
+	defaultMaxStreamsPerPeer = 6*500 + 250
 )
 
 func newPeerEventQuota() *peerEventQuota {
