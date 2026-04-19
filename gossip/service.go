@@ -321,6 +321,11 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			changed = true
 			log.Info("Staged SfcV2Patch2 upgrade from binary rules; will activate at next epoch seal")
 		}
+		if hardcoded.Upgrades.SfcV2Patch3 && !pending.Upgrades.SfcV2Patch3 {
+			pending.Upgrades.SfcV2Patch3 = true
+			changed = true
+			log.Info("Staged SfcV2Patch3 upgrade from binary rules; will activate at next epoch seal")
+		}
 		if changed {
 			bs.DirtyRules = &pending
 			store.SetBlockEpochState(bs, es)

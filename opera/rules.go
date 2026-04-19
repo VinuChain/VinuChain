@@ -30,6 +30,7 @@ const (
 	elemontBit               = 1 << 5
 	sfcV2PatchBit            = 1 << 6
 	sfcV2Patch2Bit           = 1 << 7
+	sfcV2Patch3Bit           = 1 << 8
 )
 
 var DefaultVMConfig = vm.Config{
@@ -167,6 +168,17 @@ type Upgrades struct {
 	// this flag — its first SfcV2 activation installs the latest bytecode
 	// directly.
 	SfcV2Patch2 bool
+	// SfcV2Patch3 re-flashes the SFC V2 bytecode a third time to install the
+	// Cycle-159 bytecode. Required because SfcV2Patch2 installed bytecode
+	// whose inline reentrancy guard required _reentrancyGuardCounter == 1,
+	// but the storage slot was appended after genesis and is 0 on-chain —
+	// bricking every nonReentrant function (delegate, undelegate, withdraw,
+	// claimRewards, restakeRewards, stashRewards, createValidator). Cycle-159
+	// relaxes the guard to < 2 so the 0-initialised slot is accepted as
+	// "not entered" while still failing closed on corruption. Testnet-only:
+	// mainnet has not yet activated SfcV2/SfcV2Patch/SfcV2Patch2 and will
+	// consume the Cycle-159 bytecode directly on its first SfcV2 activation.
+	SfcV2Patch3 bool
 }
 
 type UpgradeHeight struct {
@@ -250,6 +262,7 @@ func FakeNetRules() Rules {
 			Elemont:     true,
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
+			SfcV2Patch3: true,
 		},
 	}
 }
@@ -274,6 +287,7 @@ func LegacyFakeNetRules() Rules {
 			Elemont:     true,
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
+			SfcV2Patch3: true,
 		},
 	}
 }
@@ -299,6 +313,7 @@ func VinuChainTestNetRules() Rules {
 			Elemont:     true,
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
+			SfcV2Patch3: true,
 		},
 	}
 }

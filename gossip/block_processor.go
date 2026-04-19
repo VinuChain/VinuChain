@@ -397,6 +397,18 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 2)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
+	// SfcV2Patch3 installs the Cycle-159 bytecode over testnet's SfcV2Patch2
+	// Cycle-158 bytecode. The Cycle-159 change relaxes the inline reentrancy
+	// guard from `_reentrancyGuardCounter == 1` to `< 2` so the 0-initialised
+	// storage slot (never written because the slot was added post-genesis and
+	// initialize() is initializer-gated) is accepted as "not entered". Prior
+	// SfcV2Patch* cycles left every nonReentrant function reverting with
+	// "ReentrancyGuard: reentrant call" on first call. Idempotent on networks
+	// whose SfcV2 activation already installs the latest GetContractBin().
+	if bp.es.Rules.Upgrades.SfcV2Patch3 && !prevUpg.SfcV2Patch3 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 3)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*
 	// epoch rules, NOT from staged DirtyRules — so on a binary upgrade where
