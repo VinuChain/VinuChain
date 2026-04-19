@@ -10,7 +10,7 @@ import (
 func init() {
 	params.VersionMajor = 2        // Major version component of the current release
 	params.VersionMinor = 0        // Minor version component of the current release
-	params.VersionPatch = 9        // Patch version component of the current release
+	params.VersionPatch = 10       // Patch version component of the current release
 	params.VersionMeta = "elemont" // Version metadata to append to the version string
 }
 
