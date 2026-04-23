@@ -249,6 +249,23 @@ func TestRulesSfcV2Patch4RLP(t *testing.T) {
 	require.True(decodedRules.Upgrades.SfcV2Patch4)
 }
 
+func TestRulesSfcV2Patch4FalseRLP(t *testing.T) {
+	rules := MainNetRules()
+	require := require.New(t)
+
+	// Sanity — this is the network that specifically does NOT enable Patch4.
+	require.False(rules.Upgrades.SfcV2Patch4, "MainNetRules should not have SfcV2Patch4 enabled; update this test if mainnet activates Patch4")
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.False(decodedRules.Upgrades.SfcV2Patch4, "Upgrades.SfcV2Patch4 must round-trip as false through RLP")
+}
+
 func TestRulesBerlinCompatibilityRLP(t *testing.T) {
 	require := require.New(t)
 
