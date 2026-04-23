@@ -60,3 +60,17 @@ func TestValidatePatch4Bytecode_AcceptsPlausibleReal(t *testing.T) {
 		t.Fatalf("validatePatch4Bytecode rejected plausible real bytecode: %v", err)
 	}
 }
+
+// TestValidatePatch4Bytecode_RejectsPatch3 asserts that shipping the Patch3
+// (Cycle-159) bytecode in the Patch4 slot is rejected. A byte-identical
+// re-flash would be a no-op on chain and the lock-end-time fix would not
+// deploy.
+func TestValidatePatch4Bytecode_RejectsPatch3(t *testing.T) {
+	err := validatePatch4Bytecode(GetContractBin())
+	if err == nil {
+		t.Fatal("validatePatch4Bytecode accepted Patch3 bytecode — a byte-identical re-flash would no-op on chain")
+	}
+	if err != errPatch4EqualsPatch3 {
+		t.Fatalf("expected errPatch4EqualsPatch3, got: %v", err)
+	}
+}

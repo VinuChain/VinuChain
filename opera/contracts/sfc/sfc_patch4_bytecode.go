@@ -19,15 +19,22 @@ import (
 // PLACEHOLDER — real Cycle-160 bytecode drops in when vinuchain-lists PR #2
 // merges and is compiled with solc 0.5.17+commit.d19bba13 --optimize
 // --optimize-runs=10000 --evm-version=istanbul. Until then the bytes below
-// are a `deadbeef` sentinel, and the guard in validatePatch4Bytecode will
-// `log.Crit` at first attempted re-flash so a release cannot silently ship
-// the placeholder.
+// are a `deadbeef` sentinel. Validity is enforced at binary startup via
+// EnforcePatch4StartupCheck so an invalid asset refuses to start the node
+// rather than only crashing at the on-chain re-flash block.
 func GetPatch4ContractBin() []byte {
-	b := patch4PlaceholderBytecode
-	if err := validatePatch4Bytecode(b); err != nil {
-		log.Crit("SfcV2Patch4 bytecode is a placeholder — recompile from vinuchain-lists SFC.sol after PR #2 merges, then replace sfc_patch4_bytecode.go before cutting a release", "err", err)
+	return patch4PlaceholderBytecode
+}
+
+// EnforcePatch4StartupCheck validates the compiled-in Patch4 bytecode at
+// binary startup. It is wired from cmd/opera/launcher so the binary
+// refuses to start when the bytecode is still a placeholder or is byte-
+// identical to Patch3, rather than crashing only at the on-chain
+// re-flash block.
+func EnforcePatch4StartupCheck() {
+	if err := validatePatch4Bytecode(patch4PlaceholderBytecode); err != nil {
+		log.Crit("SfcV2Patch4 bytecode asset is invalid — the binary must not start with this build. Recompile SFC from vinuchain-lists and replace sfc_patch4_bytecode.go", "err", err)
 	}
-	return b
 }
 
 // patch4DeadbeefSentinel is the 4-byte magic pattern repeated throughout the
@@ -59,6 +66,8 @@ const minRealPatch4BytecodeLen = 10000
 //  2. anything shorter than minRealPatch4BytecodeLen
 //  3. a leading 0xdeadbeef prefix (sentinel marker)
 //  4. all-zero bytecode (paranoia guard; real compiled SFC is not all zero)
+//  5. byte-identical to Patch3 / GetContractBin (no-op re-flash would skip
+//     the lock-end-time fix)
 func validatePatch4Bytecode(code []byte) error {
 	if len(code) == 0 {
 		return errPatch4Empty
@@ -79,6 +88,9 @@ func validatePatch4Bytecode(code []byte) error {
 	if allZero {
 		return errPatch4AllZero
 	}
+	if bytes.Equal(code, GetContractBin()) {
+		return errPatch4EqualsPatch3
+	}
 	return nil
 }
 
@@ -87,8 +99,9 @@ type patch4Error string
 func (e patch4Error) Error() string { return string(e) }
 
 const (
-	errPatch4Empty    patch4Error = "patch4 bytecode is empty"
-	errPatch4TooShort patch4Error = "patch4 bytecode shorter than minimum SFC size — placeholder not replaced"
-	errPatch4Sentinel patch4Error = "patch4 bytecode begins with deadbeef sentinel — placeholder not replaced"
-	errPatch4AllZero  patch4Error = "patch4 bytecode is all zeros"
+	errPatch4Empty        patch4Error = "patch4 bytecode is empty"
+	errPatch4TooShort     patch4Error = "patch4 bytecode shorter than minimum SFC size — placeholder not replaced"
+	errPatch4Sentinel     patch4Error = "patch4 bytecode begins with deadbeef sentinel — placeholder not replaced"
+	errPatch4AllZero      patch4Error = "patch4 bytecode is all zeros"
+	errPatch4EqualsPatch3 patch4Error = "SfcV2Patch4 bytecode is byte-identical to Patch3 (Cycle-159) — the Patch4 re-flash would no-op on chain and the lock-end-time bug fix would not deploy"
 )
