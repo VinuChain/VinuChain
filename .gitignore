@@ -18,3 +18,5 @@ chainlist/
 aws/
 .serena/
 x-ray/
+.omc/
+static_analysis_semgrep_*/

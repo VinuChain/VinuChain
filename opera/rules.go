@@ -31,6 +31,7 @@ const (
 	sfcV2PatchBit            = 1 << 6
 	sfcV2Patch2Bit           = 1 << 7
 	sfcV2Patch3Bit           = 1 << 8
+	sfcV2Patch4Bit           = 1 << 9
 )
 
 var DefaultVMConfig = vm.Config{
@@ -179,6 +180,24 @@ type Upgrades struct {
 	// mainnet has not yet activated SfcV2/SfcV2Patch/SfcV2Patch2 and will
 	// consume the Cycle-159 bytecode directly on its first SfcV2 activation.
 	SfcV2Patch3 bool
+	// SfcV2Patch4 re-flashes the SFC V2 bytecode a fourth time to install the
+	// Cycle-160 bytecode sourced from VinuChain/vinuchain-lists PR #2. The
+	// Cycle-160 delta fixes the `relock`/`extendLock` lock-end-time bug where
+	// the existing-vs-new lock comparison checked `newDuration >= oldDuration`
+	// instead of `newEndTime >= oldEndTime`, letting a staker silently shorten
+	// their effective lock period by relocking with a shorter duration from a
+	// point later in time. Testnet-only: mainnet has not yet activated any
+	// SfcV2* flag and will consume the latest available bytecode directly on
+	// its first SfcV2 activation.
+	//
+	// The patch4 bytecode is re-flashed via sfc.GetPatch4ContractBin(), which
+	// is a separate source from GetContractBin() so the Cycle-160 asset can
+	// be compiled and dropped in as a scaffolded placeholder until PR #2
+	// merges. A validation guard in sfc_patch4_bytecode.go log.Crits at the
+	// first attempted re-flash if the placeholder bytes have not yet been
+	// replaced with a real compiled SFC, preventing a release from silently
+	// shipping the sentinel.
+	SfcV2Patch4 bool
 }
 
 type UpgradeHeight struct {
@@ -263,6 +282,7 @@ func FakeNetRules() Rules {
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
 			SfcV2Patch3: true,
+			SfcV2Patch4: true,
 		},
 	}
 }
@@ -288,6 +308,7 @@ func LegacyFakeNetRules() Rules {
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
 			SfcV2Patch3: true,
+			SfcV2Patch4: true,
 		},
 	}
 }
@@ -314,6 +335,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch:  true,
 			SfcV2Patch2: true,
 			SfcV2Patch3: true,
+			SfcV2Patch4: true,
 		},
 	}
 }

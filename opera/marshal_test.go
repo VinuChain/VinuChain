@@ -235,6 +235,20 @@ func TestRulesSfcV2Patch3RLP(t *testing.T) {
 	require.True(decodedRules.Upgrades.SfcV2Patch3)
 }
 
+func TestRulesSfcV2Patch4RLP(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.SfcV2Patch4)
+}
+
 func TestRulesBerlinCompatibilityRLP(t *testing.T) {
 	require := require.New(t)
 

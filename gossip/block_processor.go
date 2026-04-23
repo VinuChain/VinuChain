@@ -409,6 +409,22 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 3)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
 	}
+	// SfcV2Patch4 installs the Cycle-160 bytecode sourced from
+	// VinuChain/vinuchain-lists PR #2, which fixes the relock/extendLock
+	// lock-end-time bug (the existing-vs-new lock comparison checked
+	// newDuration >= oldDuration instead of newEndTime >= oldEndTime, letting
+	// a staker silently shorten their effective lock period by relocking
+	// with a shorter duration from a point later in time). The bytecode is
+	// sourced from sfc.GetPatch4ContractBin() rather than GetContractBin()
+	// because the Cycle-160 asset is compiled and dropped in as a scaffolded
+	// placeholder until PR #2 merges. A validation guard in
+	// sfc_patch4_bytecode.go log.Crits here if the placeholder bytes have
+	// not yet been replaced with a real compiled SFC, preventing a release
+	// from silently shipping the sentinel.
+	if bp.es.Rules.Upgrades.SfcV2Patch4 && !prevUpg.SfcV2Patch4 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 4)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch4ContractBin())
+	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*
 	// epoch rules, NOT from staged DirtyRules — so on a binary upgrade where
