@@ -5,11 +5,28 @@ import (
 	"testing"
 )
 
-// TestValidatePatch4Bytecode_RejectsPlaceholder asserts the guard rejects the
-// scaffolding sentinel bytes so a release cannot ship them by accident.
+// TestValidatePatch4Bytecode_RejectsPlaceholder asserts the guard rejects a
+// fresh 256-byte deadbeef-sentinel placeholder — the exact shape the
+// scaffolding branch shipped before Cycle-160 was compiled in. Kept as a
+// regression guard so a future attempt to re-introduce a placeholder (for
+// example during a Cycle-161+ scaffolding cycle) still trips the validator.
 func TestValidatePatch4Bytecode_RejectsPlaceholder(t *testing.T) {
-	if err := validatePatch4Bytecode(patch4PlaceholderBytecode); err == nil {
-		t.Fatal("validatePatch4Bytecode accepted the placeholder sentinel — guard is broken")
+	placeholder := bytes.Repeat([]byte{0xde, 0xad, 0xbe, 0xef}, 64)
+	if err := validatePatch4Bytecode(placeholder); err == nil {
+		t.Fatal("validatePatch4Bytecode accepted a deadbeef-sentinel placeholder — guard is broken")
+	}
+}
+
+// TestValidatePatch4Bytecode_AcceptsRealCycle160 asserts the compiled-in
+// Cycle-160 bytecode passes all five rejection paths and is served by
+// GetPatch4ContractBin unchanged. If this test fails, the release is
+// shipping something that EnforcePatch4StartupCheck will log.Crit on.
+func TestValidatePatch4Bytecode_AcceptsRealCycle160(t *testing.T) {
+	if err := validatePatch4Bytecode(patch4ContractBin); err != nil {
+		t.Fatalf("validatePatch4Bytecode rejected the compiled-in Cycle-160 bytecode: %v", err)
+	}
+	if !bytes.Equal(GetPatch4ContractBin(), patch4ContractBin) {
+		t.Fatal("GetPatch4ContractBin does not return patch4ContractBin verbatim")
 	}
 }
 
