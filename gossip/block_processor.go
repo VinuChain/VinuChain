@@ -354,6 +354,33 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 			Height:   bp.blockCtx.Idx + 1,
 		})
 	}
+	// Multi-SfcV2Patch*-in-a-single-seal guard. Each SfcV2Patch* flag was
+	// designed to fire at its own, separate epoch-sealing block on the live
+	// testnet; two or more firing together is a diagnostic fingerprint of a
+	// fresh-genesis replay under a newer binary (the stored genesis predates
+	// at least one patch activation, so the binary re-stages them all). The
+	// resulting SFC bytecode state will NOT match the live chain's state at
+	// the same block, and the next incoming event from any live peer will
+	// reject with "wrong event epoch hash". The warn makes the failure
+	// self-diagnosing — operators grep for this line, read the remediation,
+	// and restore from the post-seal chaindata snapshot.
+	patchActivations := 0
+	if bp.es.Rules.Upgrades.SfcV2Patch && !prevUpg.SfcV2Patch {
+		patchActivations++
+	}
+	if bp.es.Rules.Upgrades.SfcV2Patch2 && !prevUpg.SfcV2Patch2 {
+		patchActivations++
+	}
+	if bp.es.Rules.Upgrades.SfcV2Patch3 && !prevUpg.SfcV2Patch3 {
+		patchActivations++
+	}
+	if bp.es.Rules.Upgrades.SfcV2Patch4 && !prevUpg.SfcV2Patch4 {
+		patchActivations++
+	}
+	if patchActivations > 1 {
+		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
+			"block", bp.blockCtx.Idx, "patches", patchActivations)
+	}
 	// SFC V2 bytecode upgrade ordering
 	//
 	// This upgrade runs after pre-internal txs (which executed against V1)

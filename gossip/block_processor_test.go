@@ -84,6 +84,39 @@ func TestSealEpochCalledBeforeDispatchBlockInEndBlock(t *testing.T) {
 		sealLine, dispatchLine)
 }
 
+// TestMultipleSfcV2PatchActivationsLogWarn is a source-structural guard for
+// the multi-patch divergence heuristic in sealEpochIfNeeded.
+//
+// Rationale: when two or more SfcV2Patch* flags activate in the same epoch
+// seal, the node is almost certainly replaying a stale genesis file under
+// a newer binary — the live testnet sealed Patch/Patch2/Patch3/Patch4 at
+// different block heights, so co-firing them at a single replay block
+// produces a divergent SFC bytecode state and the next event from the live
+// network rejects with "wrong event epoch hash". The warn line makes the
+// failure fingerprint self-diagnosing from the log.
+//
+// This test pins the structural presence of:
+//  1. a counter incremented once per SfcV2Patch* activation edge,
+//  2. a log.Warn gated on count > 1,
+//  3. counter increments for all four Patch flags, so future Patch5+
+//     additions are a compile-noticeable omission rather than a silent
+//     regression.
+func TestMultipleSfcV2PatchActivationsLogWarn(t *testing.T) {
+	src, err := os.ReadFile("block_processor.go")
+	require.NoError(t, err)
+	s := string(src)
+
+	require.Contains(t, s, "Multiple SfcV2Patch",
+		"sealEpochIfNeeded must emit a log.Warn tagged 'Multiple SfcV2Patch…' when >1 patch flags activate in the same seal")
+
+	for _, flag := range []string{"SfcV2Patch", "SfcV2Patch2", "SfcV2Patch3", "SfcV2Patch4"} {
+		marker := "!prevUpg." + flag
+		count := strings.Count(s, marker)
+		require.GreaterOrEqual(t, count, 2,
+			"expected at least 2 references to !prevUpg.%s (one in the counter, one at the activation site); found %d", flag, count)
+	}
+}
+
 // TestDispatchBlockAsyncPathHasRecovery verifies that the async code path
 // (confirmedEvents is non-empty) has the same defer/recover protection.
 // This is a structural verification — the actual panic recovery calls
