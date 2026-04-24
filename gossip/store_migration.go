@@ -71,9 +71,7 @@ var (
 
 const (
 	fixTxEventPos1 = 2
-	fixTxBlock1    = 4738821
 	fixTxEventPos2 = 0
-	fixTxBlock2    = 4801307
 )
 
 func fixEventTxHashes(e *inter.EventPayload) {
