@@ -75,17 +75,16 @@ func TestValidatePatch5Bytecode_RejectsPatch4(t *testing.T) {
 	}
 }
 
-// TestPatch5ContractBin_IsCurrentlyPlaceholder pins the v2.0.13-elemont
-// scaffolding state: the compiled-in patch5ContractBin IS the deadbeef
-// placeholder. When Cycle-161 truffle artefact lands and replaces this
-// blob, this test will start failing — at which point delete this test and
-// verify TestValidatePatch5Bytecode_RejectsPatch4 still asserts the guard
-// against accidental Patch4=Patch5 shipping. Until then, this test prevents
-// the v2.0.13 binary from accidentally shipping with a flipped activation
-// flag (which would log.Crit at startup via EnforcePatch5StartupCheck) by
-// keeping the placeholder shape verifiable.
-func TestPatch5ContractBin_IsCurrentlyPlaceholder(t *testing.T) {
-	if !bytes.HasPrefix(patch5ContractBin, patch5DeadbeefSentinel) {
-		t.Fatal("patch5ContractBin no longer begins with deadbeef sentinel — when the real Cycle-161 blob lands, delete TestPatch5ContractBin_IsCurrentlyPlaceholder")
+// TestPatch5ContractBin_PassesEnforce asserts the compiled-in Cycle-161
+// bytecode passes all five rejection paths of validatePatch5Bytecode and
+// is served by GetPatch5ContractBin unchanged. If this test fails, the
+// release is shipping something that EnforcePatch5StartupCheck will
+// log.Crit on at binary startup.
+func TestPatch5ContractBin_PassesEnforce(t *testing.T) {
+	if err := validatePatch5Bytecode(patch5ContractBin); err != nil {
+		t.Fatalf("validatePatch5Bytecode rejected the compiled-in Cycle-161 bytecode: %v", err)
+	}
+	if !bytes.Equal(GetPatch5ContractBin(), patch5ContractBin) {
+		t.Fatal("GetPatch5ContractBin does not return patch5ContractBin verbatim")
 	}
 }
