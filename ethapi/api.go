@@ -96,6 +96,20 @@ type feeHistoryResult struct {
 
 var errInvalidPercentile = errors.New("invalid reward percentile")
 
+// gasUsedRatio returns the fraction of block gas consumed, clamped to [0, 1].
+// Defends against gasLimit==0 (returns 0 instead of NaN/Inf) and against
+// malformed headers where gasUsed > gasLimit (clamps to 1.0).
+func gasUsedRatio(gasUsed, gasLimit uint64) float64 {
+	if gasLimit == 0 {
+		return 0
+	}
+	r := float64(gasUsed) / float64(gasLimit)
+	if r > 1.0 {
+		return 1.0
+	}
+	return r
+}
+
 func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	res := &feeHistoryResult{}
 	res.OldestBlock = (*hexutil.Big)(new(big.Int))
@@ -145,7 +159,16 @@ func (s *PublicEthereumAPI) FeeHistory(ctx context.Context, blockCount rpc.Decim
 		copy(tip, tips)
 		res.Reward = append(res.Reward, tip)
 		res.BaseFee = append(res.BaseFee, (*hexutil.Big)(baseFee))
-		res.GasUsedRatio = append(res.GasUsedRatio, 0.99)
+
+		blockNum := rpc.BlockNumber(uint64(oldest) + i)
+		header, err := s.b.HeaderByNumber(ctx, blockNum)
+		if err != nil {
+			return nil, err
+		}
+		if header == nil {
+			return nil, fmt.Errorf("block %d not found", uint64(blockNum))
+		}
+		res.GasUsedRatio = append(res.GasUsedRatio, gasUsedRatio(header.GasUsed, header.GasLimit))
 	}
 	return res, nil
 }
