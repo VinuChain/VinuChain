@@ -266,6 +266,90 @@ func TestRulesSfcV2Patch4FalseRLP(t *testing.T) {
 	require.False(decodedRules.Upgrades.SfcV2Patch4, "Upgrades.SfcV2Patch4 must round-trip as false through RLP")
 }
 
+func TestRulesElemontPubkeyValidationTrueRLP(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	rules.Upgrades.ElemontPubkeyValidation = true
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.ElemontPubkeyValidation,
+		"Upgrades.ElemontPubkeyValidation must round-trip as true through RLP")
+}
+
+func TestRulesElemontPubkeyValidationFalseRLP(t *testing.T) {
+	// All current network constructors leave ElemontPubkeyValidation false —
+	// flipping happens via a future binary release. Ensure the false default
+	// round-trips bit-for-bit.
+	for _, mk := range []func() Rules{
+		MainNetRules,
+		VinuChainTestNetRules,
+		VinuChainMainNetRules,
+	} {
+		rules := mk()
+		require := require.New(t)
+		require.False(rules.Upgrades.ElemontPubkeyValidation,
+			"%s should not have ElemontPubkeyValidation enabled by default", rules.Name)
+
+		b, err := rlp.EncodeToBytes(rules)
+		require.NoError(err)
+
+		decodedRules := Rules{}
+		require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+		require.Equal(rules.String(), decodedRules.String())
+		require.False(decodedRules.Upgrades.ElemontPubkeyValidation,
+			"Upgrades.ElemontPubkeyValidation must round-trip as false through RLP")
+	}
+}
+
+func TestRulesSfcV2Patch5TrueRLP(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	rules.Upgrades.SfcV2Patch5 = true
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.SfcV2Patch5,
+		"Upgrades.SfcV2Patch5 must round-trip as true through RLP")
+}
+
+func TestRulesSfcV2Patch5FalseRLP(t *testing.T) {
+	// All current network constructors leave SfcV2Patch5 false — flipping
+	// happens via the v2.0.14-elemont release that ships the real Cycle-161
+	// bytecode. Ensure the false default round-trips bit-for-bit.
+	for _, mk := range []func() Rules{
+		MainNetRules,
+		VinuChainTestNetRules,
+		VinuChainMainNetRules,
+	} {
+		rules := mk()
+		require := require.New(t)
+		require.False(rules.Upgrades.SfcV2Patch5,
+			"%s should not have SfcV2Patch5 enabled by default", rules.Name)
+
+		b, err := rlp.EncodeToBytes(rules)
+		require.NoError(err)
+
+		decodedRules := Rules{}
+		require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+		require.Equal(rules.String(), decodedRules.String())
+		require.False(decodedRules.Upgrades.SfcV2Patch5,
+			"Upgrades.SfcV2Patch5 must round-trip as false through RLP")
+	}
+}
+
 func TestRulesBerlinCompatibilityRLP(t *testing.T) {
 	require := require.New(t)
 

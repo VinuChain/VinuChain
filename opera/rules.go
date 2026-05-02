@@ -15,23 +15,25 @@ import (
 )
 
 const (
-	MainNetworkID     uint64 = 0xfa
-	TestNetworkID     uint64 = 0xfa2
-	VinuChainStagingNetworkID     = 0xcd // 205 (test mainnet / staging)
-	VinuChainTestNetworkID        = 0xce // 206
-	VinuChainMainNetworkID        = 0xcf // 207
-	VinuChainNewNetworkID         = 0x1b
-	DefaultEventGas   uint64 = 28000
-	berlinBit                = 1 << 0
-	londonBit                = 1 << 1
-	llrBit                   = 1 << 2
-	podgoricaBit             = 1 << 3
-	sfcV2Bit                 = 1 << 4
-	elemontBit               = 1 << 5
-	sfcV2PatchBit            = 1 << 6
-	sfcV2Patch2Bit           = 1 << 7
-	sfcV2Patch3Bit           = 1 << 8
-	sfcV2Patch4Bit           = 1 << 9
+	MainNetworkID              uint64 = 0xfa
+	TestNetworkID              uint64 = 0xfa2
+	VinuChainStagingNetworkID         = 0xcd // 205 (test mainnet / staging)
+	VinuChainTestNetworkID            = 0xce // 206
+	VinuChainMainNetworkID            = 0xcf // 207
+	VinuChainNewNetworkID             = 0x1b
+	DefaultEventGas            uint64 = 28000
+	berlinBit                         = 1 << 0
+	londonBit                         = 1 << 1
+	llrBit                            = 1 << 2
+	podgoricaBit                      = 1 << 3
+	sfcV2Bit                          = 1 << 4
+	elemontBit                        = 1 << 5
+	sfcV2PatchBit                     = 1 << 6
+	sfcV2Patch2Bit                    = 1 << 7
+	sfcV2Patch3Bit                    = 1 << 8
+	sfcV2Patch4Bit                    = 1 << 9
+	elemontPubkeyValidationBit        = 1 << 10
+	sfcV2Patch5Bit                    = 1 << 11
 )
 
 var DefaultVMConfig = vm.Config{
@@ -114,8 +116,8 @@ type EconomyRules struct {
 	ShortGasPower GasPowerRules
 	LongGasPower  GasPowerRules
 
-	QuotaCacheAddress    common.Address `rlp:"optional"`
-	QuotaCacheMaxAddresses uint64       `rlp:"optional"`
+	QuotaCacheAddress      common.Address `rlp:"optional"`
+	QuotaCacheMaxAddresses uint64         `rlp:"optional"`
 }
 
 // BlocksRules contains blocks constants
@@ -198,6 +200,40 @@ type Upgrades struct {
 	// replaced with a real compiled SFC, preventing a release from silently
 	// shipping the sentinel.
 	SfcV2Patch4 bool
+	// ElemontPubkeyValidation rejects validators whose pubkey deviates from
+	// the canonical secp256k1 shape (1 type byte 0xc0 + 65 raw bytes) at
+	// epoch seal. Required because inter/validatorpk/pubkey.FromBytes accepts
+	// any non-empty byte slice without validation, which let a malformed
+	// 65-byte 0x04-prefixed pubkey enter the testnet validator set at epoch
+	// 5682. The flag is intentionally separate from Elemont so existing
+	// chaindata replay (which already admitted that malformed validator)
+	// stays bit-for-bit identical: only NEW admissions evaluated AFTER the
+	// flag is set in a hardcoded rule constructor are subject to the check.
+	// Defaulted to false on every current network constructor; flipping it
+	// to true is a hard fork delivered via a new binary release, identical
+	// in shape to how Elemont and the SfcV2Patch* flags are activated.
+	ElemontPubkeyValidation bool
+	// SfcV2Patch5 re-flashes the SFC V2 bytecode a fifth time to install the
+	// Cycle-161 bytecode sourced from VinuChain/vinuchain-lists. The Cycle-161
+	// delta tightens validator-pubkey ingress: createValidator,
+	// _rawCreateValidator (which also covers setGenesisValidator), and
+	// NodeDriverAuth.updateValidatorPubkey now require pubkey.length == 66
+	// AND pubkey[0] == 0xc0. This rejects the malformed-pubkey shape that
+	// admitted testnet validator 16 (a 65-byte 0x04-prefixed pubkey lacking
+	// the canonical secp256k1 type-byte prefix), which lachesis-base could
+	// not verify, leaving 270k VC of delegator stake earning zero rewards.
+	// Testnet-only at activation time: mainnet has not yet activated any
+	// SfcV2* flag and will consume the latest available bytecode directly
+	// on its first SfcV2 activation.
+	//
+	// The patch5 bytecode is re-flashed via sfc.GetPatch5ContractBin(),
+	// which is a separate source from GetContractBin() and
+	// GetPatch4ContractBin() so the Cycle-161 asset can be compiled and
+	// dropped in as a scaffolded placeholder. A validation guard in
+	// sfc_patch5_bytecode.go log.Crits at the first attempted re-flash if
+	// the placeholder bytes have not yet been replaced with a real compiled
+	// SFC, preventing a release from silently shipping the sentinel.
+	SfcV2Patch5 bool
 }
 
 type UpgradeHeight struct {

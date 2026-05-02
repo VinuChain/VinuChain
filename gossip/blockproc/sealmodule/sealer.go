@@ -60,6 +60,17 @@ func (s *OperaEpochsSealer) SealEpoch() (iblockproc.BlockState, iblockproc.Epoch
 			log.Warn("Skipping validator with empty pubkey at epoch seal", "id", v)
 			continue
 		}
+		// ElemontPubkeyValidation rejects validators whose pubkey is non-empty
+		// but malformed (wrong type byte or wrong length). Gated separately
+		// from Elemont so existing chaindata replay — which already admitted
+		// at least one such validator on testnet — stays bit-for-bit identical
+		// up to flag activation.
+		if s.es.Rules.Upgrades.ElemontPubkeyValidation {
+			if err := profile.PubKey.Validate(); err != nil {
+				log.Warn("Skipping validator with malformed pubkey at epoch seal", "id", v, "err", err)
+				continue
+			}
+		}
 		builder.Set(v, profile.Weight)
 	}
 	newValidators := builder.Build()

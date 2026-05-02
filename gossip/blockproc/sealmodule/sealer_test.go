@@ -200,6 +200,73 @@ func TestSealEpoch_PreElemontEmptyPubkeyValidatorAdmitted(t *testing.T) {
 	require.True(t, newES.Validators.Exists(idx.ValidatorID(2)))
 }
 
+// malformedProfile builds a profile with the val-16 testnet shape: type=0x04,
+// Raw len=64. The pubkey is non-empty so the existing Elemont empty-pubkey
+// guard does NOT skip it; only the new ElemontPubkeyValidation guard catches it.
+func malformedProfile(weight int64) drivertype.Validator {
+	return drivertype.Validator{
+		Weight: big.NewInt(weight),
+		PubKey: validatorpk.PubKey{Type: 0x04, Raw: make([]byte, 64)},
+	}
+}
+
+func TestSealEpoch_ElemontPubkeyValidationMalformedSkipped(t *testing.T) {
+	rules := defaultRules()
+	rules.Upgrades.Elemont = true
+	rules.Upgrades.ElemontPubkeyValidation = true
+	s := newTestSealer(t, rules, []idx.ValidatorID{1}, iblockproc.ValidatorProfiles{
+		1: profile(100, make([]byte, 65)),  // canonical-shape pubkey: type already 0xc0 in profile()
+		2: malformedProfile(100),           // val-16 shape: type=0x04, len(Raw)=64 — must be skipped
+		3: profile(200, make([]byte, 65)),  // canonical-shape pubkey
+	})
+
+	_, newES := s.SealEpoch()
+
+	require.Equal(t, idx.Validator(2), newES.Validators.Len(),
+		"malformed-pubkey validator must be skipped under ElemontPubkeyValidation")
+	require.True(t, newES.Validators.Exists(idx.ValidatorID(1)))
+	require.False(t, newES.Validators.Exists(idx.ValidatorID(2)))
+	require.True(t, newES.Validators.Exists(idx.ValidatorID(3)))
+}
+
+func TestSealEpoch_ElemontWithoutPubkeyValidationAdmitsMalformed(t *testing.T) {
+	// This is the chain-replay-safety case: the existing testnet chaindata
+	// admitted val 16 (malformed pubkey, non-empty). On replay with
+	// Elemont=true but ElemontPubkeyValidation=false, the malformed validator
+	// must STILL be admitted bit-for-bit identical to today.
+	rules := defaultRules()
+	rules.Upgrades.Elemont = true
+	rules.Upgrades.ElemontPubkeyValidation = false
+	s := newTestSealer(t, rules, []idx.ValidatorID{1}, iblockproc.ValidatorProfiles{
+		1: profile(100, make([]byte, 65)),
+		2: malformedProfile(100), // val-16 shape — must STILL be admitted pre-flag
+	})
+
+	_, newES := s.SealEpoch()
+
+	require.Equal(t, idx.Validator(2), newES.Validators.Len(),
+		"pre-ElemontPubkeyValidation behaviour: malformed-pubkey validator must be admitted")
+	require.True(t, newES.Validators.Exists(idx.ValidatorID(2)))
+}
+
+func TestSealEpoch_ElemontPubkeyValidation_StillSkipsEmpty(t *testing.T) {
+	// ElemontPubkeyValidation must not regress the empty-pubkey skip.
+	rules := defaultRules()
+	rules.Upgrades.Elemont = true
+	rules.Upgrades.ElemontPubkeyValidation = true
+	s := newTestSealer(t, rules, []idx.ValidatorID{1}, iblockproc.ValidatorProfiles{
+		1: profile(100, make([]byte, 65)), // canonical: type=0xc0 + 65 raw bytes
+		2: profile(100, nil),               // empty — must be skipped
+		3: profile(200, make([]byte, 65)), // canonical
+	})
+
+	_, newES := s.SealEpoch()
+
+	require.Equal(t, idx.Validator(2), newES.Validators.Len())
+	require.False(t, newES.Validators.Exists(idx.ValidatorID(2)),
+		"empty-pubkey skip must remain in effect under ElemontPubkeyValidation")
+}
+
 func TestSealEpoch_AdvanceEpochsDecrementsByOne(t *testing.T) {
 	s := newTestSealer(t, defaultRules(), []idx.ValidatorID{1}, iblockproc.ValidatorProfiles{
 		1: profile(100, []byte{0x01}),

@@ -377,6 +377,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch4 && !prevUpg.SfcV2Patch4 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch5 && !prevUpg.SfcV2Patch5 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -451,6 +454,24 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch4 && !prevUpg.SfcV2Patch4 {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 4)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch4ContractBin())
+	}
+	// SfcV2Patch5 installs the Cycle-161 bytecode sourced from
+	// VinuChain/vinuchain-lists. Cycle-161 adds validator-pubkey shape
+	// validation at three ingress points (createValidator,
+	// _rawCreateValidator, NodeDriverAuth.updateValidatorPubkey) requiring
+	// pubkey.length == 66 AND pubkey[0] == 0xc0. Forward-only — existing
+	// stored pubkeys (e.g. testnet validator 16's malformed 65-byte 0x04
+	// pubkey) remain unchanged in storage; on-chain mitigation for
+	// already-admitted validators is governance-driven, not bytecode-driven.
+	// The bytecode is sourced from sfc.GetPatch5ContractBin() rather than
+	// GetPatch4ContractBin() because the Cycle-161 asset is compiled and
+	// dropped in as a scaffolded placeholder. A validation guard in
+	// sfc_patch5_bytecode.go log.Crits at startup if the placeholder bytes
+	// have not yet been replaced with a real compiled SFC, preventing a
+	// release from silently shipping the sentinel.
+	if bp.es.Rules.Upgrades.SfcV2Patch5 && !prevUpg.SfcV2Patch5 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 5)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch5ContractBin())
 	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*

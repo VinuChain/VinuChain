@@ -331,6 +331,16 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			changed = true
 			log.Info("Staged SfcV2Patch4 upgrade from binary rules; will activate at next epoch seal")
 		}
+		if hardcoded.Upgrades.ElemontPubkeyValidation && !pending.Upgrades.ElemontPubkeyValidation {
+			pending.Upgrades.ElemontPubkeyValidation = true
+			changed = true
+			log.Info("Staged ElemontPubkeyValidation upgrade from binary rules; will activate at next epoch seal")
+		}
+		if hardcoded.Upgrades.SfcV2Patch5 && !pending.Upgrades.SfcV2Patch5 {
+			pending.Upgrades.SfcV2Patch5 = true
+			changed = true
+			log.Info("Staged SfcV2Patch5 upgrade from binary rules; will activate at next epoch seal")
+		}
 		if changed {
 			bs.DirtyRules = &pending
 			store.SetBlockEpochState(bs, es)
