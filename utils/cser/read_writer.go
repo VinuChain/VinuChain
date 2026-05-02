@@ -44,7 +44,7 @@ func writeUint64Compact(bytesW *fast.Writer, v uint64) {
 			// stop flag
 			chunk |= 0b10000000
 		}
-		bytesW.WriteByte(byte(chunk))
+		bytesW.WriteByteFast(byte(chunk))
 		if v == 0 {
 			break
 		}
@@ -60,7 +60,7 @@ func readUint64Compact(bytesR *fast.Reader) uint64 {
 		if i >= 10 {
 			panic(ErrMalformedEncoding)
 		}
-		chunk := uint64(bytesR.ReadByte())
+		chunk := uint64(bytesR.ReadByteFast())
 		stop = (chunk & 0b10000000) != 0
 		word := chunk & 0b01111111
 		// 10th byte (i==9) can only carry 1 bit (bit 63)
@@ -79,7 +79,7 @@ func readUint64Compact(bytesR *fast.Reader) uint64 {
 
 func writeUint64BitCompact(bytesW *fast.Writer, v uint64, minSize int) (size int) {
 	for size < minSize || v != 0 {
-		bytesW.WriteByte(byte(v))
+		bytesW.WriteByteFast(byte(v))
 		size++
 		v = v >> 8
 	}
@@ -105,11 +105,11 @@ func readUint64BitCompact(bytesR *fast.Reader, size int) uint64 {
 }
 
 func (r *Reader) U8() uint8 {
-	return r.BytesR.ReadByte()
+	return r.BytesR.ReadByteFast()
 }
 
 func (w *Writer) U8(v uint8) {
-	w.BytesW.WriteByte(v)
+	w.BytesW.WriteByteFast(v)
 }
 
 func (r *Reader) readU64_bits(minSize int, bitsForSize int) uint64 {

@@ -24,8 +24,14 @@ func NewWriter(bb []byte) *Writer {
 	}
 }
 
-// WriteByte to the buffer.
-func (b *Writer) WriteByte(v byte) {
+// WriteByteFast appends a single byte to the buffer.
+//
+// Renamed from WriteByte to avoid go vet flagging it as a non-conforming
+// implementation of io.ByteWriter (which requires `WriteByte(byte) error`).
+// This buffer's append-to-slice cannot fail and the caller does not need
+// the error contract; preserving the panic-free semantic and matching the
+// fast.Reader.ReadByteFast naming keeps the package's intent visible.
+func (b *Writer) WriteByteFast(v byte) {
 	b.buf = append(b.buf, v)
 }
 
@@ -43,12 +49,20 @@ func (b *Reader) Read(n int) []byte {
 	return res
 }
 
-// ReadByte reads 1 byte.
-func (b *Reader) ReadByte() byte {
-	var res byte
-	res = b.buf[b.offset]
+// ReadByteFast reads one byte and advances the cursor. Out-of-bounds
+// reads panic via the underlying slice index, matching the fast-path
+// semantic of every other Reader method on this type (callers treat any
+// short-buffer condition as a malformed-encoding panic, not a recoverable
+// error).
+//
+// Renamed from ReadByte to avoid go vet flagging it as a non-conforming
+// implementation of io.ByteReader (which requires `ReadByte() (byte, error)`).
+// Returning the (byte, error) tuple here would force every hot-path caller
+// in utils/cser to add an error-discarding shim that obscures the
+// panic-on-malformed contract this package is built around.
+func (b *Reader) ReadByteFast() byte {
+	res := b.buf[b.offset]
 	b.offset++
-
 	return res
 }
 
