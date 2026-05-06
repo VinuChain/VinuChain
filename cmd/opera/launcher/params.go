@@ -9,35 +9,50 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
 )
 
+const (
+	vinuChainNetworkName               = "VinuChain"
+	vinuChainTestnetNetworkName        = "VinuChain Testnet"
+	vinuChainStagingMainnetNetworkName = "VinuChain Staging Mainnet"
+	vinuChainMainnetNetworkName        = "VinuChain Mainnet"
+)
+
 var (
+	mainnetBootnodes = []string{
+		"enode://0281626c7d7fc8696300688cbb19f3781aabd981d74cd16f3f5cd7885a32da4d1d9d64afbb2416b93654935a3088afbe1a4a05d823ff2146e5d1d0c2cbdeca46@188.165.195.122:3000",
+	}
+
+	testnetBootnodes = []string{
+		"enode://e2a95c1b8d85b018b8e88133bec342801b42e19b59a52e030462d04a5549f02fc57215b4ca97771ec6b3a0d30a78603fdccd2b5091c44f6ac439d6c8be8bc539@44.239.129.39:3000",
+		"enode://7a45d086b9c82bd3677a76d36e003b9490066d56b612f33d05cb4d242212acd4e5cab4abbcb15a0df9aa499e41b4b4e868d82ba1c509c1990c9217dfe4607775@44.239.129.39:3001",
+		"enode://d8e37eeba79b2c52dcba6e396ff907f27a6a8f7db34528cb8636bc3271291657a01c5649bff53429cea8a23b03fac13a178813c34c6d17d14f7b810a988393b5@44.239.129.39:3002",
+		"enode://3f15b5ac22dea3e37a90cd9378cf0cd4ed9ea122851846c8108fcc7d2c7e709ea4a089cf3da93c0d3d3053250417cf0ea9ad9eff0aa77ff07d76b6cf267a2937@44.239.129.39:3003",
+	}
+
 	Bootnodes = map[string][]string{
-		"main": {
-			"enode://0281626c7d7fc8696300688cbb19f3781aabd981d74cd16f3f5cd7885a32da4d1d9d64afbb2416b93654935a3088afbe1a4a05d823ff2146e5d1d0c2cbdeca46@188.165.195.122:3000",
-		},
-		"test": {
-			"enode://e2a95c1b8d85b018b8e88133bec342801b42e19b59a52e030462d04a5549f02fc57215b4ca97771ec6b3a0d30a78603fdccd2b5091c44f6ac439d6c8be8bc539@44.239.129.39:3000",
-			"enode://7a45d086b9c82bd3677a76d36e003b9490066d56b612f33d05cb4d242212acd4e5cab4abbcb15a0df9aa499e41b4b4e868d82ba1c509c1990c9217dfe4607775@44.239.129.39:3001",
-			"enode://d8e37eeba79b2c52dcba6e396ff907f27a6a8f7db34528cb8636bc3271291657a01c5649bff53429cea8a23b03fac13a178813c34c6d17d14f7b810a988393b5@44.239.129.39:3002",
-			"enode://3f15b5ac22dea3e37a90cd9378cf0cd4ed9ea122851846c8108fcc7d2c7e709ea4a089cf3da93c0d3d3053250417cf0ea9ad9eff0aa77ff07d76b6cf267a2937@44.239.129.39:3003",
-		},
+		"main":                             mainnetBootnodes,
+		vinuChainNetworkName:               mainnetBootnodes,
+		vinuChainMainnetNetworkName:        mainnetBootnodes,
+		"test":                             testnetBootnodes,
+		vinuChainTestnetNetworkName:        testnetBootnodes,
+		vinuChainStagingMainnetNetworkName: {},
 	}
 
 	vinuChainTestnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xbf7a3d7f49cd99745acd2aa1c828c81576c41a84fddc9c6ffb9857bab02fe260"),
 		NetworkID:   opera.VinuChainTestNetworkID,
-		NetworkName: "VinuChain Testnet",
+		NetworkName: vinuChainTestnetNetworkName,
 	}
 
 	vinuChainTestMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xb1b0e08cb0d53d0fb1067658c5af0b3d3ff334d574679f5f74eee2b3448394ce"),
 		NetworkID:   opera.VinuChainStagingNetworkID,
-		NetworkName: "VinuChain Staging Mainnet",
+		NetworkName: vinuChainStagingMainnetNetworkName,
 	}
 
 	vinuChainMainnetHeader = genesis.Header{
 		GenesisID:   hash.HexToHash("0xca7941e04fc93391af59a3a87e2ad386312d6b74922deeaa05068b1c08d9caa4"),
 		NetworkID:   opera.VinuChainMainNetworkID,
-		NetworkName: "VinuChain Mainnet",
+		NetworkName: vinuChainMainnetNetworkName,
 	}
 
 	AllowedOperaGenesis = []GenesisTemplate{
