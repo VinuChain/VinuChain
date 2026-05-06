@@ -140,7 +140,7 @@ func TestSfcV2BytecodeSwapAfterRuntimeActivation(t *testing.T) {
 	defer env.Close()
 
 	v1Bin := sfc.GetGenesisContractBin()
-	v2Bin := sfc.GetContractBin()
+	v2Bin := sfc.GetLatestContractBin()
 	require.NotEqual(t, v1Bin, v2Bin, "test precondition: V1 and V2 SFC bytecodes must differ")
 
 	// Sanity: at startup the SFC contract holds V1 bytecode (genesis did not
@@ -228,7 +228,7 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 
 	// The full pipeline: drive blocks through the seal and assert the
 	// bytecode swap still fires (the staged flags survived).
-	v2Bin := sfc.GetContractBin()
+	v2Bin := sfc.GetLatestContractBin()
 	admin := idx.ValidatorID(1)
 	other := idx.ValidatorID(2)
 	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))

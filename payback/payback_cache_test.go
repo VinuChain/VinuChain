@@ -492,3 +492,68 @@ func TestAddTransaction_FeeRefundCappedAtTxFee(t *testing.T) {
 		t.Fatalf("expected PaybackUsedMap=%v (capped to txFee), got %v", txFee, used)
 	}
 }
+
+func TestAddTransaction_FeeRefundAtCapacityErrorsForNewAddress(t *testing.T) {
+	contractABI, _ := abi.JSON(strings.NewReader(paybackProxy.QuotaProxyABI))
+
+	pc := &PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*EpochStakes),
+		store:          &stubStore{},
+		contractABI:    &contractABI,
+		blkCtx: &blockContext{
+			epoch:     1,
+			rules:     opera.Rules{},
+			blockTime: time.Now(),
+		},
+		inBlockProcessing: true,
+		maxAddresses:      1,
+	}
+
+	gasPrice := big.NewInt(1e9)
+	gasUsed := uint64(21000)
+	key, _ := crypto.GenerateKey()
+	signer := types.HomesteadSigner{}
+	tx, _ := types.SignTx(
+		types.NewTransaction(0, common.HexToAddress("0xBBBB"), big.NewInt(0), 21000, gasPrice, nil),
+		signer, key,
+	)
+	sender, err := types.Sender(signer, tx)
+	if err != nil {
+		t.Fatalf("recover sender: %v", err)
+	}
+	filler := common.HexToAddress("0x1")
+	if filler == sender {
+		filler = common.HexToAddress("0x2")
+	}
+	pc.PaybackUsedMap[filler] = big.NewInt(1)
+
+	err = pc.AddTransaction(tx, &types.Receipt{
+		Status:    types.ReceiptStatusSuccessful,
+		GasUsed:   gasUsed,
+		FeeRefund: big.NewInt(1),
+	})
+	if err == nil {
+		t.Fatal("expected AddTransaction to reject unrecordable FeeRefund for a new address at capacity")
+	}
+	if _, ok := pc.PaybackUsedMap[sender]; ok {
+		t.Fatal("new sender must not be inserted after capacity rejection")
+	}
+}
+
+func TestGetAvailablePaybackByAddress_ReturnsZeroAtCapacityForNewAddress(t *testing.T) {
+	existing := common.HexToAddress("0x1")
+	newAddress := common.HexToAddress("0x2")
+	pc := &PaybackCache{
+		PaybackUsedMap: map[common.Address]*big.Int{
+			existing: big.NewInt(1),
+		},
+		inBlockProcessing: true,
+		maxAddresses:      1,
+	}
+
+	got := pc.GetAvailablePaybackByAddress(newAddress, nil)
+	if got.Sign() != 0 {
+		t.Fatalf("expected zero available payback for untrackable new address, got %v", got)
+	}
+}

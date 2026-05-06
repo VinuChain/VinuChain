@@ -155,11 +155,11 @@ type Upgrades struct {
 	// activation, overwriting whatever bytecode the prior SfcV2 transition
 	// installed. It exists so networks that activated SfcV2 with an earlier
 	// (buggy) version of the V2 bytecode can upgrade to a corrected version
-	// without needing a second hard fork or chain reset. On networks that
-	// have not yet activated SfcV2, this flag is a no-op — the initial
-	// SfcV2 activation already installs whatever GetContractBin() currently
-	// returns, so mainnet operators do not need to enable SfcV2Patch when
-	// performing their first SfcV2 activation.
+	// without needing a second hard fork or chain reset. Do not set this flag
+	// on networks that have not yet activated SfcV2 — the initial SfcV2
+	// activation already installs GetLatestContractBin(), so mainnet operators
+	// do not need to enable SfcV2Patch when performing their first SfcV2
+	// activation.
 	SfcV2Patch bool
 	// SfcV2Patch2 re-flashes the SFC V2 bytecode a second time. It exists
 	// because testnet activated SfcV2Patch while GetContractBin() still
@@ -179,8 +179,9 @@ type Upgrades struct {
 	// claimRewards, restakeRewards, stashRewards, createValidator). Cycle-159
 	// relaxes the guard to < 2 so the 0-initialised slot is accepted as
 	// "not entered" while still failing closed on corruption. Testnet-only:
-	// mainnet has not yet activated SfcV2/SfcV2Patch/SfcV2Patch2 and will
-	// consume the Cycle-159 bytecode directly on its first SfcV2 activation.
+	// when Patch3 shipped, mainnet had not yet activated SfcV2/SfcV2Patch/
+	// SfcV2Patch2. Fresh SfcV2 activation now consumes the latest bytecode
+	// directly.
 	SfcV2Patch3 bool
 	// SfcV2Patch4 re-flashes the SFC V2 bytecode a fourth time to install the
 	// Cycle-160 bytecode sourced from VinuChain/vinuchain-lists PR #2. The
@@ -390,14 +391,13 @@ func VinuChainTestNetRules() Rules {
 // upgrade replaces SFC contract bytecode at startup, which must be coordinated
 // across all validators via a code release, not an on-chain governance proposal.
 //
-// SfcV2Patch and SfcV2Patch2 are intentionally NOT set here. Both flags exist
-// only to re-flash the SFC bytecode on networks that activated SfcV2 with
-// stale bytecode (testnet only). Mainnet has not yet activated SfcV2, so
-// its first SfcV2 transition will install whatever GetContractBin() currently
-// returns — which is the latest corrected bytecode — and no re-flash is
-// needed. Leave both unset here; adding them would be harmless no-ops but
-// would obscure the invariant that mainnet's first SfcV2 activation already
-// picks up every subsequent correctness fix to the V2 bytecode automatically.
+// SfcV2Patch* flags are intentionally NOT set here. They exist only to re-flash
+// the SFC bytecode on networks that activated SfcV2 with stale bytecode
+// (testnet only). Mainnet has not yet activated SfcV2, so its first SfcV2
+// transition installs sfc.GetLatestContractBin(), which points at the latest
+// corrected bytecode, and no re-flash is needed. Leave patch flags unset here;
+// adding them would obscure the invariant that mainnet's first SfcV2 activation
+// already picks up every subsequent correctness fix to the V2 bytecode.
 func VinuChainMainNetRules() Rules {
 	return Rules{
 		Name:      "VinuChain Mainnet",

@@ -403,17 +403,15 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	// invariants would corrupt in-block state.
 	if bp.es.Rules.Upgrades.SfcV2 && !prevUpg.SfcV2 {
 		log.Info("Applying SFC V2 bytecode upgrade", "block", bp.blockCtx.Idx)
-		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetLatestContractBin())
 	}
 	// SfcV2Patch re-flashes the SFC V2 bytecode on activation. This path
 	// exists so a network that already activated SfcV2 with an earlier
 	// (buggy) version of the V2 bytecode can overwrite the stored bytecode
-	// with whatever GetContractBin() currently returns, without needing a
-	// chaindata wipe or a second SfcV2 transition. On networks that haven't
-	// yet activated SfcV2, this is either a no-op (if SfcV2 is also being
-	// staged in the same transition, the SetCode above already installed
-	// the latest bytecode) or an idempotent re-install (if SfcV2 was already
-	// active, the bytecode is the same and the second SetCode is harmless).
+	// with the Cycle-159 bytecode without a chaindata wipe or a second SfcV2
+	// transition. Do not enable this legacy patch on a network's first SfcV2
+	// transition; the SetCode above already installs the latest bytecode and
+	// mainnet leaves every SfcV2Patch* flag unset for that reason.
 	if bp.es.Rules.Upgrades.SfcV2Patch && !prevUpg.SfcV2Patch {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())
@@ -434,7 +432,7 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	// initialize() is initializer-gated) is accepted as "not entered". Prior
 	// SfcV2Patch* cycles left every nonReentrant function reverting with
 	// "ReentrancyGuard: reentrant call" on first call. Idempotent on networks
-	// whose SfcV2 activation already installs the latest GetContractBin().
+	// whose SfcV2 activation already installs the latest SFC bytecode.
 	if bp.es.Rules.Upgrades.SfcV2Patch3 && !prevUpg.SfcV2Patch3 {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 3)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetContractBin())

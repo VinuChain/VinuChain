@@ -9,9 +9,8 @@ import (
 
 // GetPatch4ContractBin returns the Cycle-160 SFC bytecode re-flashed by the
 // SfcV2Patch4 upgrade. It is distinct from GetContractBin (which returns the
-// Cycle-159 bytecode used for SfcV2Patch3 and for fresh SfcV2 activations on
-// mainnet) so the Cycle-160 asset can evolve independently while legacy
-// patch3 code paths remain untouched.
+// Cycle-159 bytecode used for SfcV2Patch3) so the Cycle-160 asset can evolve
+// independently while legacy patch3 code paths remain untouched.
 //
 // Cycle-160 source: VinuChain/vinuchain-lists@eecd660 (PR #2 merged into
 // main) contracts/vinuchain/SFC.sol. Compiled with solc 0.5.17+commit.d19bba13

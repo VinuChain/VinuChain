@@ -88,3 +88,9 @@ func TestPatch5ContractBin_PassesEnforce(t *testing.T) {
 		t.Fatal("GetPatch5ContractBin does not return patch5ContractBin verbatim")
 	}
 }
+
+func TestLatestContractBinMatchesPatch5(t *testing.T) {
+	if !bytes.Equal(GetLatestContractBin(), GetPatch5ContractBin()) {
+		t.Fatal("fresh SfcV2 activation must install the latest Cycle-161 SFC bytecode")
+	}
+}

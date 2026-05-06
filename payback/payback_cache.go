@@ -208,11 +208,8 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 	}
 
 	if feeRefund != nil {
-		if uint64(len(pc.PaybackUsedMap)) >= pc.effectiveMaxAddresses() {
-			if _, exists := pc.PaybackUsedMap[sender]; !exists {
-				log.Warn("PaybackUsedMap at capacity, ignoring new address", "address", sender)
-				return nil
-			}
+		if !pc.canRecordPaybackUsageLocked(sender) {
+			return fmt.Errorf("payback usage map at capacity for new refund address %s", sender)
 		}
 
 		if _, ok := pc.PaybackUsedMap[sender]; !ok {
@@ -232,6 +229,13 @@ func (pc *PaybackCache) effectiveMaxAddresses() uint64 {
 		return maxPaybackEntries
 	}
 	return pc.maxAddresses
+}
+
+func (pc *PaybackCache) canRecordPaybackUsageLocked(address common.Address) bool {
+	if _, exists := pc.PaybackUsedMap[address]; exists {
+		return true
+	}
+	return uint64(len(pc.PaybackUsedMap)) < pc.effectiveMaxAddresses()
 }
 
 func (pc *PaybackCache) getQuotaUsedLocked(address common.Address) *big.Int {
@@ -363,8 +367,8 @@ func (pc *PaybackCache) getPaybackData(address common.Address) (currentEpoch idx
 // The evm parameter is passed directly to avoid storing a mutable pointer on the cache.
 //
 // Must be called during block processing (inBlockProcessing invariant). The epoch
-// and PaybackUsedMap are stable during this period, so the single lock section
-// below is safe and free from TOCTOU races.
+// and PaybackUsedMap are stable during this period, so capacity and usage
+// checks stay consistent across the small lock sections below.
 func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm *vm.EVM) *big.Int {
 	payback := big.NewInt(0)
 
@@ -377,6 +381,14 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 	}
 
 	if address == (common.Address{}) {
+		return payback
+	}
+
+	pc.mu.RLock()
+	canRecordUsage := pc.canRecordPaybackUsageLocked(address)
+	pc.mu.RUnlock()
+	if !canRecordUsage {
+		log.Warn("GetAvailablePaybackByAddress: payback usage map at capacity, disabling refund for new address", "address", address)
 		return payback
 	}
 
