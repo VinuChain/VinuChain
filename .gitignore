@@ -19,4 +19,9 @@ aws/
 .serena/
 x-ray/
 .omc/
+.codex/
+AGENTS.md
+agents.md
+CODEX.md
+codex.md
 static_analysis_semgrep_*/
