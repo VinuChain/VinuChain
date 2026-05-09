@@ -82,11 +82,13 @@ run_shell_step \
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   broadcast_helper=scripts/broadcast-quota-testnet-upgrade-tx.js
   signed_dispatch_helper=scripts/dispatch-quota-testnet-signed-broadcast.js
+  prepare_tx_workflow=.github/workflows/quota-testnet-prepare-upgrade-tx.yml
   signed_tx_workflow=.github/workflows/quota-testnet-broadcast-signed-tx.yml
   test -f \"\$helper\"
   test -f \"\$tx_helper\"
   test -f \"\$broadcast_helper\"
   test -f \"\$signed_dispatch_helper\"
+  test -f \"\$prepare_tx_workflow\"
   test -f \"\$signed_tx_workflow\"
   node --check \"\$helper\"
   node --check \"\$tx_helper\"
@@ -98,6 +100,8 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
+  rg -q 'Quota Testnet Prepare Upgrade Tx' README.md \"\$prepare_tx_workflow\"
+  rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
   rg -q 'signed_raw_transaction' \"\$signed_tx_workflow\"
   malformed_output=\"\$(printf 'not-a-key' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
@@ -171,6 +175,8 @@ run_shell_step \
   rg -q '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' \"\$guide\"
   rg -q 'configure:testnet:quota-upgrade-secret' \"\$guide\"
   rg -q 'prepare:testnet:quota-upgrade-tx' \"\$guide\"
+  rg -q 'Quota Testnet Prepare Upgrade Tx' \"\$guide\"
+  rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
   rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'dispatch:testnet:quota-signed-broadcast' \"\$guide\"
   rg -q 'dispatch-dry-run' \"\$guide\"
