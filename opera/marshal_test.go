@@ -221,6 +221,10 @@ func TestRulesSfcV2Patch2RLP(t *testing.T) {
 	require.True(decodedRules.Upgrades.SfcV2Patch2)
 }
 
+func TestVinuChainTestNetRulesQuotaCacheAddress(t *testing.T) {
+	require.Equal(t, "0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D", VinuChainTestNetRules().Economy.QuotaCacheAddress.Hex())
+}
+
 func TestRulesSfcV2Patch3RLP(t *testing.T) {
 	rules := VinuChainTestNetRules()
 	require := require.New(t)

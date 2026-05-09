@@ -352,7 +352,7 @@ func LegacyFakeNetRules() Rules {
 
 // VinuChainTestNetRules returns testnet rules
 func VinuChainTestNetRules() Rules {
-	return Rules{
+	rules := Rules{
 		Name:      "VinuChain Testnet",
 		NetworkID: VinuChainTestNetworkID,
 		Dag:       DefaultDagRules(),
@@ -377,6 +377,8 @@ func VinuChainTestNetRules() Rules {
 			ElemontPubkeyValidation: true,
 		},
 	}
+	rules.Economy.QuotaCacheAddress = common.HexToAddress("0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D")
+	return rules
 }
 
 // VinuChainMainNetRules returns mainnet rules.
