@@ -97,7 +97,21 @@ run_step \
 run_shell_step \
   "VinuChain docs rollout instructions" \
   "$VINUCHAIN_DOCS_DIR" \
-  "rg -q '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' technical-docs/vinuchain-testnet/chain-upgrade-guide.md && rg -q 'dispatch:testnet:quota-upgrade' technical-docs/vinuchain-testnet/chain-upgrade-guide.md && rg -q 'finalize:vinuchain-quota' technical-docs/vinuchain-testnet/chain-upgrade-guide.md && rg -q 'finalize:quota-testnet' technical-docs/vinuchain-testnet/chain-upgrade-guide.md"
+  "set -euo pipefail
+  guide=technical-docs/vinuchain-testnet/chain-upgrade-guide.md
+  rg -q '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' \"\$guide\"
+  rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
+  rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
+  rg -q 'finalize:vinuchain-quota' \"\$guide\"
+  rg -q 'finalize:quota-testnet' \"\$guide\"
+  readiness=\"\$(../VinuChain/scripts/audit-payback-receiver-testnet.sh | jq -r '.receiverReadiness')\"
+  if [ \"\$readiness\" = ready ]; then
+    rg -q '\\*\\*Payback receiver rollout status:\\*\\* Complete' \"\$guide\"
+    ! rg -q 'still points at the verified pre-receiver implementation|remaining mutating step|proxy upgrade pending|live Quota proxy upgrade is still pending|pending proxy-upgrade' \"\$guide\"
+  else
+    rg -q 'still points at the verified pre-receiver implementation' \"\$guide\"
+    rg -q 'Quota proxy upgrade pending' \"\$guide\"
+  fi"
 
 for repo in \
   "$VINUCHAIN_DIR" \
