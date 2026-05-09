@@ -1,6 +1,7 @@
 package payback
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -36,6 +38,12 @@ const (
 	TxTypeStake   TxType = "stake"
 	TxTypeUnstake TxType = "unstake"
 	TxTypeNone    TxType = "none"
+)
+
+var (
+	stakeSelector    = methodSelector("stake()")
+	stakeForSelector = methodSelector("stakeFor(address)")
+	unstakeSelector  = methodSelector("unstake(uint256)")
 )
 
 type TxInfo struct {
@@ -73,8 +81,11 @@ type blockContext struct {
 	// prevEpochState is memoized per block: a single store.GetHistoryEpochState
 	// lookup at the start of the block feeds every tx's payback computation.
 	// A sentinel loaded flag distinguishes "not yet fetched" from "fetched, nil".
-	prevEpochState       *iblockproc.EpochState
-	prevEpochStateLoaded bool
+	// The loading latch lets concurrent callers share the same store fetch.
+	prevEpochState        *iblockproc.EpochState
+	prevEpochStateLoaded  bool
+	prevEpochStateLoading bool
+	prevEpochStateReady   chan struct{}
 }
 
 type PaybackCache struct {
@@ -148,15 +159,19 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 		return nil
 	}
 
-	// contractABI is stable after construction; no lock needed.
-	txtype := getTxType(tx, *pc.contractABI)
-
 	// tx.From() relies on go-vinu's fork which caches the sender
 	// recovered during signature verification. For internal txs the
 	// sender is set explicitly by internaltx package.
 	sender := tx.From()
 	if sender == (common.Address{}) {
 		return nil
+	}
+
+	txtype := TxTypeNone
+	stakeAddress := common.Address{}
+	if pc.isQuotaContractTx(tx) {
+		// contractABI is stable after construction; no lock needed.
+		txtype, stakeAddress = getTxTypeAndStakeAddress(tx, pc.contractABI, sender)
 	}
 
 	// Pre-compute inputs that do not touch shared state outside the lock.
@@ -193,18 +208,18 @@ func (pc *PaybackCache) AddTransaction(tx *types.Transaction, receipt *types.Rec
 		}
 
 		if uint64(len(pc.StakesMap[epoch].StakesByAddress)) >= pc.effectiveMaxAddresses() {
-			if _, exists := pc.StakesMap[epoch].StakesByAddress[sender]; !exists {
-				log.Warn("StakesMap at capacity, ignoring new address", "address", sender)
+			if _, exists := pc.StakesMap[epoch].StakesByAddress[stakeAddress]; !exists {
+				log.Warn("StakesMap at capacity, ignoring new address", "address", stakeAddress)
 				return nil
 			}
 		}
 
-		stakes := pc.StakesMap[epoch].StakesByAddress[sender]
+		stakes := pc.StakesMap[epoch].StakesByAddress[stakeAddress]
 		stakes = append(stakes, StakeInfo{
 			Amount:    stakeAmount,
 			Timestamp: blockTime,
 		})
-		pc.StakesMap[epoch].StakesByAddress[sender] = stakes
+		pc.StakesMap[epoch].StakesByAddress[stakeAddress] = stakes
 	}
 
 	if feeRefund != nil {
@@ -294,18 +309,72 @@ func (pc *PaybackCache) String() string {
 }
 
 func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
-	if tx.Data() != nil && len(tx.Data()) >= 4 {
-		if method, err := abi.MethodById(tx.Data()[:4]); err == nil {
-			if method.Name == "stake" {
-				return TxTypeStake
-			}
+	txtype, _ := getTxTypeAndStakeAddress(tx, &abi, common.Address{})
+	return txtype
+}
 
-			if method.Name == "unstake" {
-				return TxTypeUnstake
+func getTxTypeAndStakeAddress(tx *types.Transaction, contractABI *abi.ABI, sender common.Address) (TxType, common.Address) {
+	data := tx.Data()
+	if len(data) < 4 {
+		return TxTypeNone, common.Address{}
+	}
+
+	selector := data[:4]
+	if bytes.Equal(selector, stakeSelector) {
+		return TxTypeStake, sender
+	}
+	if bytes.Equal(selector, stakeForSelector) {
+		if stakeAddress, ok := decodeStakeForAddress(data); ok {
+			return TxTypeStake, stakeAddress
+		}
+		return TxTypeNone, common.Address{}
+	}
+	if bytes.Equal(selector, unstakeSelector) {
+		return TxTypeUnstake, sender
+	}
+
+	if contractABI != nil {
+		if method, err := contractABI.MethodById(selector); err == nil {
+			switch method.Name {
+			case "stake":
+				return TxTypeStake, sender
+			case "stakeFor":
+				if stakeAddress, ok := decodeStakeForAddress(data); ok {
+					return TxTypeStake, stakeAddress
+				}
+			case "unstake":
+				return TxTypeUnstake, sender
 			}
 		}
 	}
-	return TxTypeNone
+	return TxTypeNone, common.Address{}
+}
+
+func (pc *PaybackCache) isQuotaContractTx(tx *types.Transaction) bool {
+	to := tx.To()
+	if to == nil {
+		return false
+	}
+
+	pc.mu.RLock()
+	contractAddress := pc.contractAddress
+	if pc.blkCtx != nil && pc.blkCtx.rules.Economy.QuotaCacheAddress != (common.Address{}) {
+		contractAddress = pc.blkCtx.rules.Economy.QuotaCacheAddress
+	}
+	pc.mu.RUnlock()
+
+	return contractAddress != (common.Address{}) && *to == contractAddress
+}
+
+func methodSelector(signature string) []byte {
+	return crypto.Keccak256([]byte(signature))[:4]
+}
+
+func decodeStakeForAddress(data []byte) (common.Address, bool) {
+	if len(data) < 4+abiEncodedUint256Len {
+		return common.Address{}, false
+	}
+	return common.BytesToAddress(data[4+12 : 4+abiEncodedUint256Len]), true
 }
 
 // getPaybackData reads epoch, quota, and duration for the given address.
@@ -325,29 +394,65 @@ func (pc *PaybackCache) getPaybackData(address common.Address) (currentEpoch idx
 	var (
 		prevEpochState *iblockproc.EpochState
 		haveState      bool
+		ctx            *blockContext
 	)
 	if pc.blkCtx != nil {
-		prevEpochState = pc.blkCtx.prevEpochState
-		haveState = pc.blkCtx.prevEpochStateLoaded
+		ctx = pc.blkCtx
+		prevEpochState = ctx.prevEpochState
+		haveState = ctx.prevEpochStateLoaded
 	}
 	pc.mu.RUnlock()
 
 	// If not yet memoized for this block, fetch from the store with no lock held.
 	if !haveState {
-		loaded := pc.store.GetHistoryEpochState(prevEpoch)
-
+		var (
+			ready     chan struct{}
+			shouldGet bool
+		)
 		pc.mu.Lock()
-		if pc.blkCtx != nil && !pc.blkCtx.prevEpochStateLoaded {
-			pc.blkCtx.prevEpochState = loaded
-			pc.blkCtx.prevEpochStateLoaded = true
-			prevEpochState = loaded
-		} else if pc.blkCtx != nil {
-			// Another goroutine published first; use that value.
-			prevEpochState = pc.blkCtx.prevEpochState
-		} else {
-			prevEpochState = loaded
+		switch {
+		case ctx == nil:
+			shouldGet = true
+		case ctx.prevEpochStateLoaded:
+			prevEpochState = ctx.prevEpochState
+		case ctx.prevEpochStateLoading:
+			ready = ctx.prevEpochStateReady
+		default:
+			shouldGet = true
+			ctx.prevEpochStateLoading = true
+			ctx.prevEpochStateReady = make(chan struct{})
+			ready = ctx.prevEpochStateReady
 		}
 		pc.mu.Unlock()
+
+		if shouldGet {
+			loaded := pc.store.GetHistoryEpochState(prevEpoch)
+
+			pc.mu.Lock()
+			if ctx != nil {
+				ctx.prevEpochState = loaded
+				ctx.prevEpochStateLoaded = true
+				ctx.prevEpochStateLoading = false
+				if ready != nil {
+					close(ready)
+					if ctx.prevEpochStateReady == ready {
+						ctx.prevEpochStateReady = nil
+					}
+				}
+			}
+			prevEpochState = loaded
+			pc.mu.Unlock()
+		} else if ready != nil {
+			<-ready
+			pc.mu.RLock()
+			if ctx != nil {
+				prevEpochState = ctx.prevEpochState
+			}
+			pc.mu.RUnlock()
+		} else {
+			// Another goroutine published first; prevEpochState was set while
+			// holding the lock above.
+		}
 	}
 
 	// Compute duration under the write lock (reads StakesMap, blkCtx).

@@ -20,6 +20,8 @@ import (
 	"github.com/Fantom-foundation/go-opera/payback/contract/paybackProxy"
 )
 
+var testQuotaContractAddress = common.HexToAddress("0x000000000000000000000000000000000000BBBB")
+
 // stubStore is a minimal Store implementation for testing AddTransaction.
 type stubStore struct{}
 
@@ -43,6 +45,29 @@ type countingStore struct {
 func (s *countingStore) GetHistoryEpochState(i idx.Epoch) *iblockproc.EpochState {
 	s.getHistoryEpochStateCalls.Add(1)
 	return s.stubStore.GetHistoryEpochState(i)
+}
+
+func signedPaybackTx(t *testing.T, data []byte, value *big.Int) (*types.Transaction, common.Address) {
+	t.Helper()
+
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	signer := types.HomesteadSigner{}
+	tx, err := types.SignTx(
+		types.NewTransaction(0, testQuotaContractAddress, value, 50000, big.NewInt(1e9), data),
+		signer,
+		key,
+	)
+	if err != nil {
+		t.Fatalf("sign tx: %v", err)
+	}
+	sender, err := types.Sender(signer, tx)
+	if err != nil {
+		t.Fatalf("recover sender: %v", err)
+	}
+	return tx, sender
 }
 
 // TestEpochCleanupRunsDuringPrepareForBlock verifies that PaybackUsedMap is
@@ -490,6 +515,79 @@ func TestAddTransaction_FeeRefundCappedAtTxFee(t *testing.T) {
 	}
 	if used.Cmp(txFee) != 0 {
 		t.Fatalf("expected PaybackUsedMap=%v (capped to txFee), got %v", txFee, used)
+	}
+}
+
+func TestAddTransaction_StakeRecordsSender(t *testing.T) {
+	pc := &PaybackCache{
+		PaybackUsedMap:  make(map[common.Address]*big.Int),
+		StakesMap:       make(map[idx.Epoch]*EpochStakes),
+		store:           &stubStore{},
+		contractAddress: testQuotaContractAddress,
+		blkCtx: &blockContext{
+			epoch: 1,
+			rules: opera.Rules{
+				Economy: opera.EconomyRules{
+					QuotaCacheAddress: testQuotaContractAddress,
+				},
+			},
+			blockTime: time.Now(),
+		},
+		inBlockProcessing: true,
+	}
+
+	stake := big.NewInt(123)
+	tx, sender := signedPaybackTx(t, stakeSelector, stake)
+	if err := pc.AddTransaction(tx, &types.Receipt{Status: types.ReceiptStatusSuccessful}); err != nil {
+		t.Fatalf("AddTransaction failed: %v", err)
+	}
+
+	stakes := pc.StakesMap[1].StakesByAddress[sender]
+	if len(stakes) != 1 {
+		t.Fatalf("expected one sender stake entry, got %d", len(stakes))
+	}
+	if stakes[0].Amount.Cmp(stake) != 0 {
+		t.Fatalf("stake amount = %v, want %v", stakes[0].Amount, stake)
+	}
+}
+
+func TestAddTransaction_StakeForRecordsReceiver(t *testing.T) {
+	pc := &PaybackCache{
+		PaybackUsedMap:  make(map[common.Address]*big.Int),
+		StakesMap:       make(map[idx.Epoch]*EpochStakes),
+		store:           &stubStore{},
+		contractAddress: testQuotaContractAddress,
+		blkCtx: &blockContext{
+			epoch: 1,
+			rules: opera.Rules{
+				Economy: opera.EconomyRules{
+					QuotaCacheAddress: testQuotaContractAddress,
+				},
+			},
+			blockTime: time.Now(),
+		},
+		inBlockProcessing: true,
+	}
+
+	receiver := common.HexToAddress("0x1111222233334444555566667777888899990000")
+	data := append([]byte{}, stakeForSelector...)
+	data = append(data, common.LeftPadBytes(receiver.Bytes(), abiEncodedUint256Len)...)
+
+	stake := big.NewInt(456)
+	tx, sender := signedPaybackTx(t, data, stake)
+	if err := pc.AddTransaction(tx, &types.Receipt{Status: types.ReceiptStatusSuccessful}); err != nil {
+		t.Fatalf("AddTransaction failed: %v", err)
+	}
+
+	if _, ok := pc.StakesMap[1].StakesByAddress[sender]; ok {
+		t.Fatal("stakeFor must not record the payer as the payback stake owner")
+	}
+	stakes := pc.StakesMap[1].StakesByAddress[receiver]
+	if len(stakes) != 1 {
+		t.Fatalf("expected one receiver stake entry, got %d", len(stakes))
+	}
+	if stakes[0].Amount.Cmp(stake) != 0 {
+		t.Fatalf("stake amount = %v, want %v", stakes[0].Amount, stake)
 	}
 }
 
