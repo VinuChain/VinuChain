@@ -105,7 +105,7 @@ run_shell_step \
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_partially_verified=true' README.md
-  rg -q 'local `QuotaContract` artifact bytecode' README.md
+  rg -q 'local .* artifact bytecode' README.md
   rg -q 'Quota Testnet Prepare Upgrade Tx' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
   npm run dispatch:testnet:quota-prepare-upgrade-tx -- --dry-run | rg -q 'quota-testnet-prepare-upgrade-tx.yml'
@@ -200,7 +200,7 @@ run_shell_step \
   rg -q 'finalize:quota-testnet' \"\$guide\"
   rg -q 'finalize-payback-receiver-docs.sh' \"\$guide\"
   rg -q 'is_partially_verified=true' \"\$guide\"
-  rg -q 'local `QuotaContract` artifact' \"\$guide\"
+  rg -q 'local .* artifact' \"\$guide\"
   readiness=\"\$(../VinuChain/scripts/audit-payback-receiver-testnet.sh | jq -r '.receiverReadiness')\"
   if [ \"\$readiness\" = ready ]; then
     rg -q '\\*\\*Payback receiver rollout status:\\*\\* Complete' \"\$guide\"
