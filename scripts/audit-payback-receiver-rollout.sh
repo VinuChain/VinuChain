@@ -75,6 +75,19 @@ run_shell_step \
   "REQUIRE_QUOTA_RECEIVER_READY=true npm run audit:testnet:quota"
 
 run_shell_step \
+  "Quota owner secret helper validation" \
+  "$QUOTA_CONTRACT_DIR" \
+  "set -euo pipefail
+  helper=scripts/configure-quota-testnet-owner-secret.js
+  test -f \"\$helper\"
+  node --check \"\$helper\"
+  rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
+  malformed_output=\"\$(printf 'not-a-key' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
+  rg -q 'Private key must be a 32-byte hex string' <<<\"\$malformed_output\"
+  wrong_owner_output=\"\$(printf '0x0000000000000000000000000000000000000000000000000000000000000001' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
+  rg -q 'expected ProxyAdmin owner' <<<\"\$wrong_owner_output\""
+
+run_shell_step \
   "Quota upgrade dispatch secret gate" \
   "$QUOTA_CONTRACT_DIR" \
   "npm run dispatch:testnet:quota-upgrade:sequence -- --dry-run"
@@ -100,6 +113,7 @@ run_shell_step \
   "set -euo pipefail
   guide=technical-docs/vinuchain-testnet/chain-upgrade-guide.md
   rg -q '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' \"\$guide\"
+  rg -q 'configure:testnet:quota-upgrade-secret' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
