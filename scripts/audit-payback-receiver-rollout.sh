@@ -147,9 +147,14 @@ NODE
 )\"
   broadcast_output=\"\$(printf '%s' \"\$wrong_signed_tx\" | npm run broadcast:testnet:quota-upgrade-tx -- --stdin --dry-run 2>&1 || true)\"
   rg -q 'Signed transaction from is' <<<\"\$broadcast_output\"
-  prep_output=\"\$(npm run prepare:testnet:quota-upgrade-tx)\"
-  prep_json=\"\$(printf '%s\n' \"\$prep_output\" | sed -n '/^{/,\$p')\"
-  jq -e '.chainId == 206 and .to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\" and (.data | startswith(\"0x99a88ec4\")) and .simulationReturn == \"0x\" and .suggestedLegacyTransaction.type == 0 and .suggestedLegacyTransaction.chainId == .chainId and .suggestedLegacyTransaction.nonce == .ownerNonce and .suggestedLegacyTransaction.to == .to and .suggestedLegacyTransaction.value == .value and .suggestedLegacyTransaction.data == .data and .suggestedLegacyTransaction.gasPrice == .gasPriceWei and ((.suggestedLegacyTransaction.gasLimit | tonumber) >= (.gasEstimate | tonumber))' <<<\"\$prep_json\""
+  prep_status=0
+  prep_output=\"\$(npm run prepare:testnet:quota-upgrade-tx 2>&1)\" || prep_status=\$?
+  if [ \"\$prep_status\" -eq 0 ]; then
+    prep_json=\"\$(printf '%s\n' \"\$prep_output\" | sed -n '/^{/,\$p')\"
+    jq -e '.chainId == 206 and .from == \"0x07B4eF04b62E69aE14A715cdcae692fa7033b9a5\" and .to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .quotaProxy == \"0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D\" and .previousImplementation == \"0x0c8735bD6b3E90eaD4cdAB917474Cc6e8E58ce82\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\" and (.data | startswith(\"0x99a88ec4\")) and .simulationReturn == \"0x\" and .suggestedLegacyTransaction.type == 0 and .suggestedLegacyTransaction.chainId == .chainId and .suggestedLegacyTransaction.nonce == .ownerNonce and .suggestedLegacyTransaction.to == .to and .suggestedLegacyTransaction.value == .value and .suggestedLegacyTransaction.data == .data and .suggestedLegacyTransaction.gasPrice == .gasPriceWei and ((.suggestedLegacyTransaction.gasLimit | tonumber) >= (.gasEstimate | tonumber))' <<<\"\$prep_json\"
+  else
+    rg -q 'Quota proxy already points at 0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' <<<\"\$prep_output\"
+  fi"
 
 run_shell_step \
   "Payback receiver finalizer wrapper validation" \
