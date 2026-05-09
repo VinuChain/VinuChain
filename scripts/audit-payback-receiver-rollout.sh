@@ -77,7 +77,7 @@ run_shell_step \
 run_shell_step \
   "Quota upgrade dispatch secret gate" \
   "$QUOTA_CONTRACT_DIR" \
-  "node scripts/dispatch-quota-testnet-upgrade.js --dry-run"
+  "npm run dispatch:testnet:quota-upgrade:sequence -- --dry-run"
 
 run_shell_step \
   "Quota contract proxy upgrade and VinuExplorer verification" \
