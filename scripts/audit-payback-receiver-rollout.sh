@@ -104,6 +104,8 @@ run_shell_step \
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
   rg -q 'signed_raw_transaction' \"\$signed_tx_workflow\"
+  ! rg -q 'node-version: 20' .github/workflows/quota-testnet-*.yml
+  test \"\$(rg -c 'node-version: 18' .github/workflows/quota-testnet-*.yml | awk -F: '{sum += \$2} END {print sum + 0}')\" -eq 4
   malformed_output=\"\$(printf 'not-a-key' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
   rg -q 'Private key must be a 32-byte hex string' <<<\"\$malformed_output\"
   wrong_owner_output=\"\$(printf '0x0000000000000000000000000000000000000000000000000000000000000001' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
