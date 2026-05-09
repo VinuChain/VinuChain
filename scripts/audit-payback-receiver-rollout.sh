@@ -104,6 +104,7 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
   rg -q 'finalize:quota-testnet' \"\$guide\"
+  rg -q 'finalize-payback-receiver-docs.sh' \"\$guide\"
   readiness=\"\$(../VinuChain/scripts/audit-payback-receiver-testnet.sh | jq -r '.receiverReadiness')\"
   if [ \"\$readiness\" = ready ]; then
     rg -q '\\*\\*Payback receiver rollout status:\\*\\* Complete' \"\$guide\"
