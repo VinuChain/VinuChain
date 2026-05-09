@@ -75,6 +75,11 @@ run_shell_step \
   "REQUIRE_QUOTA_RECEIVER_READY=true npm run audit:testnet:quota"
 
 run_shell_step \
+  "Quota upgrade dispatch secret gate" \
+  "$QUOTA_CONTRACT_DIR" \
+  "node scripts/dispatch-quota-testnet-upgrade.js --dry-run"
+
+run_shell_step \
   "Quota contract proxy upgrade and VinuExplorer verification" \
   "$QUOTA_CONTRACT_DIR" \
   "REQUIRE_QUOTA_UPGRADED=true REQUIRE_QUOTA_VERIFIED=true npm run audit:testnet:quota"
