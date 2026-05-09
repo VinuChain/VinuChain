@@ -96,6 +96,7 @@ run_shell_step \
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
+  rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
   rg -q 'signed_raw_transaction' \"\$signed_tx_workflow\"
@@ -160,6 +161,7 @@ run_shell_step \
   rg -q 'prepare:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'dispatch:testnet:quota-signed-broadcast' \"\$guide\"
+  rg -q 'dispatch-dry-run' \"\$guide\"
   rg -q 'suggestedLegacyTransaction' \"\$guide\"
   rg -q 'Quota Testnet Signed Tx Broadcast' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
