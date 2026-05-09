@@ -80,16 +80,41 @@ run_shell_step \
   "set -euo pipefail
   helper=scripts/configure-quota-testnet-owner-secret.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
+  broadcast_helper=scripts/broadcast-quota-testnet-upgrade-tx.js
   test -f \"\$helper\"
   test -f \"\$tx_helper\"
+  test -f \"\$broadcast_helper\"
   node --check \"\$helper\"
   node --check \"\$tx_helper\"
+  node --check \"\$broadcast_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
+  rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   malformed_output=\"\$(printf 'not-a-key' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
   rg -q 'Private key must be a 32-byte hex string' <<<\"\$malformed_output\"
   wrong_owner_output=\"\$(printf '0x0000000000000000000000000000000000000000000000000000000000000001' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
   rg -q 'expected ProxyAdmin owner' <<<\"\$wrong_owner_output\"
+  wrong_signed_tx=\"\$(node <<'NODE'
+const { ethers } = require('ethers')
+const wallet = new ethers.Wallet('0x0000000000000000000000000000000000000000000000000000000000000001')
+const iface = new ethers.utils.Interface(['function upgrade(address proxy,address implementation)'])
+const data = iface.encodeFunctionData('upgrade', [
+  '0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D',
+  '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba',
+])
+wallet.signTransaction({
+  chainId: 206,
+  nonce: 0,
+  to: '0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4',
+  value: 0,
+  gasLimit: 50000,
+  gasPrice: 1,
+  data,
+}).then(console.log)
+NODE
+)\"
+  broadcast_output=\"\$(printf '%s' \"\$wrong_signed_tx\" | npm run broadcast:testnet:quota-upgrade-tx -- --stdin --dry-run 2>&1 || true)\"
+  rg -q 'Signed transaction from is' <<<\"\$broadcast_output\"
   prep_output=\"\$(npm run prepare:testnet:quota-upgrade-tx)\"
   prep_json=\"\$(printf '%s\n' \"\$prep_output\" | sed -n '/^{/,\$p')\"
   jq -e '.chainId == 206 and .to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\" and (.data | startswith(\"0x99a88ec4\")) and .simulationReturn == \"0x\"' <<<\"\$prep_json\""
@@ -122,6 +147,7 @@ run_shell_step \
   rg -q '0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba' \"\$guide\"
   rg -q 'configure:testnet:quota-upgrade-secret' \"\$guide\"
   rg -q 'prepare:testnet:quota-upgrade-tx' \"\$guide\"
+  rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
