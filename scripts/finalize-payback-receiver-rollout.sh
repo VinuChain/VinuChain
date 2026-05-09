@@ -11,6 +11,8 @@ VINUSCAN_FRONTEND_DIR="${VINUSCAN_FRONTEND_DIR:-$WORKSPACE_DIR/vinuscan-frontend
 VINUCHAIN_DOCS_DIR="${VINUCHAIN_DOCS_DIR:-$WORKSPACE_DIR/VinuChain-Docs}"
 UPGRADE_TX="${QUOTA_UPGRADE_TX:-}"
 DRY_RUN=false
+COMMIT_CHANGES=false
+PUSH_CHANGES=false
 
 usage() {
   cat <<'EOF'
@@ -20,6 +22,8 @@ Usage:
 Options:
   --upgrade-tx <hash>  Quota proxy upgrade transaction hash. May also be set as QUOTA_UPGRADE_TX.
   --dry-run            Run readiness checks and pass dry-run to write-producing finalizers.
+  --commit             Commit generated vinuchain-lists and docs changes.
+  --push               Push generated commits. Requires --commit.
   -h, --help           Show this help.
 
 Run this after the testnet Quota proxy has been upgraded to the verified
@@ -40,6 +44,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --dry-run)
       DRY_RUN=true
+      shift
+      ;;
+    --commit)
+      COMMIT_CHANGES=true
+      shift
+      ;;
+    --push)
+      PUSH_CHANGES=true
       shift
       ;;
     -h | --help)
@@ -64,6 +76,16 @@ done
 
 if [[ ! "$UPGRADE_TX" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
   printf 'Set QUOTA_UPGRADE_TX or pass a 32-byte upgrade tx hash.\n' >&2
+  exit 1
+fi
+
+if [ "$DRY_RUN" = true ] && { [ "$COMMIT_CHANGES" = true ] || [ "$PUSH_CHANGES" = true ]; }; then
+  printf '%s\n' '--dry-run cannot be combined with --commit or --push.' >&2
+  exit 1
+fi
+
+if [ "$PUSH_CHANGES" = true ] && [ "$COMMIT_CHANGES" != true ]; then
+  printf '%s\n' '--push requires --commit.' >&2
   exit 1
 fi
 
@@ -122,6 +144,35 @@ require_clean_repo() {
   fi
 }
 
+commit_repo_changes() {
+  local label="$1"
+  local dir="$2"
+  local message="$3"
+  shift 3
+
+  run_step "stage $label changes" "$dir" git add "$@"
+  if git -C "$dir" diff --cached --quiet; then
+    printf '\n==> %s commit\nNo staged changes.\n' "$label"
+    return
+  fi
+
+  run_step "commit $label changes" "$dir" git commit -m "$message"
+
+  local status
+  status="$(git -C "$dir" status --porcelain=v1 -uall)"
+  if [ -n "$status" ]; then
+    printf 'Unexpected dirty state after committing %s changes:\n%s\n' "$label" "$status" >&2
+    exit 1
+  fi
+}
+
+push_repo() {
+  local label="$1"
+  local dir="$2"
+
+  run_step "push $label" "$dir" git push
+}
+
 dry_arg=()
 if [ "$DRY_RUN" = true ]; then
   dry_arg=(--dry-run)
@@ -171,6 +222,26 @@ if [ "$DRY_RUN" = true ]; then
   printf '\nDry run complete. No files were updated.\n'
 else
   printf '\nPayback receiver rollout finalizers completed.\n'
-  printf 'Review, commit, and push generated changes in vinuchain-lists and VinuChain-Docs, then run:\n'
+  if [ "$COMMIT_CHANGES" = true ]; then
+    commit_repo_changes \
+      "vinuchain-lists" \
+      "$VINUCHAIN_LISTS_DIR" \
+      "chore(vinuchain): finalize quota receiver implementation" \
+      contracts/vinuchain/info.json
+
+    commit_repo_changes \
+      "VinuChain-Docs" \
+      "$VINUCHAIN_DOCS_DIR" \
+      "docs(testnet): finalize payback receiver rollout" \
+      technical-docs/vinuchain-testnet/chain-upgrade-guide.md
+  else
+    printf 'Review, commit, and push generated changes in vinuchain-lists and VinuChain-Docs, then run:\n'
+  fi
+
+  if [ "$PUSH_CHANGES" = true ]; then
+    push_repo "vinuchain-lists" "$VINUCHAIN_LISTS_DIR"
+    push_repo "VinuChain-Docs" "$VINUCHAIN_DOCS_DIR"
+  fi
+
   printf '  %s/scripts/audit-payback-receiver-rollout.sh\n' "$VINUCHAIN_DIR"
 fi

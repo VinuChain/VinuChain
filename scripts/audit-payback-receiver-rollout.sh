@@ -136,7 +136,12 @@ run_shell_step \
   "$VINUCHAIN_DIR" \
   "test -x scripts/finalize-payback-receiver-rollout.sh
   bash -n scripts/finalize-payback-receiver-rollout.sh
-  scripts/finalize-payback-receiver-rollout.sh --help >/dev/null"
+  scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--commit'
+  scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--push'
+  commit_dry_run_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --dry-run --commit 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
+  rg -q -- '--dry-run cannot be combined with --commit or --push' <<<\"\$commit_dry_run_output\"
+  push_without_commit_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --push 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
+  rg -q -- '--push requires --commit' <<<\"\$push_without_commit_output\""
 
 run_shell_step \
   "Quota upgrade dispatch secret gate" \
@@ -174,6 +179,7 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
+  rg -q -- '--commit --push' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
   rg -q 'finalize:quota-testnet' \"\$guide\"
   rg -q 'finalize-payback-receiver-docs.sh' \"\$guide\"
