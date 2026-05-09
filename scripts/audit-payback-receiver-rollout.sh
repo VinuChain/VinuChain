@@ -80,6 +80,7 @@ run_shell_step \
   "set -euo pipefail
   helper=scripts/configure-quota-testnet-owner-secret.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
+  sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   prepare_dispatch_helper=scripts/dispatch-quota-testnet-prepare-upgrade-tx.js
   broadcast_helper=scripts/broadcast-quota-testnet-upgrade-tx.js
   signed_dispatch_helper=scripts/dispatch-quota-testnet-signed-broadcast.js
@@ -87,6 +88,7 @@ run_shell_step \
   signed_tx_workflow=.github/workflows/quota-testnet-broadcast-signed-tx.yml
   test -f \"\$helper\"
   test -f \"\$tx_helper\"
+  test -f \"\$sign_helper\"
   test -f \"\$prepare_dispatch_helper\"
   test -f \"\$broadcast_helper\"
   test -f \"\$signed_dispatch_helper\"
@@ -94,11 +96,13 @@ run_shell_step \
   test -f \"\$signed_tx_workflow\"
   node --check \"\$helper\"
   node --check \"\$tx_helper\"
+  node --check \"\$sign_helper\"
   node --check \"\$prepare_dispatch_helper\"
   node --check \"\$broadcast_helper\"
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
+  rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
@@ -118,6 +122,8 @@ run_shell_step \
   rg -q 'Private key must be a 32-byte hex string' <<<\"\$malformed_output\"
   wrong_owner_output=\"\$(printf '0x0000000000000000000000000000000000000000000000000000000000000001' | npm run configure:testnet:quota-upgrade-secret -- --stdin --dry-run 2>&1 || true)\"
   rg -q 'expected ProxyAdmin owner' <<<\"\$wrong_owner_output\"
+  wrong_signer_output=\"\$(printf '0x0000000000000000000000000000000000000000000000000000000000000001' | npm run sign:testnet:quota-upgrade-tx -- --stdin 2>&1 || true)\"
+  rg -q 'expected ProxyAdmin owner' <<<\"\$wrong_signer_output\"
   signed_dispatch_output=\"\$(npm run dispatch:testnet:quota-signed-broadcast -- --no-dispatch 2>&1 || true)\"
   rg -q 'Pass --stdin' <<<\"\$signed_dispatch_output\"
   wrong_signed_tx=\"\$(node <<'NODE'
@@ -189,6 +195,7 @@ run_shell_step \
   rg -q 'Quota Testnet Prepare Upgrade Tx' \"\$guide\"
   rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
   rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
+  rg -q 'sign:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'dispatch:testnet:quota-signed-broadcast' \"\$guide\"
   rg -q 'dispatch-dry-run' \"\$guide\"
   rg -q 'suggestedLegacyTransaction' \"\$guide\"
