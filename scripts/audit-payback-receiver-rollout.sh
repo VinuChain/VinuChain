@@ -132,6 +132,13 @@ NODE
   jq -e '.chainId == 206 and .to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\" and (.data | startswith(\"0x99a88ec4\")) and .simulationReturn == \"0x\" and .suggestedLegacyTransaction.type == 0 and .suggestedLegacyTransaction.chainId == .chainId and .suggestedLegacyTransaction.nonce == .ownerNonce and .suggestedLegacyTransaction.to == .to and .suggestedLegacyTransaction.value == .value and .suggestedLegacyTransaction.data == .data and .suggestedLegacyTransaction.gasPrice == .gasPriceWei and ((.suggestedLegacyTransaction.gasLimit | tonumber) >= (.gasEstimate | tonumber))' <<<\"\$prep_json\""
 
 run_shell_step \
+  "Payback receiver finalizer wrapper validation" \
+  "$VINUCHAIN_DIR" \
+  "test -x scripts/finalize-payback-receiver-rollout.sh
+  bash -n scripts/finalize-payback-receiver-rollout.sh
+  scripts/finalize-payback-receiver-rollout.sh --help >/dev/null"
+
+run_shell_step \
   "Quota upgrade dispatch secret gate" \
   "$QUOTA_CONTRACT_DIR" \
   "npm run dispatch:testnet:quota-upgrade:sequence -- --dry-run"
@@ -166,6 +173,7 @@ run_shell_step \
   rg -q 'Quota Testnet Signed Tx Broadcast' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
+  rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
   rg -q 'finalize:quota-testnet' \"\$guide\"
   rg -q 'finalize-payback-receiver-docs.sh' \"\$guide\"
