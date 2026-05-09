@@ -70,6 +70,11 @@ run_shell_step \
   "REQUIRE_PAYBACK_RECEIVER_READY=true scripts/audit-payback-receiver-testnet.sh"
 
 run_shell_step \
+  "Quota receiver implementation VinuExplorer verification" \
+  "$QUOTA_CONTRACT_DIR" \
+  "REQUIRE_QUOTA_RECEIVER_READY=true npm run audit:testnet:quota"
+
+run_shell_step \
   "Quota contract proxy upgrade and VinuExplorer verification" \
   "$QUOTA_CONTRACT_DIR" \
   "REQUIRE_QUOTA_UPGRADED=true REQUIRE_QUOTA_VERIFIED=true npm run audit:testnet:quota"
