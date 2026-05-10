@@ -220,10 +220,17 @@ run_shell_step \
   rg -q 'audit-payback-receiver-rollout.sh' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'prepared buffered gas price' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Observed gas price wei' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Gas price buffer bps' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Prepared gas price wei' /tmp/quota-owner-handoff-audit/README.md
   jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  jq -e '.observedGasPriceWei and .gasPriceBufferBps == 1000 and (.suggestedLegacyTransaction.gasPrice == .gasPriceWei) and ((.gasPriceWei | tonumber) > (.observedGasPriceWei | tonumber))' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
+  rg -q 'buffered gas price' README.md
+  rg -q 'observed RPC gas price' README.md
   rg -q 'is_fully_verified=true' README.md
   rg -q 'is_partially_verified=false' README.md
   rg -q 'local .* artifact bytecode' README.md
@@ -287,6 +294,7 @@ NODE
   if [ \"\$prep_status\" -eq 0 ]; then
     prep_json=\"\$(printf '%s\n' \"\$prep_output\" | sed -n '/^{/,\$p')\"
     jq -e '.chainId == 206 and .from == \"0x07B4eF04b62E69aE14A715cdcae692fa7033b9a5\" and .to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .quotaProxy == \"0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D\" and .previousImplementation == \"0x0c8735bD6b3E90eaD4cdAB917474Cc6e8E58ce82\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\" and (.data | startswith(\"0x99a88ec4\")) and .simulationReturn == \"0x\" and .suggestedLegacyTransaction.type == 0 and .suggestedLegacyTransaction.chainId == .chainId and .suggestedLegacyTransaction.nonce == .ownerNonce and .suggestedLegacyTransaction.to == .to and .suggestedLegacyTransaction.value == .value and .suggestedLegacyTransaction.data == .data and .suggestedLegacyTransaction.gasPrice == .gasPriceWei and ((.suggestedLegacyTransaction.gasLimit | tonumber) >= (.gasEstimate | tonumber))' <<<\"\$prep_json\"
+    jq -e '.observedGasPriceWei and .gasPriceBufferBps == 1000 and ((.gasPriceWei | tonumber) > (.observedGasPriceWei | tonumber))' <<<\"\$prep_json\"
     export_json=\"\$(tmpfile=\$(mktemp); printf '%s\n' \"\$prep_json\" > \"\$tmpfile\"; npm run export:testnet:quota-wallet-tx -- \"\$tmpfile\"; rm -f \"\$tmpfile\")\"
     printf '%s\n' \"\$export_json\" | sed -n '/^{/,\$p' | jq -e '.status == \"ready_for_owner_signature\" and .walletTransaction.chainId == \"0xce\" and .walletTransaction.to == \"0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4\" and .quotaProxy == \"0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D\" and .implementation == \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\"'
   else
@@ -367,6 +375,8 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-signed-broadcast' \"\$guide\"
   rg -q 'dispatch-dry-run' \"\$guide\"
   rg -q 'suggestedLegacyTransaction' \"\$guide\"
+  rg -q 'buffered gas price' \"\$guide\"
+  rg -q 'observed RPC gas' \"\$guide\"
   rg -q 'Quota Testnet Signed Tx Broadcast' \"\$guide\"
   rg -q 'audit-testnet-aws-opera.sh' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
