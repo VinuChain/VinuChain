@@ -203,14 +203,15 @@ run_shell_step \
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$wallet_page\"
-  npm run handoff:testnet:quota-owner-bundle -- \"\$latest_prepared_run_id\" --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
+  bundle_output=\"\$(npm run handoff:testnet:quota-owner-bundle -- \"\$latest_prepared_run_id\" --dir /tmp/quota-owner-handoff-audit --no-zip)\"
+  rg -q '\"status\": \"ready\"' <<<\"\$bundle_output\"
   test -f /tmp/quota-owner-handoff-audit/README.md
   test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
-  rg -q 'BUNDLE_DIR=\"\$(pwd)\"' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'BUNDLE_DIR=\"\\$\\(pwd\\)\"' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'cd /home/gypsey/vinu-quotacontract' /tmp/quota-owner-handoff-audit/README.md
-  rg -q 'audit:testnet:quota-prepared-tx -- --live \"\$BUNDLE_DIR/quota-prepared-upgrade-testnet.json\"' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'audit:testnet:quota-prepared-tx -- --live \"\\\$BUNDLE_DIR/quota-prepared-upgrade-testnet.json\"' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Post-Confirmation Finalization' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --dry-run <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --commit --push <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
@@ -235,11 +236,15 @@ run_shell_step \
   rg -q 'npm run download:testnet:quota-prepared-tx -- <run-id>' README.md
   rg -q 'actions/artifacts' \"\$download_prepare_helper\"
   rg -q 'suggestedLegacyTransaction' \"\$validate_prepare_helper\"
-  npm run download:testnet:quota-prepared-tx -- --help | rg -q -- '--dir'
-  npm run audit:testnet:quota-prepared-tx -- --help | rg -q 'prepared transaction JSON file'
-  npm run audit:testnet:quota-prepared-tx -- --help | rg -q -- '--live'
-  npm run export:testnet:quota-wallet-tx -- --help | rg -q 'wallet-friendly JSON shape'
-  npm run dispatch:testnet:quota-prepare-upgrade-tx -- --dry-run | rg -q 'quota-testnet-prepare-upgrade-tx.yml'
+  download_help=\"\$(npm run download:testnet:quota-prepared-tx -- --help)\"
+  rg -q -- '--dir' <<<\"\$download_help\"
+  prepared_audit_help=\"\$(npm run audit:testnet:quota-prepared-tx -- --help)\"
+  rg -q 'prepared transaction JSON file' <<<\"\$prepared_audit_help\"
+  rg -q -- '--live' <<<\"\$prepared_audit_help\"
+  wallet_export_help=\"\$(npm run export:testnet:quota-wallet-tx -- --help)\"
+  rg -q 'wallet-friendly JSON shape' <<<\"\$wallet_export_help\"
+  prepare_dispatch_dry_run=\"\$(npm run dispatch:testnet:quota-prepare-upgrade-tx -- --dry-run)\"
+  rg -q 'quota-testnet-prepare-upgrade-tx.yml' <<<\"\$prepare_dispatch_dry_run\"
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
   rg -q 'signed_raw_transaction' \"\$signed_tx_workflow\"
   ! rg -q 'node-version: 20' .github/workflows/quota-testnet-*.yml
