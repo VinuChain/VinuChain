@@ -9,6 +9,10 @@ QUOTA_CONTRACT_DIR="${QUOTA_CONTRACT_DIR:-$WORKSPACE_DIR/vinu-quotacontract}"
 VINUCHAIN_LISTS_DIR="${VINUCHAIN_LISTS_DIR:-$WORKSPACE_DIR/vinuchain-lists}"
 VINUSCAN_FRONTEND_DIR="${VINUSCAN_FRONTEND_DIR:-$WORKSPACE_DIR/vinuscan-frontend}"
 VINUCHAIN_DOCS_DIR="${VINUCHAIN_DOCS_DIR:-$WORKSPACE_DIR/VinuChain-Docs}"
+RPC_URL="${RPC_URL:-https://vinufoundation-rpc.com}"
+EXPECTED_QUOTA_PROXY="${EXPECTED_QUOTA_PROXY:-0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D}"
+EXPECTED_RECEIVER_IMPLEMENTATION="${EXPECTED_RECEIVER_IMPLEMENTATION:-0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba}"
+UPGRADED_EVENT_TOPIC="0xbc7cd75a20ee27fd9b55091d607f2ea15a0515c1c01a6156a9825344447f2dd6"
 UPGRADE_TX="${QUOTA_UPGRADE_TX:-}"
 DRY_RUN=false
 COMMIT_CHANGES=false
@@ -21,6 +25,7 @@ Usage:
 
 Options:
   --upgrade-tx <hash>  Quota proxy upgrade transaction hash. May also be set as QUOTA_UPGRADE_TX.
+                       Use "auto" to discover it from the proxy Upgraded event.
   --dry-run            Run readiness checks and pass dry-run to write-producing finalizers.
   --commit             Commit generated vinuchain-lists and docs changes.
   --push               Push generated commits. Requires --commit.
@@ -74,7 +79,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-if [[ ! "$UPGRADE_TX" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
+if [ "$UPGRADE_TX" != "auto" ] && [[ ! "$UPGRADE_TX" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
   printf 'Set QUOTA_UPGRADE_TX or pass a 32-byte upgrade tx hash.\n' >&2
   exit 1
 fi
@@ -127,6 +132,72 @@ run_shell_step() {
     cd "$dir" || exit 1
     bash -lc "$command"
   )
+}
+
+rpc() {
+  local method="$1"
+  local params="${2:-[]}"
+  local payload response
+
+  payload="$(jq -nc --arg method "$method" --argjson params "$params" \
+    '{jsonrpc:"2.0",id:1,method:$method,params:$params}')"
+
+  if ! response="$(curl -sS --fail -H 'content-type: application/json' --data "$payload" "$RPC_URL")"; then
+    printf 'RPC request failed: %s\n' "$method" >&2
+    exit 1
+  fi
+
+  if jq -e '.error' >/dev/null <<<"$response"; then
+    printf 'RPC returned error for %s: %s\n' "$method" "$(jq -c '.error' <<<"$response")" >&2
+    exit 1
+  fi
+
+  jq -c '.result' <<<"$response"
+}
+
+hex_block() {
+  printf '0x%x' "$1"
+}
+
+discover_upgrade_tx() {
+  local implementation_topic latest_hex latest_block from_block to_block logs log
+  local tx_hash="" tx_block="" tx_log_index="" range_size=100000
+
+  implementation_topic="0x000000000000000000000000$(printf '%s' "${EXPECTED_RECEIVER_IMPLEMENTATION#0x}" | tr '[:upper:]' '[:lower:]')"
+  latest_hex="$(rpc eth_blockNumber | jq -r '.')"
+  latest_block=$((16#${latest_hex#0x}))
+
+  for ((from_block = 0; from_block <= latest_block; from_block += range_size)); do
+    to_block=$((from_block + range_size - 1))
+    if [ "$to_block" -gt "$latest_block" ]; then
+      to_block="$latest_block"
+    fi
+
+    logs="$(rpc eth_getLogs "$(jq -nc \
+      --arg address "$EXPECTED_QUOTA_PROXY" \
+      --arg fromBlock "$(hex_block "$from_block")" \
+      --arg toBlock "$(hex_block "$to_block")" \
+      --arg topic0 "$UPGRADED_EVENT_TOPIC" \
+      --arg topic1 "$implementation_topic" \
+      '[{address:$address,fromBlock:$fromBlock,toBlock:$toBlock,topics:[$topic0,$topic1]}]')")"
+
+    while IFS= read -r log; do
+      [ -n "$log" ] || continue
+      tx_hash="$(jq -r '.transactionHash' <<<"$log")"
+      tx_block="$(jq -r '.blockNumber' <<<"$log")"
+      tx_log_index="$(jq -r '.logIndex' <<<"$log")"
+    done < <(jq -c '.[]' <<<"$logs")
+  done
+
+  if [ -z "$tx_hash" ]; then
+    printf 'Could not find proxy Upgraded event for %s -> %s through block %s.\n' \
+      "$EXPECTED_QUOTA_PROXY" "$EXPECTED_RECEIVER_IMPLEMENTATION" "$latest_block" >&2
+    exit 1
+  fi
+
+  printf 'Discovered Quota proxy upgrade tx %s at block %s logIndex %s.\n' \
+    "$tx_hash" "$tx_block" "$tx_log_index" >&2
+  printf '%s\n' "$tx_hash"
 }
 
 require_clean_repo() {
@@ -197,6 +268,10 @@ run_shell_step \
   "Quota contract proxy and explorer audit" \
   "$QUOTA_CONTRACT_DIR" \
   "REQUIRE_QUOTA_UPGRADED=true REQUIRE_QUOTA_VERIFIED=true npm run audit:testnet:quota"
+
+if [ "$UPGRADE_TX" = "auto" ]; then
+  UPGRADE_TX="$(discover_upgrade_tx)"
+fi
 
 run_step \
   "vinuchain-lists quota finalizer" \

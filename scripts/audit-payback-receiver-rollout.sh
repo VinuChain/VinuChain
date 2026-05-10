@@ -279,6 +279,8 @@ run_shell_step \
   "test -x scripts/finalize-payback-receiver-rollout.sh
   bash -n scripts/finalize-payback-receiver-rollout.sh
   rg -q 'audit-testnet-aws-opera.sh' scripts/finalize-payback-receiver-rollout.sh
+  scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--upgrade-tx <hash>'
+  scripts/finalize-payback-receiver-rollout.sh --help | rg -q 'auto.*proxy Upgraded event'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--commit'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--push'
   commit_dry_run_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --dry-run --commit 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
