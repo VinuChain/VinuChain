@@ -42,13 +42,13 @@ const SFC_ABI = [
 ];
 
 async function main() {
-  const rpcUrl = process.env.RPC_URL || "https://testnet-rpc.vinuchain.org";
+  const rpcUrl = process.env.RPC_URL || "https://vinufoundation-rpc.com";
   const adminKey = process.env.ADMIN_PRIVATE_KEY;
   const resumeImpl = process.env.RESUME_IMPL;
 
   if (!adminKey) {
     console.error("Required: ADMIN_PRIVATE_KEY=0x<admin-private-key>");
-    console.error("Optional: RPC_URL (defaults to https://testnet-rpc.vinuchain.org)");
+    console.error("Optional: RPC_URL (defaults to https://vinufoundation-rpc.com)");
     console.error("Optional: RESUME_IMPL=0x<impl-address> (skip deploy, resume from upgradeCode)");
     process.exit(1);
   }
