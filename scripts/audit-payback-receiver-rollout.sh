@@ -179,6 +179,14 @@ run_shell_step \
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Wallet sender: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
+  latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
+  prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
+  current_quota_commit=\"\$(git rev-parse HEAD)\"
+  test -n \"\$latest_prepared_run_id\"
+  test -n \"\$prepared_source_commit\"
+  test \"\$prepared_source_commit\" = \"\$current_quota_commit\"
+  rg -q 'Prepared commit matches current commit: yes' <<<\"\$handoff_output\"
+  rg -q 'Transaction-affecting drift: no' <<<\"\$handoff_output\"
   watch_output=\"\$(npm run watch:testnet:quota-upgrade -- --once 2>&1 || true)\"
   rg -q '\"expectedImplementation\":\"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\"' <<<\"\$watch_output\"
   rg -q '\"implementationHasStakeFor\":' <<<\"\$watch_output\"
@@ -186,15 +194,15 @@ run_shell_step \
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$wallet_page\"
-  npm run handoff:testnet:quota-owner-bundle -- 25621357415 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
+  npm run handoff:testnet:quota-owner-bundle -- \"\$latest_prepared_run_id\" --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
   test -f /tmp/quota-owner-handoff-audit/README.md
   test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
-  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"10208593c2f5201f8cd75243deffa3778a27f33a\" and .sourceRef == \"main\" and .sourceRunId == \"25621357415\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
-  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"10208593c2f5201f8cd75243deffa3778a27f33a\" and .sourceRef == \"main\" and .sourceRunId == \"25621357415\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
+  jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
