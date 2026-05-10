@@ -70,6 +70,11 @@ run_shell_step \
   "REQUIRE_PAYBACK_RECEIVER_READY=true scripts/audit-payback-receiver-testnet.sh"
 
 run_shell_step \
+  "AWS testnet RPC and validator binary readiness" \
+  "$VINUCHAIN_DIR" \
+  "scripts/audit-testnet-aws-opera.sh"
+
+run_shell_step \
   "Quota receiver implementation VinuExplorer verification" \
   "$QUOTA_CONTRACT_DIR" \
   "REQUIRE_QUOTA_RECEIVER_READY=true npm run audit:testnet:quota"
