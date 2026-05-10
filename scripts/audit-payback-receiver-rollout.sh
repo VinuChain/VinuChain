@@ -186,15 +186,15 @@ run_shell_step \
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$wallet_page\"
-  npm run handoff:testnet:quota-owner-bundle -- 25621202507 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
+  npm run handoff:testnet:quota-owner-bundle -- 25621357415 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
   test -f /tmp/quota-owner-handoff-audit/README.md
   test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
-  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"79319df685344884ad4b3de9023ed19dd3b5b026\" and .sourceRef == \"main\" and .sourceRunId == \"25621202507\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
-  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"79319df685344884ad4b3de9023ed19dd3b5b026\" and .sourceRef == \"main\" and .sourceRunId == \"25621202507\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
+  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"10208593c2f5201f8cd75243deffa3778a27f33a\" and .sourceRef == \"main\" and .sourceRunId == \"25621357415\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"10208593c2f5201f8cd75243deffa3778a27f33a\" and .sourceRef == \"main\" and .sourceRunId == \"25621357415\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
