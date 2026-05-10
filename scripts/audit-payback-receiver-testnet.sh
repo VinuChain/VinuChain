@@ -143,18 +143,21 @@ if truthy "${REQUIRE_PAYBACK_RECEIVER_READY:-false}"; then
   require_ready=true
 fi
 
-base_status=passed
-if [ "${#failures[@]}" -gt 0 ]; then
-  base_status=failed
-fi
-
 ready_status=ready
 if [ "${#ready_blockers[@]}" -gt 0 ]; then
   ready_status=not_ready
 fi
 
+status=passed
+if [ "${#failures[@]}" -gt 0 ]; then
+  status=failed
+fi
+if $require_ready && [ "${#ready_blockers[@]}" -gt 0 ]; then
+  status=failed
+fi
+
 jq -n \
-  --arg status "$base_status" \
+  --arg status "$status" \
   --arg receiverReadiness "$ready_status" \
   --argjson requirePaybackReceiverReady "$require_ready" \
   --arg rpcUrl "$RPC_URL" \
