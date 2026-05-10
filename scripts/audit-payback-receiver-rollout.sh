@@ -107,6 +107,7 @@ run_shell_step \
   helper=scripts/configure-quota-testnet-owner-secret.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
+  handoff_helper=scripts/print-quota-testnet-owner-handoff.js
   prepare_dispatch_helper=scripts/dispatch-quota-testnet-prepare-upgrade-tx.js
   download_prepare_helper=scripts/download-quota-testnet-prepared-tx.js
   validate_prepare_helper=scripts/validate-quota-testnet-prepared-tx.js
@@ -117,6 +118,7 @@ run_shell_step \
   test -f \"\$helper\"
   test -f \"\$tx_helper\"
   test -f \"\$sign_helper\"
+  test -f \"\$handoff_helper\"
   test -f \"\$prepare_dispatch_helper\"
   test -f \"\$download_prepare_helper\"
   test -f \"\$validate_prepare_helper\"
@@ -127,6 +129,7 @@ run_shell_step \
   node --check \"\$helper\"
   node --check \"\$tx_helper\"
   node --check \"\$sign_helper\"
+  node --check \"\$handoff_helper\"
   node --check \"\$prepare_dispatch_helper\"
   node --check \"\$download_prepare_helper\"
   node --check \"\$validate_prepare_helper\"
@@ -134,6 +137,7 @@ run_shell_step \
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
   rg -q 'audit:testnet:quota-owner-action' package.json README.md
+  rg -q 'handoff:testnet:quota-owner' package.json README.md
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
@@ -146,6 +150,7 @@ run_shell_step \
   rg -q 'live proxy implementation' README.md
   rg -q 'latest prepared artifact download' README.md
   rg -q 'prints private keys' README.md
+  rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -225,6 +230,11 @@ run_shell_step \
   "npm run dispatch:testnet:quota-upgrade:sequence -- --dry-run"
 
 run_shell_step \
+  "Quota owner handoff summary" \
+  "$QUOTA_CONTRACT_DIR" \
+  "npm run handoff:testnet:quota-owner"
+
+run_shell_step \
   "Quota contract proxy upgrade and VinuExplorer verification" \
   "$QUOTA_CONTRACT_DIR" \
   "REQUIRE_QUOTA_UPGRADED=true REQUIRE_QUOTA_VERIFIED=true npm run audit:testnet:quota"
@@ -265,6 +275,7 @@ run_shell_step \
   rg -q -- '--skip-secret-check' \"\$guide\"
   rg -q 'Check deployer secret' \"\$guide\"
   rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
+  rg -q 'handoff:testnet:quota-owner' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
   rg -q 'latest prepared artifact download' \"\$guide\"
   rg -q 'prints private keys' \"\$guide\"
