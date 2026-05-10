@@ -108,6 +108,7 @@ run_shell_step \
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   prepare_dispatch_helper=scripts/dispatch-quota-testnet-prepare-upgrade-tx.js
+  download_prepare_helper=scripts/download-quota-testnet-prepared-tx.js
   broadcast_helper=scripts/broadcast-quota-testnet-upgrade-tx.js
   signed_dispatch_helper=scripts/dispatch-quota-testnet-signed-broadcast.js
   prepare_tx_workflow=.github/workflows/quota-testnet-prepare-upgrade-tx.yml
@@ -116,6 +117,7 @@ run_shell_step \
   test -f \"\$tx_helper\"
   test -f \"\$sign_helper\"
   test -f \"\$prepare_dispatch_helper\"
+  test -f \"\$download_prepare_helper\"
   test -f \"\$broadcast_helper\"
   test -f \"\$signed_dispatch_helper\"
   test -f \"\$prepare_tx_workflow\"
@@ -124,12 +126,14 @@ run_shell_step \
   node --check \"\$tx_helper\"
   node --check \"\$sign_helper\"
   node --check \"\$prepare_dispatch_helper\"
+  node --check \"\$download_prepare_helper\"
   node --check \"\$broadcast_helper\"
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
+  rg -q 'download:testnet:quota-prepared-tx' package.json README.md
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
@@ -139,6 +143,10 @@ run_shell_step \
   rg -q 'local .* artifact bytecode' README.md
   rg -q 'Quota Testnet Prepare Upgrade Tx' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
+  rg -q 'GitHub artifact API helper' README.md
+  rg -q 'npm run download:testnet:quota-prepared-tx -- <run-id>' README.md
+  rg -q 'actions/artifacts' \"\$download_prepare_helper\"
+  npm run download:testnet:quota-prepared-tx -- --help | rg -q -- '--dir'
   npm run dispatch:testnet:quota-prepare-upgrade-tx -- --dry-run | rg -q 'quota-testnet-prepare-upgrade-tx.yml'
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
   rg -q 'signed_raw_transaction' \"\$signed_tx_workflow\"
