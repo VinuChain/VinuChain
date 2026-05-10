@@ -103,6 +103,18 @@ run_shell_step \
   "REQUIRE_QUOTA_RECEIVER_READY=true npm run audit:testnet:quota"
 
 run_shell_step \
+  "Quota contract receiver behavior tests" \
+  "$QUOTA_CONTRACT_DIR" \
+  "set -euo pipefail
+  rg -q 'Should stake for another address successfully' test/Quota.test.ts
+  rg -q 'Stake for another address should revert for invalid input' test/Quota.test.ts
+  rg -q 'stakeFor\\(receiver.address' test/Quota.test.ts
+  rg -q 'expect\\(await quota.getStake\\(payer.address\\)\\).eq\\(payerStakeBefore\\)' test/Quota.test.ts
+  rg -q 'expect\\(await quota.getStake\\(receiver.address\\)\\).eq' test/Quota.test.ts
+  rg -q 'quota.connect\\(payer\\).unstake\\(stake\\)' test/Quota.test.ts
+  PRIVATE_TEST=0x0000000000000000000000000000000000000000000000000000000000000001 npm test -- --grep '[Ss]take for another address'"
+
+run_shell_step \
   "Quota owner secret helper validation" \
   "$QUOTA_CONTRACT_DIR" \
   "set -euo pipefail
