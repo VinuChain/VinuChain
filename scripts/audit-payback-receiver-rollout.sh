@@ -181,6 +181,7 @@ run_shell_step \
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Wallet sender: /tmp/quota-prepared-' <<<\"\$handoff_output\"
+  rg -q 'Live validate before signing: npm run audit:testnet:quota-prepared-tx -- --live' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
@@ -207,6 +208,7 @@ run_shell_step \
   test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'audit:testnet:quota-prepared-tx -- --live <bundle-dir>/quota-prepared-upgrade-testnet.json' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Post-Confirmation Finalization' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --dry-run <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --commit --push <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
