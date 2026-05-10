@@ -355,6 +355,7 @@ run_shell_step \
   rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
   rg -q 'handoff:testnet:quota-owner' \"\$guide\"
   rg -q 'watch:testnet:quota-upgrade' \"\$guide\"
+  rg -q 'Upgraded\(address\).*transaction hash' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
   rg -q 'latest prepared artifact download' \"\$guide\"
   rg -q 'source repository' \"\$guide\"
