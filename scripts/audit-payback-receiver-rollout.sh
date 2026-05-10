@@ -112,6 +112,8 @@ run_shell_step \
   download_prepare_helper=scripts/download-quota-testnet-prepared-tx.js
   validate_prepare_helper=scripts/validate-quota-testnet-prepared-tx.js
   export_wallet_helper=scripts/export-quota-testnet-wallet-tx.js
+  wallet_page=scripts/quota-testnet-wallet-upgrade.html
+  wallet_page_audit=scripts/audit-quota-testnet-wallet-upgrade-page.js
   broadcast_helper=scripts/broadcast-quota-testnet-upgrade-tx.js
   signed_dispatch_helper=scripts/dispatch-quota-testnet-signed-broadcast.js
   prepare_tx_workflow=.github/workflows/quota-testnet-prepare-upgrade-tx.yml
@@ -124,6 +126,8 @@ run_shell_step \
   test -f \"\$download_prepare_helper\"
   test -f \"\$validate_prepare_helper\"
   test -f \"\$export_wallet_helper\"
+  test -f \"\$wallet_page\"
+  test -f \"\$wallet_page_audit\"
   test -f \"\$broadcast_helper\"
   test -f \"\$signed_dispatch_helper\"
   test -f \"\$prepare_tx_workflow\"
@@ -136,6 +140,7 @@ run_shell_step \
   node --check \"\$download_prepare_helper\"
   node --check \"\$validate_prepare_helper\"
   node --check \"\$export_wallet_helper\"
+  node --check \"\$wallet_page_audit\"
   node --check \"\$broadcast_helper\"
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
@@ -147,6 +152,7 @@ run_shell_step \
   rg -q 'download:testnet:quota-prepared-tx' package.json README.md
   rg -q 'audit:testnet:quota-prepared-tx' package.json README.md
   rg -q 'export:testnet:quota-wallet-tx' package.json README.md
+  rg -q 'audit:testnet:quota-wallet-page' package.json
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
   rg -q -- '--skip-secret-check' README.md
@@ -157,7 +163,12 @@ run_shell_step \
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
+  rg -q 'Wallet sender: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
+  npm run audit:testnet:quota-wallet-page
+  rg -q 'eth_sendTransaction' \"\$wallet_page\"
+  rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
+  rg -q 'quota-wallet-upgrade-testnet.json' \"\$wallet_page\"
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -166,6 +177,7 @@ run_shell_step \
   rg -q 'Quota Testnet Prepare Upgrade Tx' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-wallet-upgrade-testnet.json' README.md \"\$prepare_tx_workflow\"
+  rg -q 'quota-testnet-wallet-upgrade.html' README.md \"\$prepare_tx_workflow\"
   rg -q 'GitHub artifact API helper' README.md
   rg -q 'npm run download:testnet:quota-prepared-tx -- <run-id>' README.md
   rg -q 'actions/artifacts' \"\$download_prepare_helper\"
@@ -272,6 +284,7 @@ run_shell_step \
   rg -q 'Quota Testnet Prepare Upgrade Tx' \"\$guide\"
   rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$guide\"
+  rg -q 'quota-testnet-wallet-upgrade.html' \"\$guide\"
   rg -q 'download:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'audit:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'export:testnet:quota-wallet-tx' \"\$guide\"
