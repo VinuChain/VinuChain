@@ -130,6 +130,7 @@ run_shell_step \
   node --check \"\$broadcast_helper\"
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
+  rg -q 'audit:testnet:quota-owner-action' package.json README.md
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
@@ -138,6 +139,8 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
   rg -q -- '--skip-secret-check' README.md
   rg -q 'Check deployer secret' README.md
+  rg -q 'live proxy implementation' README.md
+  rg -q 'prints private keys or signed raw transaction bytes' README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -253,6 +256,9 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q -- '--skip-secret-check' \"\$guide\"
   rg -q 'Check deployer secret' \"\$guide\"
+  rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
+  rg -q 'live proxy implementation' \"\$guide\"
+  rg -q 'prints private keys or signed raw transaction bytes' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
