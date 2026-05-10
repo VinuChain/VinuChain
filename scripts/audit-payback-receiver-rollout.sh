@@ -175,6 +175,7 @@ run_shell_step \
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
   rg -q 'upgrade-tx auto' README.md
+  rg -q 'Upgraded\(address\).*transaction hash' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
@@ -194,6 +195,8 @@ run_shell_step \
   watch_output=\"\$(npm run watch:testnet:quota-upgrade -- --once 2>&1 || true)\"
   rg -q '\"expectedImplementation\":\"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\"' <<<\"\$watch_output\"
   rg -q '\"implementationHasStakeFor\":' <<<\"\$watch_output\"
+  rg -q 'upgradeTransactionHash' \"\$watch_helper\"
+  rg -q 'finalizerDryRunCommand' \"\$watch_helper\"
   npm run audit:testnet:quota-wallet-page
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
