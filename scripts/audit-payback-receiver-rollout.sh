@@ -109,6 +109,7 @@ run_shell_step \
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   handoff_helper=scripts/print-quota-testnet-owner-handoff.js
   bundle_helper=scripts/package-quota-testnet-owner-handoff.js
+  readme_helper=scripts/write-quota-testnet-owner-handoff-readme.js
   prepare_dispatch_helper=scripts/dispatch-quota-testnet-prepare-upgrade-tx.js
   download_prepare_helper=scripts/download-quota-testnet-prepared-tx.js
   validate_prepare_helper=scripts/validate-quota-testnet-prepared-tx.js
@@ -124,6 +125,7 @@ run_shell_step \
   test -f \"\$sign_helper\"
   test -f \"\$handoff_helper\"
   test -f \"\$bundle_helper\"
+  test -f \"\$readme_helper\"
   test -f \"\$prepare_dispatch_helper\"
   test -f \"\$download_prepare_helper\"
   test -f \"\$validate_prepare_helper\"
@@ -139,6 +141,7 @@ run_shell_step \
   node --check \"\$sign_helper\"
   node --check \"\$handoff_helper\"
   node --check \"\$bundle_helper\"
+  node --check \"\$readme_helper\"
   node --check \"\$prepare_dispatch_helper\"
   node --check \"\$download_prepare_helper\"
   node --check \"\$validate_prepare_helper\"
@@ -150,6 +153,7 @@ run_shell_step \
   rg -q 'audit:testnet:quota-owner-action' package.json README.md
   rg -q 'handoff:testnet:quota-owner' package.json README.md
   rg -q 'handoff:testnet:quota-owner-bundle' package.json README.md
+  rg -q 'README.md' README.md \"\$prepare_tx_workflow\"
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
@@ -176,6 +180,7 @@ run_shell_step \
   npm run handoff:testnet:quota-owner-bundle -- 25619562709 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
   test -f /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -185,6 +190,7 @@ run_shell_step \
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-wallet-upgrade-testnet.json' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-testnet-wallet-upgrade.html' README.md \"\$prepare_tx_workflow\"
+  rg -q 'write-quota-testnet-owner-handoff-readme.js' \"\$prepare_tx_workflow\"
   rg -q 'GitHub artifact API helper' README.md
   rg -q 'npm run download:testnet:quota-prepared-tx -- <run-id>' README.md
   rg -q 'actions/artifacts' \"\$download_prepare_helper\"
@@ -292,6 +298,7 @@ run_shell_step \
   rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$guide\"
   rg -q 'quota-testnet-wallet-upgrade.html' \"\$guide\"
+  rg -q 'README.md' \"\$guide\"
   rg -q 'handoff:testnet:quota-owner-bundle' \"\$guide\"
   rg -q 'download:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'audit:testnet:quota-prepared-tx' \"\$guide\"
