@@ -81,9 +81,11 @@ run_shell_step \
   rg -q 'return TxTypeStake, stakeAddress' payback/payback_cache.go
   rg -q 'GetAvailablePaybackByAddress\\(msg.From\\(\\), evm\\)' evmcore/state_processor.go
   rg -q 'TestAddTransaction_StakeForRecordsReceiver' payback/payback_cache_test.go
+  rg -q 'TestAddTransaction_StakeForReceiverRefundConsumesReceiverQuota' payback/payback_cache_test.go
   rg -q 'stakeFor must not record the payer as the payback stake owner' payback/payback_cache_test.go
   rg -q 'receiver payback stake sums' payback/payback_cache_test.go
-  go test ./payback -run 'TestAddTransaction_(StakeRecordsSender|StakeForRecordsReceiver)$' -count=1"
+  rg -q 'payer must not consume receiver payback refund quota' payback/payback_cache_test.go
+  go test ./payback -run 'TestAddTransaction_(StakeRecordsSender|StakeForRecordsReceiver|StakeForReceiverRefundConsumesReceiverQuota)$' -count=1"
 
 run_shell_step \
   "VinuChain node/rules/proxy receiver readiness" \

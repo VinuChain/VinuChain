@@ -1,6 +1,7 @@
 package payback
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"strings"
 	"sync"
@@ -54,6 +55,12 @@ func signedPaybackTx(t *testing.T, data []byte, value *big.Int) (*types.Transact
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
+	return signedPaybackTxWithKey(t, key, data, value)
+}
+
+func signedPaybackTxWithKey(t *testing.T, key *ecdsa.PrivateKey, data []byte, value *big.Int) (*types.Transaction, common.Address) {
+	t.Helper()
+
 	signer := types.HomesteadSigner{}
 	tx, err := types.SignTx(
 		types.NewTransaction(0, testQuotaContractAddress, value, 50000, big.NewInt(1e9), data),
@@ -599,6 +606,63 @@ func TestAddTransaction_StakeForRecordsReceiver(t *testing.T) {
 	}
 	if senderCurrent.Sign() != 0 || senderPrev.Sign() != 0 {
 		t.Fatalf("payer payback stake sums = current %v prev %v, want zero", senderCurrent, senderPrev)
+	}
+}
+
+func TestAddTransaction_StakeForReceiverRefundConsumesReceiverQuota(t *testing.T) {
+	pc := &PaybackCache{
+		PaybackUsedMap:  make(map[common.Address]*big.Int),
+		StakesMap:       make(map[idx.Epoch]*EpochStakes),
+		store:           &stubStore{},
+		contractAddress: testQuotaContractAddress,
+		blkCtx: &blockContext{
+			epoch: 1,
+			rules: opera.Rules{
+				Economy: opera.EconomyRules{
+					QuotaCacheAddress: testQuotaContractAddress,
+				},
+			},
+			blockTime: time.Now(),
+		},
+		inBlockProcessing: true,
+	}
+
+	payerKey, err := crypto.HexToECDSA("0000000000000000000000000000000000000000000000000000000000000001")
+	if err != nil {
+		t.Fatalf("payer key: %v", err)
+	}
+	receiverKey, err := crypto.HexToECDSA("0000000000000000000000000000000000000000000000000000000000000002")
+	if err != nil {
+		t.Fatalf("receiver key: %v", err)
+	}
+	receiver := crypto.PubkeyToAddress(receiverKey.PublicKey)
+
+	data := append([]byte{}, stakeForSelector...)
+	data = append(data, common.LeftPadBytes(receiver.Bytes(), abiEncodedUint256Len)...)
+
+	stakeTx, payer := signedPaybackTxWithKey(t, payerKey, data, big.NewInt(456))
+	if err := pc.AddTransaction(stakeTx, &types.Receipt{Status: types.ReceiptStatusSuccessful}); err != nil {
+		t.Fatalf("AddTransaction stakeFor failed: %v", err)
+	}
+
+	refund := big.NewInt(777)
+	receiverTx, receiverSender := signedPaybackTxWithKey(t, receiverKey, nil, big.NewInt(0))
+	if receiverSender != receiver {
+		t.Fatalf("receiver tx sender = %s, want %s", receiverSender, receiver)
+	}
+	if err := pc.AddTransaction(receiverTx, &types.Receipt{
+		Status:    types.ReceiptStatusSuccessful,
+		GasUsed:   21000,
+		FeeRefund: refund,
+	}); err != nil {
+		t.Fatalf("AddTransaction receiver refund failed: %v", err)
+	}
+
+	if used := pc.PaybackUsedMap[receiver]; used == nil || used.Cmp(refund) != 0 {
+		t.Fatalf("receiver refund quota usage = %v, want %v", used, refund)
+	}
+	if used, ok := pc.PaybackUsedMap[payer]; ok {
+		t.Fatalf("payer must not consume receiver payback refund quota, got %v", used)
 	}
 }
 
