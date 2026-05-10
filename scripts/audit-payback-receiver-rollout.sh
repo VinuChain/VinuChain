@@ -286,16 +286,25 @@ run_shell_step \
   "Payback receiver finalizer wrapper validation" \
   "$VINUCHAIN_DIR" \
   "test -x scripts/finalize-payback-receiver-rollout.sh
+  test -x scripts/wait-finalize-payback-receiver-rollout.sh
   bash -n scripts/finalize-payback-receiver-rollout.sh
+  bash -n scripts/wait-finalize-payback-receiver-rollout.sh
   rg -q 'audit-testnet-aws-opera.sh' scripts/finalize-payback-receiver-rollout.sh
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--upgrade-tx <hash>'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q 'auto.*proxy Upgraded event'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--commit'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--push'
+  scripts/wait-finalize-payback-receiver-rollout.sh --help | rg -q 'watch:testnet:quota-upgrade'
+  scripts/wait-finalize-payback-receiver-rollout.sh --help | rg -q 'finalizer dry-run first'
+  scripts/wait-finalize-payback-receiver-rollout.sh --help | rg -q -- '--timeout-seconds <n>'
+  scripts/wait-finalize-payback-receiver-rollout.sh --help | rg -q -- '--commit'
+  scripts/wait-finalize-payback-receiver-rollout.sh --help | rg -q -- '--push'
   commit_dry_run_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --dry-run --commit 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
   rg -q -- '--dry-run cannot be combined with --commit or --push' <<<\"\$commit_dry_run_output\"
   push_without_commit_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --push 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
-  rg -q -- '--push requires --commit' <<<\"\$push_without_commit_output\""
+  rg -q -- '--push requires --commit' <<<\"\$push_without_commit_output\"
+  wait_push_without_commit_output=\"\$(scripts/wait-finalize-payback-receiver-rollout.sh --push 2>&1 || true)\"
+  rg -q -- '--push requires --commit' <<<\"\$wait_push_without_commit_output\""
 
 run_shell_step \
   "Quota upgrade dispatch secret gate" \
@@ -362,6 +371,7 @@ run_shell_step \
   rg -q 'source provenance' \"\$guide\"
   rg -q 'prints private keys' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
+  rg -q 'wait-finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
   rg -q 'finalize:quota-testnet' \"\$guide\"
