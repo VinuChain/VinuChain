@@ -110,6 +110,7 @@ run_shell_step \
   handoff_helper=scripts/print-quota-testnet-owner-handoff.js
   bundle_helper=scripts/package-quota-testnet-owner-handoff.js
   readme_helper=scripts/write-quota-testnet-owner-handoff-readme.js
+  watch_helper=scripts/watch-quota-testnet-upgrade.js
   prepare_dispatch_helper=scripts/dispatch-quota-testnet-prepare-upgrade-tx.js
   download_prepare_helper=scripts/download-quota-testnet-prepared-tx.js
   validate_prepare_helper=scripts/validate-quota-testnet-prepared-tx.js
@@ -126,6 +127,7 @@ run_shell_step \
   test -f \"\$handoff_helper\"
   test -f \"\$bundle_helper\"
   test -f \"\$readme_helper\"
+  test -f \"\$watch_helper\"
   test -f \"\$prepare_dispatch_helper\"
   test -f \"\$download_prepare_helper\"
   test -f \"\$validate_prepare_helper\"
@@ -142,6 +144,7 @@ run_shell_step \
   node --check \"\$handoff_helper\"
   node --check \"\$bundle_helper\"
   node --check \"\$readme_helper\"
+  node --check \"\$watch_helper\"
   node --check \"\$prepare_dispatch_helper\"
   node --check \"\$download_prepare_helper\"
   node --check \"\$validate_prepare_helper\"
@@ -153,6 +156,7 @@ run_shell_step \
   rg -q 'audit:testnet:quota-owner-action' package.json README.md
   rg -q 'handoff:testnet:quota-owner' package.json README.md
   rg -q 'handoff:testnet:quota-owner-bundle' package.json README.md
+  rg -q 'watch:testnet:quota-upgrade' package.json README.md
   rg -q 'README.md' README.md \"\$prepare_tx_workflow\"
   rg -q 'prepare:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'sign:testnet:quota-upgrade-tx' package.json README.md
@@ -173,6 +177,9 @@ run_shell_step \
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Wallet sender: /tmp/quota-prepared-' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
+  watch_output=\"\$(npm run watch:testnet:quota-upgrade -- --once 2>&1 || true)\"
+  rg -q '\"expectedImplementation\":\"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\"' <<<\"\$watch_output\"
+  rg -q '\"implementationHasStakeFor\":' <<<\"\$watch_output\"
   npm run audit:testnet:quota-wallet-page
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
@@ -317,6 +324,7 @@ run_shell_step \
   rg -q 'Check deployer secret' \"\$guide\"
   rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
   rg -q 'handoff:testnet:quota-owner' \"\$guide\"
+  rg -q 'watch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
   rg -q 'latest prepared artifact download' \"\$guide\"
   rg -q 'prints private keys' \"\$guide\"
