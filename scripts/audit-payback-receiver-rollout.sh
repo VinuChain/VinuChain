@@ -238,6 +238,8 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' \"\$guide\"
   rg -q 'Quota Testnet Prepare Upgrade Tx' \"\$guide\"
   rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
+  rg -q 'download:testnet:quota-prepared-tx' \"\$guide\"
+  rg -q 'GitHub artifact API helper' \"\$guide\"
   rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'sign:testnet:quota-upgrade-tx' \"\$guide\"
   rg -q 'dispatch:testnet:quota-signed-broadcast' \"\$guide\"
