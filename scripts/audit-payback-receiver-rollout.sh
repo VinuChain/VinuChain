@@ -166,6 +166,7 @@ run_shell_step \
   "$VINUCHAIN_DIR" \
   "test -x scripts/finalize-payback-receiver-rollout.sh
   bash -n scripts/finalize-payback-receiver-rollout.sh
+  rg -q 'audit-testnet-aws-opera.sh' scripts/finalize-payback-receiver-rollout.sh
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--commit'
   scripts/finalize-payback-receiver-rollout.sh --help | rg -q -- '--push'
   commit_dry_run_output=\"\$(scripts/finalize-payback-receiver-rollout.sh --dry-run --commit 0x0000000000000000000000000000000000000000000000000000000000000000 2>&1 || true)\"
@@ -210,6 +211,7 @@ run_shell_step \
   rg -q 'dispatch-dry-run' \"\$guide\"
   rg -q 'suggestedLegacyTransaction' \"\$guide\"
   rg -q 'Quota Testnet Signed Tx Broadcast' \"\$guide\"
+  rg -q 'audit-testnet-aws-opera.sh' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
