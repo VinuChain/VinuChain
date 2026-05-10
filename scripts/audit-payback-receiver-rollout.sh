@@ -68,6 +68,14 @@ run_shell_step \
   "VinuChain core receiver stake accounting" \
   "$VINUCHAIN_DIR" \
   "set -euo pipefail
+  live_commit=\"\${EXPECTED_CLIENT_COMMIT:-bbc34e6}\"
+  git merge-base --is-ancestor \"\$live_commit\" HEAD
+  git tag --contains \"\$live_commit\" | rg -q '^v2\\.0\\.17-elemont$'
+  git show \"\$live_commit\":payback/payback_cache.go | rg -q 'stakeForSelector = methodSelector\\(\"stakeFor\\(address\\)\"\\)'
+  git show \"\$live_commit\":payback/payback_cache.go | rg -q 'decodeStakeForAddress\\(data\\)'
+  git show \"\$live_commit\":payback/payback_cache.go | rg -q 'return TxTypeStake, stakeAddress'
+  git show \"\$live_commit\":payback/payback_cache_test.go | rg -q 'TestAddTransaction_StakeForRecordsReceiver'
+  git show \"\$live_commit\":payback/payback_cache_test.go | rg -q 'stakeFor must not record the payer as the payback stake owner'
   rg -q 'stakeForSelector = methodSelector\\(\"stakeFor\\(address\\)\"\\)' payback/payback_cache.go
   rg -q 'decodeStakeForAddress\\(data\\)' payback/payback_cache.go
   rg -q 'return TxTypeStake, stakeAddress' payback/payback_cache.go
