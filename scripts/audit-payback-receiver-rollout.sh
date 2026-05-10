@@ -212,6 +212,8 @@ run_shell_step \
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
   rg -q 'finalize:quota-testnet' \"\$guide\"
   rg -q 'finalize-payback-receiver-docs.sh' \"\$guide\"
+  rg -q 'localDateString' scripts/finalize-payback-receiver-docs.sh
+  ! rg -q 'toISOString\\(\\)\\.slice\\(0, 10\\)' scripts/finalize-payback-receiver-docs.sh
   rg -q 'is_fully_verified=true' \"\$guide\"
   rg -q 'is_partially_verified=false' \"\$guide\"
   rg -q 'local .* artifact' \"\$guide\"

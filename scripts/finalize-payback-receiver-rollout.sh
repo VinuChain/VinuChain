@@ -177,7 +177,9 @@ dry_arg=()
 if [ "$DRY_RUN" = true ]; then
   dry_arg=(--dry-run)
 else
+  require_clean_repo "$QUOTA_CONTRACT_DIR"
   require_clean_repo "$VINUCHAIN_LISTS_DIR"
+  require_clean_repo "$VINUSCAN_FRONTEND_DIR"
   require_clean_repo "$VINUCHAIN_DOCS_DIR"
 fi
 
