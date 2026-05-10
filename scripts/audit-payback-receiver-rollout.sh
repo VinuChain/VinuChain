@@ -140,6 +140,7 @@ run_shell_step \
   rg -q -- '--skip-secret-check' README.md
   rg -q 'Check deployer secret' README.md
   rg -q 'live proxy implementation' README.md
+  rg -q 'latest prepared artifact download' README.md
   rg -q 'prints private keys or signed raw transaction bytes' README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
@@ -258,6 +259,7 @@ run_shell_step \
   rg -q 'Check deployer secret' \"\$guide\"
   rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
+  rg -q 'latest prepared artifact download' \"\$guide\"
   rg -q 'prints private keys or signed raw transaction bytes' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
