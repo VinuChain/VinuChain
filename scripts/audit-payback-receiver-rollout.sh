@@ -355,6 +355,11 @@ run_shell_step \
   "REQUIRE_QUOTA_UPGRADED=true REQUIRE_QUOTA_VERIFIED=true npm run audit:testnet:quota"
 
 run_shell_step \
+  "vinuchain-lists quota registry static tests" \
+  "$VINUCHAIN_LISTS_DIR" \
+  "npm test -- --grep 'VinuChain quota registry receiver metadata'"
+
+run_shell_step \
   "vinuchain-lists exact contract registry" \
   "$VINUCHAIN_LISTS_DIR" \
   "REQUIRE_QUOTA_LISTS_CURRENT=true npm run audit:vinuchain-quota"
