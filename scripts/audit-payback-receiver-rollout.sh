@@ -163,6 +163,7 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' package.json README.md
   rg -q 'download:testnet:quota-prepared-tx' package.json README.md
   rg -q 'audit:testnet:quota-prepared-tx' package.json README.md
+  rg -q -- '--live' README.md \"\$validate_prepare_helper\"
   rg -q 'export:testnet:quota-wallet-tx' package.json README.md
   rg -q 'audit:testnet:quota-wallet-page' package.json
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
@@ -232,6 +233,7 @@ run_shell_step \
   rg -q 'suggestedLegacyTransaction' \"\$validate_prepare_helper\"
   npm run download:testnet:quota-prepared-tx -- --help | rg -q -- '--dir'
   npm run audit:testnet:quota-prepared-tx -- --help | rg -q 'prepared transaction JSON file'
+  npm run audit:testnet:quota-prepared-tx -- --help | rg -q -- '--live'
   npm run export:testnet:quota-wallet-tx -- --help | rg -q 'wallet-friendly JSON shape'
   npm run dispatch:testnet:quota-prepare-upgrade-tx -- --dry-run | rg -q 'quota-testnet-prepare-upgrade-tx.yml'
   rg -q 'Quota Testnet Signed Tx Broadcast' README.md \"\$signed_tx_workflow\"
@@ -348,6 +350,7 @@ run_shell_step \
   rg -q 'handoff:testnet:quota-owner-bundle' \"\$guide\"
   rg -q 'download:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'audit:testnet:quota-prepared-tx' \"\$guide\"
+  rg -q -- '--live' \"\$guide\"
   rg -q 'export:testnet:quota-wallet-tx' \"\$guide\"
   rg -q 'GitHub artifact API helper' \"\$guide\"
   rg -q 'broadcast:testnet:quota-upgrade-tx' \"\$guide\"
