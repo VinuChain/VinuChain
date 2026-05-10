@@ -162,6 +162,7 @@ run_shell_step \
   rg -q 'local .* artifact bytecode' README.md
   rg -q 'Quota Testnet Prepare Upgrade Tx' README.md \"\$prepare_tx_workflow\"
   rg -q 'quota-prepared-upgrade-testnet' README.md \"\$prepare_tx_workflow\"
+  rg -q 'quota-wallet-upgrade-testnet.json' README.md \"\$prepare_tx_workflow\"
   rg -q 'GitHub artifact API helper' README.md
   rg -q 'npm run download:testnet:quota-prepared-tx -- <run-id>' README.md
   rg -q 'actions/artifacts' \"\$download_prepare_helper\"
@@ -267,6 +268,7 @@ run_shell_step \
   rg -q 'dispatch:testnet:quota-prepare-upgrade-tx' \"\$guide\"
   rg -q 'Quota Testnet Prepare Upgrade Tx' \"\$guide\"
   rg -q 'quota-prepared-upgrade-testnet' \"\$guide\"
+  rg -q 'quota-wallet-upgrade-testnet.json' \"\$guide\"
   rg -q 'download:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'audit:testnet:quota-prepared-tx' \"\$guide\"
   rg -q 'export:testnet:quota-wallet-tx' \"\$guide\"
