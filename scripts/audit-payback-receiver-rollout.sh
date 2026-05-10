@@ -174,6 +174,7 @@ run_shell_step \
   rg -q 'source repository' README.md
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
+  rg -q 'upgrade-tx auto' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
@@ -202,6 +203,8 @@ run_shell_step \
   rg -q 'Post-Confirmation Finalization' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --dry-run <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'finalize-payback-receiver-rollout.sh --commit --push <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'finalize-payback-receiver-rollout.sh --dry-run --upgrade-tx auto' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'finalize-payback-receiver-rollout.sh --commit --push --upgrade-tx auto' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'audit-payback-receiver-rollout.sh' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
