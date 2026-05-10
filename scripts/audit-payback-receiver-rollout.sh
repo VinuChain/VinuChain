@@ -155,6 +155,9 @@ run_shell_step \
   rg -q 'latest prepared artifact download' README.md
   rg -q 'prints private keys' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
+  handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
+  rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
+  rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
