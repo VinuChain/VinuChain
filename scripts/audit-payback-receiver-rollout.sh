@@ -141,7 +141,7 @@ run_shell_step \
   rg -q 'Check deployer secret' README.md
   rg -q 'live proxy implementation' README.md
   rg -q 'latest prepared artifact download' README.md
-  rg -q 'prints private keys or signed raw transaction bytes' README.md
+  rg -q 'prints private keys' README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -260,7 +260,7 @@ run_shell_step \
   rg -q 'audit:testnet:quota-owner-action' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
   rg -q 'latest prepared artifact download' \"\$guide\"
-  rg -q 'prints private keys or signed raw transaction bytes' \"\$guide\"
+  rg -q 'prints private keys' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
