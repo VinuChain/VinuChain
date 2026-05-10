@@ -136,6 +136,8 @@ run_shell_step \
   rg -q 'download:testnet:quota-prepared-tx' package.json README.md
   rg -q 'broadcast:testnet:quota-upgrade-tx' package.json README.md
   rg -q 'dispatch:testnet:quota-signed-broadcast' package.json README.md
+  rg -q -- '--skip-secret-check' README.md
+  rg -q 'Check deployer secret' README.md
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -249,6 +251,8 @@ run_shell_step \
   rg -q 'audit-testnet-aws-opera.sh' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'dispatch:testnet:quota-upgrade:sequence' \"\$guide\"
+  rg -q -- '--skip-secret-check' \"\$guide\"
+  rg -q 'Check deployer secret' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
   rg -q 'finalize:vinuchain-quota' \"\$guide\"
