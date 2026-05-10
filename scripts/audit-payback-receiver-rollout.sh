@@ -65,6 +65,19 @@ run_shell_step() {
 }
 
 run_shell_step \
+  "VinuChain core receiver stake accounting" \
+  "$VINUCHAIN_DIR" \
+  "set -euo pipefail
+  rg -q 'stakeForSelector = methodSelector\\(\"stakeFor\\(address\\)\"\\)' payback/payback_cache.go
+  rg -q 'decodeStakeForAddress\\(data\\)' payback/payback_cache.go
+  rg -q 'return TxTypeStake, stakeAddress' payback/payback_cache.go
+  rg -q 'GetAvailablePaybackByAddress\\(msg.From\\(\\), evm\\)' evmcore/state_processor.go
+  rg -q 'TestAddTransaction_StakeForRecordsReceiver' payback/payback_cache_test.go
+  rg -q 'stakeFor must not record the payer as the payback stake owner' payback/payback_cache_test.go
+  rg -q 'receiver payback stake sums' payback/payback_cache_test.go
+  go test ./payback -run 'TestAddTransaction_(StakeRecordsSender|StakeForRecordsReceiver)$' -count=1"
+
+run_shell_step \
   "VinuChain node/rules/proxy receiver readiness" \
   "$VINUCHAIN_DIR" \
   "REQUIRE_PAYBACK_RECEIVER_READY=true scripts/audit-payback-receiver-testnet.sh"

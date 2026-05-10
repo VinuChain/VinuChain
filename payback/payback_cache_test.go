@@ -589,6 +589,17 @@ func TestAddTransaction_StakeForRecordsReceiver(t *testing.T) {
 	if stakes[0].Amount.Cmp(stake) != 0 {
 		t.Fatalf("stake amount = %v, want %v", stakes[0].Amount, stake)
 	}
+
+	pc.mu.RLock()
+	receiverCurrent, receiverPrev := pc.getSumStakeByAddressSplitLocked(receiver, 1, 0)
+	senderCurrent, senderPrev := pc.getSumStakeByAddressSplitLocked(sender, 1, 0)
+	pc.mu.RUnlock()
+	if receiverCurrent.Cmp(stake) != 0 || receiverPrev.Sign() != 0 {
+		t.Fatalf("receiver payback stake sums = current %v prev %v, want current %v prev 0", receiverCurrent, receiverPrev, stake)
+	}
+	if senderCurrent.Sign() != 0 || senderPrev.Sign() != 0 {
+		t.Fatalf("payer payback stake sums = current %v prev %v, want zero", senderCurrent, senderPrev)
+	}
 }
 
 func TestAddTransaction_FeeRefundAtCapacityErrorsForNewAddress(t *testing.T) {
