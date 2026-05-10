@@ -70,7 +70,7 @@ run_shell_step \
   "set -euo pipefail
   live_commit=\"\${EXPECTED_CLIENT_COMMIT:-bbc34e6}\"
   git merge-base --is-ancestor \"\$live_commit\" HEAD
-  git tag --contains \"\$live_commit\" | rg -q '^v2\\.0\\.17-elemont$'
+  test \"\$(git tag --contains \"\$live_commit\" --list 'v2.0.17-elemont')\" = 'v2.0.17-elemont'
   git show \"\$live_commit\":payback/payback_cache.go | rg -q 'stakeForSelector = methodSelector\\(\"stakeFor\\(address\\)\"\\)'
   git show \"\$live_commit\":payback/payback_cache.go | rg -q 'decodeStakeForAddress\\(data\\)'
   git show \"\$live_commit\":payback/payback_cache.go | rg -q 'return TxTypeStake, stakeAddress'
@@ -199,6 +199,10 @@ run_shell_step \
   test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Post-Confirmation Finalization' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'finalize-payback-receiver-rollout.sh --dry-run <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'finalize-payback-receiver-rollout.sh --commit --push <upgrade-tx-hash>' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'audit-payback-receiver-rollout.sh' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
   jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
