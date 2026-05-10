@@ -171,6 +171,8 @@ run_shell_step \
   rg -q 'Check deployer secret' README.md
   rg -q 'live proxy implementation' README.md
   rg -q 'latest prepared artifact download' README.md
+  rg -q 'source repository' README.md
+  rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
@@ -184,10 +186,15 @@ run_shell_step \
   rg -q 'eth_sendTransaction' \"\$wallet_page\"
   rg -q 'wallet_switchEthereumChain' \"\$wallet_page\"
   rg -q 'quota-wallet-upgrade-testnet.json' \"\$wallet_page\"
-  npm run handoff:testnet:quota-owner-bundle -- 25619562709 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
+  npm run handoff:testnet:quota-owner-bundle -- 25621202507 --dir /tmp/quota-owner-handoff-audit --no-zip | rg -q '\"status\": \"ready\"'
   test -f /tmp/quota-owner-handoff-audit/README.md
+  test -f /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  test -f /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'Browser Wallet Path' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared JSON SHA256' /tmp/quota-owner-handoff-audit/README.md
+  rg -q 'Source commit' /tmp/quota-owner-handoff-audit/README.md
+  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"79319df685344884ad4b3de9023ed19dd3b5b026\" and .sourceRef == \"main\" and .sourceRunId == \"25621202507\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  jq -e '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \"79319df685344884ad4b3de9023ed19dd3b5b026\" and .sourceRef == \"main\" and .sourceRunId == \"25621202507\" and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'is_fully_verified=true' README.md
@@ -327,6 +334,8 @@ run_shell_step \
   rg -q 'watch:testnet:quota-upgrade' \"\$guide\"
   rg -q 'live proxy implementation' \"\$guide\"
   rg -q 'latest prepared artifact download' \"\$guide\"
+  rg -q 'source repository' \"\$guide\"
+  rg -q 'source provenance' \"\$guide\"
   rg -q 'prints private keys' \"\$guide\"
   rg -q 'finalize-payback-receiver-rollout.sh' \"\$guide\"
   rg -q -- '--commit --push' \"\$guide\"
