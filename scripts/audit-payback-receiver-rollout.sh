@@ -211,8 +211,12 @@ run_shell_step \
   rg -q 'prints private keys' README.md
   rg -q 'signed-transaction-shaped handoff candidates' README.md
   rg -q 'repo-level issue/release/artifact-name surfaces' README.md
+  rg -q 'bounded RPC ranges' README.md
+  rg -q 'VinuExplorer-indexed transactions' README.md
   rg -q 'issueSignedTransactionHandoff' \"\$owner_action_audit\"
   rg -q 'repositorySignedTransactionHandoff' \"\$owner_action_audit\"
+  rg -q 'proxyUpgradeEvents' \"\$owner_action_audit\"
+  rg -q 'explorerIndexedTransactions' \"\$owner_action_audit\"
   rg -q -- '--ack-elevated-profile' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--default-exact-names' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--exact-name <name>' README.md \"\$aws_owner_route_helper\"
@@ -270,6 +274,12 @@ run_shell_step \
   rg -q 'Matching expected upgrade tx:' <<<\"\$handoff_output\"
   rg -q 'Secret values printed: no' <<<\"\$handoff_output\"
   rg -q 'ProxyAdmin owner key in \\.env:' <<<\"\$handoff_output\"
+  rg -q 'Proxy upgrade event scan' <<<\"\$handoff_output\"
+  rg -q 'Upgraded\(address\) logs:' <<<\"\$handoff_output\"
+  rg -q 'Receiver implementation upgrade logs:' <<<\"\$handoff_output\"
+  rg -q 'VinuExplorer indexed transactions' <<<\"\$handoff_output\"
+  rg -q 'ProxyAdmin owner latest:' <<<\"\$handoff_output\"
+  rg -q 'Quota proxy latest:' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
   test -n \"\$latest_prepared_run_id\"
