@@ -119,6 +119,15 @@ run_shell_step \
   PRIVATE_TEST=0x0000000000000000000000000000000000000000000000000000000000000001 npm test -- --grep '[Ss]take for another address'"
 
 run_shell_step \
+  "Quota storage layout compatibility" \
+  "$QUOTA_CONTRACT_DIR" \
+  "set -euo pipefail
+  test -f scripts/audit-quota-testnet-storage-layout.js
+  node --check scripts/audit-quota-testnet-storage-layout.js
+  rg -q 'audit:testnet:quota-storage-layout' package.json README.md
+  npm run audit:testnet:quota-storage-layout"
+
+run_shell_step \
   "Quota owner secret helper validation" \
   "$QUOTA_CONTRACT_DIR" \
   "set -euo pipefail
