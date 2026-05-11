@@ -208,6 +208,8 @@ run_shell_step \
   rg -q 'repositoryActionsSecrets' \"\$owner_action_audit\"
   rg -q 'repositoryEnvironments' \"\$owner_action_audit\"
   rg -q 'organizationActionsSecrets' \"\$owner_action_audit\"
+  rg -q 'txpool_status' \"\$owner_action_audit\"
+  rg -q 'ownerPendingTransactionCount' \"\$owner_action_audit\"
   rg -q 'GitHub secret surface' \"\$handoff_helper\"
   aws_owner_route_output=\"\$(npm run audit:testnet:quota-aws-owner-route -- --profile vinuchain-ops)\"
   rg -q '\"status\": \"checked_aws_owner_route\"' <<<\"\$aws_owner_route_output\"
