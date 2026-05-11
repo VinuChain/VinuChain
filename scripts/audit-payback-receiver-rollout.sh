@@ -252,6 +252,7 @@ run_shell_step \
   rg -q 'Refusing to use elevated-looking AWS profile \"default-root\" without --ack-elevated-profile' <<<\"\$elevated_refusal\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Local prepared files: .*quota' <<<\"\$handoff_output\"
+  rg -q 'Local prepared files match latest artifact:' <<<\"\$handoff_output\"
   rg -q 'Wallet tx: .*quota-wallet-upgrade-testnet\\.json' <<<\"\$handoff_output\"
   rg -q 'Wallet sender: .*quota-testnet-wallet-upgrade\\.html' <<<\"\$handoff_output\"
   rg -q 'Live validate before signing: npm run audit:testnet:quota-prepared-tx -- --live' <<<\"\$handoff_output\"
