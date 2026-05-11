@@ -403,6 +403,7 @@ run_shell_step \
   bash -n scripts/finalize-payback-receiver-rollout.sh
   bash -n scripts/wait-finalize-payback-receiver-rollout.sh
   rg -q 'audit-testnet-aws-opera.sh' scripts/finalize-payback-receiver-rollout.sh
+  rg -q 'require_clean_repo "\$VINUCHAIN_DIR"' scripts/finalize-payback-receiver-rollout.sh
   rg -q '0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b' scripts/finalize-payback-receiver-rollout.sh
   rg -q -- '--arg address \"\$EXPECTED_QUOTA_PROXY\"' scripts/finalize-payback-receiver-rollout.sh
   rg -q 'topics:\[\$topic0,\$topic1\]' scripts/finalize-payback-receiver-rollout.sh
