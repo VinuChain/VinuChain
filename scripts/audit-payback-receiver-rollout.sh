@@ -156,6 +156,7 @@ run_shell_step \
   helper=scripts/configure-quota-testnet-owner-secret.js
   owner_action_audit=scripts/audit-quota-testnet-owner-action.js
   aws_owner_route_helper=scripts/audit-quota-testnet-aws-owner-route.js
+  local_owner_material_helper=scripts/audit-quota-testnet-local-owner-material.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   handoff_helper=scripts/print-quota-testnet-owner-handoff.js
@@ -175,6 +176,7 @@ run_shell_step \
   test -f \"\$helper\"
   test -f \"\$owner_action_audit\"
   test -f \"\$aws_owner_route_helper\"
+  test -f \"\$local_owner_material_helper\"
   test -f \"\$tx_helper\"
   test -f \"\$sign_helper\"
   test -f \"\$handoff_helper\"
@@ -194,6 +196,7 @@ run_shell_step \
   node --check \"\$helper\"
   node --check \"\$owner_action_audit\"
   node --check \"\$aws_owner_route_helper\"
+  node --check \"\$local_owner_material_helper\"
   node --check \"\$tx_helper\"
   node --check \"\$sign_helper\"
   node --check \"\$handoff_helper\"
@@ -209,6 +212,7 @@ run_shell_step \
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
   rg -q 'audit:testnet:quota-aws-owner-route' package.json README.md
+  rg -q 'audit:testnet:quota-local-owner-material' package.json README.md
   rg -q 'audit:testnet:quota-owner-action' package.json README.md
   rg -q 'handoff:testnet:quota-owner' package.json README.md
   rg -q 'handoff:testnet:quota-owner-bundle' package.json README.md
@@ -244,6 +248,16 @@ run_shell_step \
   rg -q -- '--exact-name <name>' README.md \"\$aws_owner_route_helper\"
   rg -q 'expected signed ProxyAdmin upgrade transaction' README.md \"\$aws_owner_route_helper\"
   rg -q 'secretValuesPrinted' \"\$aws_owner_route_helper\"
+  rg -q -- '--include-workspace' README.md \"\$local_owner_material_helper\"
+  rg -q -- '--include-history' README.md \"\$local_owner_material_helper\"
+  rg -q -- '--root <path>' README.md \"\$local_owner_material_helper\"
+  rg -q 'secretValuesPrinted' \"\$local_owner_material_helper\"
+  local_owner_material_output=\"\$(npm run audit:testnet:quota-local-owner-material -- --include-workspace --include-history)\"
+  rg -q '\"proxyAdminOwner\": \"0x07B4eF04b62E69aE14A715cdcae692fa7033b9a5\"' <<<\"\$local_owner_material_output\"
+  rg -q '\"implementation\": \"0x80DA5f5e78c94EE5125Be515Ad4cd248469B57ba\"' <<<\"\$local_owner_material_output\"
+  rg -q '\"secretValuesPrinted\": false' <<<\"\$local_owner_material_output\"
+  rg -q '\"ownerPrivateKeyMatchCount\":' <<<\"\$local_owner_material_output\"
+  rg -q '\"expectedSignedUpgradeCount\":' <<<\"\$local_owner_material_output\"
   rg -q 'upgrade-tx auto' README.md
   rg -q 'Upgraded\(address\).*transaction hash' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
