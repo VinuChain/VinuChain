@@ -230,6 +230,8 @@ run_shell_step \
   rg -q 'Repository environments:' <<<\"\$handoff_output\"
   rg -q 'Org Actions secrets inspectable:' <<<\"\$handoff_output\"
   rg -q 'Org secret note: Org Actions secrets require org admin or Actions-secrets fine-grained permission to inspect.' <<<\"\$handoff_output\"
+  rg -q 'Local owner material' <<<\"\$handoff_output\"
+  rg -q 'ProxyAdmin owner key in \\.env:' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
   test -n \"\$latest_prepared_run_id\"
