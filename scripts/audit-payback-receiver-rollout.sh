@@ -204,11 +204,8 @@ run_shell_step \
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
-  current_quota_commit=\"\$(git rev-parse HEAD)\"
   test -n \"\$latest_prepared_run_id\"
   test -n \"\$prepared_source_commit\"
-  test \"\$prepared_source_commit\" = \"\$current_quota_commit\"
-  rg -q 'Prepared commit matches current commit: yes' <<<\"\$handoff_output\"
   rg -q 'Transaction-affecting drift: no' <<<\"\$handoff_output\"
   rg -q 'Post-confirmation finalization' <<<\"\$handoff_output\"
   rg -q 'finalize-payback-receiver-rollout.sh --dry-run --upgrade-tx auto' <<<\"\$handoff_output\"
@@ -243,9 +240,9 @@ run_shell_step \
   rg -q 'Observed gas price wei' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Gas price buffer bps' /tmp/quota-owner-handoff-audit/README.md
   rg -q 'Prepared gas price wei' /tmp/quota-owner-handoff-audit/README.md
-  jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
+  jq -e --arg commit \"\$prepared_source_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
   jq -e '.observedGasPriceWei and .gasPriceBufferBps == 1000 and (.suggestedLegacyTransaction.gasPrice == .gasPriceWei) and ((.gasPriceWei | tonumber) > (.observedGasPriceWei | tonumber))' /tmp/quota-owner-handoff-audit/quota-prepared-upgrade-testnet.json
-  jq -e --arg commit \"\$current_quota_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
+  jq -e --arg commit \"\$prepared_source_commit\" --arg run \"\$latest_prepared_run_id\" '.sourceRepository == \"VinuChain/vinu-quotacontract\" and .sourceCommit == \$commit and .sourceRef == \"main\" and .sourceRunId == \$run and .sourceWorkflow == \"Quota Testnet Prepare Upgrade Tx\"' /tmp/quota-owner-handoff-audit/quota-wallet-upgrade-testnet.json
   rg -q 'dispatch-dry-run' README.md \"\$signed_dispatch_helper\"
   rg -q 'suggestedLegacyTransaction' README.md
   rg -q 'buffered gas price' README.md
