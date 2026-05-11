@@ -428,6 +428,34 @@ run_shell_step \
   rg -q 'is_partially_verified=false' \"\$guide\"
   rg -q 'local .* artifact' \"\$guide\"
   readiness=\"\$(../VinuChain/scripts/audit-payback-receiver-testnet.sh | jq -r '.receiverReadiness')\"
+  if [ \"\$readiness\" != ready ]; then
+    quota_contract_dir=\"$QUOTA_CONTRACT_DIR\"
+    handoff_output=\"\$(cd \"\$quota_contract_dir\" && npm run handoff:testnet:quota-owner)\"
+    latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
+    latest_artifact_id=\"\$(sed -n 's/^Artifact id: //p' <<<\"\$handoff_output\" | head -n1)\"
+    prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
+    test -n \"\$latest_prepared_run_id\"
+    test -n \"\$latest_artifact_id\"
+    test -n \"\$prepared_source_commit\"
+
+    artifact_dir=\"\$(mktemp -d /tmp/quota-doc-artifact.XXXXXX)\"
+    artifact_zip=\"\${artifact_dir}.zip\"
+    trap 'rm -rf \"\$artifact_dir\" \"\$artifact_zip\"' EXIT
+    (
+      cd \"\$quota_contract_dir\" || exit 1
+      npm run download:testnet:quota-prepared-tx -- \"\$latest_prepared_run_id\" --dir \"\$artifact_dir\"
+    )
+    prepared_sha=\"\$(sha256sum \"\$artifact_dir/quota-prepared-upgrade-testnet.json\" | cut -d ' ' -f1)\"
+    wallet_sha=\"\$(sha256sum \"\$artifact_dir/quota-wallet-upgrade-testnet.json\" | cut -d ' ' -f1)\"
+    sender_sha=\"\$(sha256sum \"\$artifact_dir/quota-testnet-wallet-upgrade.html\" | cut -d ' ' -f1)\"
+
+    rg -q \"\$latest_prepared_run_id\" \"\$guide\"
+    rg -q \"\$latest_artifact_id\" \"\$guide\"
+    rg -q \"\$prepared_source_commit\" \"\$guide\"
+    rg -q \"\$prepared_sha\" \"\$guide\"
+    rg -q \"\$wallet_sha\" \"\$guide\"
+    rg -q \"\$sender_sha\" \"\$guide\"
+  fi
   if [ \"\$readiness\" = ready ]; then
     rg -q '\\*\\*Payback receiver rollout status:\\*\\* Complete' \"\$guide\"
     ! rg -q 'still points at the verified pre-receiver implementation|remaining mutating step|proxy upgrade pending|live Quota proxy upgrade is still pending|pending proxy-upgrade' \"\$guide\"
