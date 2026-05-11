@@ -16,6 +16,26 @@ fi
 
 failures=()
 
+print_completion_checklist() {
+  cat <<'EOF'
+==> Payback receiver rollout completion criteria
+Objective: Elemont testnet supports Payback/Quota staking from a funding wallet
+for a distinct receiver wallet, with the receiver owning the Payback stake and
+receiving gas refunds for transactions it signs.
+
+Prompt-to-artifact checklist:
+- Node behavior: VinuChain payback accounting recognizes QuotaContract.stakeFor(address) as receiver-owned stake, and AWS testnet RPC/validators run the expected Elemont binary.
+- Live contract state: the existing Quota proxy, not a replacement proxy, points at the receiver-capable implementation through ProxyAdmin.
+- Contract source verification: the receiver implementation is verified on testnet.vinuexplorer.org, and explorer bytecode/source/ABI match the local QuotaContract artifact.
+- Owner action path: the ProxyAdmin owner transaction or guarded workflow has actually upgraded the live proxy.
+- Contract safety: receiver staking behavior tests pass and the receiver implementation preserves the live proxy storage layout.
+- Registry: vinuchain-lists contains the exact live Quota contracts, implementation address, ABI, and verification metadata.
+- Frontend: the staking UI receiver selector is ready only after the live proxy is receiver-capable.
+- Docs: VinuChain docs describe the current rollout state, owner handoff path, finalization path, and post-upgrade verification commands.
+- Completion hygiene: every touched repository is clean at the end of the audit.
+EOF
+}
+
 run_step() {
   local label="$1"
   local dir="$2"
@@ -67,6 +87,8 @@ run_shell_step() {
   fi
   return "$status"
 }
+
+print_completion_checklist
 
 run_shell_step \
   "VinuChain core receiver stake accounting" \
