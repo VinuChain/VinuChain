@@ -124,6 +124,7 @@ run_shell_step \
   "set -euo pipefail
   helper=scripts/configure-quota-testnet-owner-secret.js
   owner_action_audit=scripts/audit-quota-testnet-owner-action.js
+  aws_owner_route_helper=scripts/audit-quota-testnet-aws-owner-route.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   handoff_helper=scripts/print-quota-testnet-owner-handoff.js
@@ -142,6 +143,7 @@ run_shell_step \
   signed_tx_workflow=.github/workflows/quota-testnet-broadcast-signed-tx.yml
   test -f \"\$helper\"
   test -f \"\$owner_action_audit\"
+  test -f \"\$aws_owner_route_helper\"
   test -f \"\$tx_helper\"
   test -f \"\$sign_helper\"
   test -f \"\$handoff_helper\"
@@ -160,6 +162,7 @@ run_shell_step \
   test -f \"\$signed_tx_workflow\"
   node --check \"\$helper\"
   node --check \"\$owner_action_audit\"
+  node --check \"\$aws_owner_route_helper\"
   node --check \"\$tx_helper\"
   node --check \"\$sign_helper\"
   node --check \"\$handoff_helper\"
@@ -174,6 +177,7 @@ run_shell_step \
   node --check \"\$broadcast_helper\"
   node --check \"\$signed_dispatch_helper\"
   rg -q 'configure:testnet:quota-upgrade-secret' package.json README.md
+  rg -q 'audit:testnet:quota-aws-owner-route' package.json README.md
   rg -q 'audit:testnet:quota-owner-action' package.json README.md
   rg -q 'handoff:testnet:quota-owner' package.json README.md
   rg -q 'handoff:testnet:quota-owner-bundle' package.json README.md
@@ -196,6 +200,8 @@ run_shell_step \
   rg -q 'source repository' README.md
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
+  rg -q -- '--ack-elevated-profile' README.md \"\$aws_owner_route_helper\"
+  rg -q 'secretValuesPrinted' \"\$aws_owner_route_helper\"
   rg -q 'upgrade-tx auto' README.md
   rg -q 'Upgraded\(address\).*transaction hash' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
@@ -203,6 +209,12 @@ run_shell_step \
   rg -q 'repositoryEnvironments' \"\$owner_action_audit\"
   rg -q 'organizationActionsSecrets' \"\$owner_action_audit\"
   rg -q 'GitHub secret surface' \"\$handoff_helper\"
+  aws_owner_route_output=\"\$(npm run audit:testnet:quota-aws-owner-route -- --profile vinuchain-ops)\"
+  rg -q '\"status\": \"checked_aws_owner_route\"' <<<\"\$aws_owner_route_output\"
+  rg -q '\"profile\": \"vinuchain-ops\"' <<<\"\$aws_owner_route_output\"
+  rg -q '\"secretValuesPrinted\": false' <<<\"\$aws_owner_route_output\"
+  elevated_refusal=\"\$(npm run audit:testnet:quota-aws-owner-route -- --profile default-root 2>&1 || true)\"
+  rg -q 'Refusing to use elevated-looking AWS profile \"default-root\" without --ack-elevated-profile' <<<\"\$elevated_refusal\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Local prepared files: .*quota' <<<\"\$handoff_output\"
   rg -q 'Wallet tx: .*quota-wallet-upgrade-testnet\\.json' <<<\"\$handoff_output\"
