@@ -123,6 +123,7 @@ run_shell_step \
   "$QUOTA_CONTRACT_DIR" \
   "set -euo pipefail
   helper=scripts/configure-quota-testnet-owner-secret.js
+  owner_action_audit=scripts/audit-quota-testnet-owner-action.js
   tx_helper=scripts/prepare-quota-testnet-upgrade-tx.js
   sign_helper=scripts/sign-quota-testnet-upgrade-tx.js
   handoff_helper=scripts/print-quota-testnet-owner-handoff.js
@@ -140,6 +141,7 @@ run_shell_step \
   prepare_tx_workflow=.github/workflows/quota-testnet-prepare-upgrade-tx.yml
   signed_tx_workflow=.github/workflows/quota-testnet-broadcast-signed-tx.yml
   test -f \"\$helper\"
+  test -f \"\$owner_action_audit\"
   test -f \"\$tx_helper\"
   test -f \"\$sign_helper\"
   test -f \"\$handoff_helper\"
@@ -157,6 +159,7 @@ run_shell_step \
   test -f \"\$prepare_tx_workflow\"
   test -f \"\$signed_tx_workflow\"
   node --check \"\$helper\"
+  node --check \"\$owner_action_audit\"
   node --check \"\$tx_helper\"
   node --check \"\$sign_helper\"
   node --check \"\$handoff_helper\"
@@ -196,12 +199,21 @@ run_shell_step \
   rg -q 'upgrade-tx auto' README.md
   rg -q 'Upgraded\(address\).*transaction hash' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
+  rg -q 'repositoryActionsSecrets' \"\$owner_action_audit\"
+  rg -q 'repositoryEnvironments' \"\$owner_action_audit\"
+  rg -q 'organizationActionsSecrets' \"\$owner_action_audit\"
+  rg -q 'GitHub secret surface' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
   rg -q 'Local prepared files: .*quota' <<<\"\$handoff_output\"
   rg -q 'Wallet tx: .*quota-wallet-upgrade-testnet\\.json' <<<\"\$handoff_output\"
   rg -q 'Wallet sender: .*quota-testnet-wallet-upgrade\\.html' <<<\"\$handoff_output\"
   rg -q 'Live validate before signing: npm run audit:testnet:quota-prepared-tx -- --live' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
+  rg -q 'GitHub secret surface' <<<\"\$handoff_output\"
+  rg -q 'Repository PRIVATE_TEST secret present:' <<<\"\$handoff_output\"
+  rg -q 'Repository environments:' <<<\"\$handoff_output\"
+  rg -q 'Org Actions secrets inspectable:' <<<\"\$handoff_output\"
+  rg -q 'Org secret note: Org Actions secrets require org admin or Actions-secrets fine-grained permission to inspect.' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
   test -n \"\$latest_prepared_run_id\"
