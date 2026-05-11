@@ -209,6 +209,8 @@ run_shell_step \
   rg -q 'source repository' README.md
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
+  rg -q 'signed-transaction-shaped handoff candidates' README.md
+  rg -q 'issueSignedTransactionHandoff' \"\$owner_action_audit\"
   rg -q -- '--ack-elevated-profile' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--default-exact-names' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--exact-name <name>' README.md \"\$aws_owner_route_helper\"
@@ -253,6 +255,10 @@ run_shell_step \
   rg -q 'Org Actions secrets inspectable:' <<<\"\$handoff_output\"
   rg -q 'Org secret note: Org Actions secrets require org admin or Actions-secrets fine-grained permission to inspect.' <<<\"\$handoff_output\"
   rg -q 'Local owner material' <<<\"\$handoff_output\"
+  rg -q 'Issue signed transaction handoff' <<<\"\$handoff_output\"
+  rg -q 'Raw signed-tx-shaped candidates:' <<<\"\$handoff_output\"
+  rg -q 'Matching expected upgrade tx:' <<<\"\$handoff_output\"
+  rg -q 'Secret values printed: no' <<<\"\$handoff_output\"
   rg -q 'ProxyAdmin owner key in \\.env:' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
   prepared_source_commit=\"\$(sed -n 's/^Prepared source commit: //p' <<<\"\$handoff_output\" | head -n1)\"
