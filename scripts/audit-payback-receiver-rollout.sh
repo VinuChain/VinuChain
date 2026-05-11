@@ -210,6 +210,9 @@ run_shell_step \
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
   rg -q -- '--ack-elevated-profile' README.md \"\$aws_owner_route_helper\"
+  rg -q -- '--default-exact-names' README.md \"\$aws_owner_route_helper\"
+  rg -q -- '--exact-name <name>' README.md \"\$aws_owner_route_helper\"
+  rg -q 'expected signed ProxyAdmin upgrade transaction' README.md \"\$aws_owner_route_helper\"
   rg -q 'secretValuesPrinted' \"\$aws_owner_route_helper\"
   rg -q 'upgrade-tx auto' README.md
   rg -q 'Upgraded\(address\).*transaction hash' README.md
@@ -226,6 +229,16 @@ run_shell_step \
   rg -q '\"status\": \"checked_aws_owner_route\"' <<<\"\$aws_owner_route_output\"
   rg -q '\"profile\": \"vinuchain-ops\"' <<<\"\$aws_owner_route_output\"
   rg -q '\"secretValuesPrinted\": false' <<<\"\$aws_owner_route_output\"
+  aws_owner_route_help=\"\$(npm run audit:testnet:quota-aws-owner-route -- --help)\"
+  rg -q -- '--default-exact-names' <<<\"\$aws_owner_route_help\"
+  rg -q -- '--exact-name <name>' <<<\"\$aws_owner_route_help\"
+  exact_owner_route_output=\"\$(npm run audit:testnet:quota-aws-owner-route -- --scan-values --exact-name PRIVATE_TEST)\"
+  rg -q '\"exactNameCount\": 1' <<<\"\$exact_owner_route_output\"
+  rg -q '\"scannedCount\": 2' <<<\"\$exact_owner_route_output\"
+  rg -q '\"source\": \"secretsmanager\"' <<<\"\$exact_owner_route_output\"
+  rg -q '\"source\": \"ssm\"' <<<\"\$exact_owner_route_output\"
+  rg -q '\"name\": \"PRIVATE_TEST\"' <<<\"\$exact_owner_route_output\"
+  rg -q '\"secretValuesPrinted\": false' <<<\"\$exact_owner_route_output\"
   elevated_refusal=\"\$(npm run audit:testnet:quota-aws-owner-route -- --profile default-root 2>&1 || true)\"
   rg -q 'Refusing to use elevated-looking AWS profile \"default-root\" without --ack-elevated-profile' <<<\"\$elevated_refusal\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
