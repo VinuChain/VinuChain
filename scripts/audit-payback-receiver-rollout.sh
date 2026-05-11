@@ -210,7 +210,9 @@ run_shell_step \
   rg -q 'source provenance' README.md
   rg -q 'prints private keys' README.md
   rg -q 'signed-transaction-shaped handoff candidates' README.md
+  rg -q 'repo-level issue/release/artifact-name surfaces' README.md
   rg -q 'issueSignedTransactionHandoff' \"\$owner_action_audit\"
+  rg -q 'repositorySignedTransactionHandoff' \"\$owner_action_audit\"
   rg -q -- '--ack-elevated-profile' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--default-exact-names' README.md \"\$aws_owner_route_helper\"
   rg -q -- '--exact-name <name>' README.md \"\$aws_owner_route_helper\"
@@ -256,6 +258,8 @@ run_shell_step \
   rg -q 'Org secret note: Org Actions secrets require org admin or Actions-secrets fine-grained permission to inspect.' <<<\"\$handoff_output\"
   rg -q 'Local owner material' <<<\"\$handoff_output\"
   rg -q 'Issue signed transaction handoff' <<<\"\$handoff_output\"
+  rg -q 'Repository signed transaction handoff' <<<\"\$handoff_output\"
+  rg -q 'Sources scanned:' <<<\"\$handoff_output\"
   rg -q 'Raw signed-tx-shaped candidates:' <<<\"\$handoff_output\"
   rg -q 'Matching expected upgrade tx:' <<<\"\$handoff_output\"
   rg -q 'Secret values printed: no' <<<\"\$handoff_output\"
