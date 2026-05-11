@@ -10,6 +10,10 @@ VINUCHAIN_LISTS_DIR="${VINUCHAIN_LISTS_DIR:-$WORKSPACE_DIR/vinuchain-lists}"
 VINUSCAN_FRONTEND_DIR="${VINUSCAN_FRONTEND_DIR:-$WORKSPACE_DIR/vinuscan-frontend}"
 VINUCHAIN_DOCS_DIR="${VINUCHAIN_DOCS_DIR:-$WORKSPACE_DIR/VinuChain-Docs}"
 
+if ! command -v go >/dev/null 2>&1 && [ -x /usr/local/go/bin/go ]; then
+  export PATH="/usr/local/go/bin:$PATH"
+fi
+
 failures=()
 
 run_step() {
@@ -193,8 +197,9 @@ run_shell_step \
   rg -q 'Upgraded\(address\).*transaction hash' README.md
   rg -q 'PRIVATE_TEST empty in Actions' \"\$handoff_helper\"
   handoff_output=\"\$(npm run handoff:testnet:quota-owner)\"
-  rg -q 'Wallet tx: /tmp/quota-prepared-' <<<\"\$handoff_output\"
-  rg -q 'Wallet sender: /tmp/quota-prepared-' <<<\"\$handoff_output\"
+  rg -q 'Local prepared files: .*quota' <<<\"\$handoff_output\"
+  rg -q 'Wallet tx: .*quota-wallet-upgrade-testnet\\.json' <<<\"\$handoff_output\"
+  rg -q 'Wallet sender: .*quota-testnet-wallet-upgrade\\.html' <<<\"\$handoff_output\"
   rg -q 'Live validate before signing: npm run audit:testnet:quota-prepared-tx -- --live' <<<\"\$handoff_output\"
   rg -q 'Export wallet tx: npm run export:testnet:quota-wallet-tx' <<<\"\$handoff_output\"
   latest_prepared_run_id=\"\$(sed -n 's/^Run id: //p' <<<\"\$handoff_output\" | head -n1)\"
