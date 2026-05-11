@@ -469,6 +469,8 @@ run_shell_step \
     prepared_sha=\"\$(sha256sum \"\$artifact_dir/quota-prepared-upgrade-testnet.json\" | cut -d ' ' -f1)\"
     wallet_sha=\"\$(sha256sum \"\$artifact_dir/quota-wallet-upgrade-testnet.json\" | cut -d ' ' -f1)\"
     sender_sha=\"\$(sha256sum \"\$artifact_dir/quota-testnet-wallet-upgrade.html\" | cut -d ' ' -f1)\"
+    readme_sha=\"\$(sha256sum \"\$artifact_dir/README.md\" | cut -d ' ' -f1)\"
+    zip_sha=\"\$(sha256sum \"\$artifact_zip\" | cut -d ' ' -f1)\"
 
     rg -q \"\$latest_prepared_run_id\" \"\$guide\"
     rg -q \"\$latest_artifact_id\" \"\$guide\"
@@ -476,6 +478,8 @@ run_shell_step \
     rg -q \"\$prepared_sha\" \"\$guide\"
     rg -q \"\$wallet_sha\" \"\$guide\"
     rg -q \"\$sender_sha\" \"\$guide\"
+    rg -q \"\$readme_sha\" \"\$guide\"
+    rg -q \"\$zip_sha\" \"\$guide\"
   fi
   if [ \"\$readiness\" = ready ]; then
     rg -q '\\*\\*Payback receiver rollout status:\\*\\* Complete' \"\$guide\"
