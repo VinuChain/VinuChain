@@ -58,12 +58,12 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 	require.Equal(t, uint64(1<<12), uint64(paybackV2Bit), "paybackV2Bit must be 1<<12 (next free bit after sfcV2Patch5Bit)")
 }
 
-// TestPaybackV2_DefaultsFalseOnAllConstructors confirms no network's
-// hardcoded rule constructor flips PaybackV2 to true while the V2
-// contract address is still the zero sentinel. The startup check
-// enforces this at boot, but a unit test catches accidental flips at
-// PR review time.
-func TestPaybackV2_DefaultsFalseOnAllConstructors(t *testing.T) {
+// TestPaybackV2_MainnetAndLegacyConstructorsStayFalse defends against an
+// accidental flip on networks that have NOT yet completed the PaybackV2
+// rollout. Testnet is intentionally activated (see
+// TestPaybackV2_TestnetActivatedWithNonSentinelAddress), so it's no
+// longer in scope here.
+func TestPaybackV2_MainnetAndLegacyConstructorsStayFalse(t *testing.T) {
 	cases := []struct {
 		name string
 		fn   func() Rules
@@ -71,15 +71,31 @@ func TestPaybackV2_DefaultsFalseOnAllConstructors(t *testing.T) {
 		{"MainNetRules", MainNetRules},
 		{"TestNetRules", TestNetRules},
 		{"VinuChainMainNetRules", VinuChainMainNetRules},
-		{"VinuChainTestNetRules", VinuChainTestNetRules},
 	}
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			require.False(t, c.fn().Upgrades.PaybackV2,
-				"%s.Upgrades.PaybackV2 must be false in scaffold state; flip only after the address is recorded", c.name)
+				"%s.Upgrades.PaybackV2 must be false until the PaybackV2 rollout completes on this network", c.name)
 		})
 	}
 	// Fakenet may have PaybackV2 enabled for in-process activation tests.
 	// No assertion on FakeNetRules / LegacyFakeNetRules.
+}
+
+// TestPaybackV2_TestnetActivatedWithNonSentinelAddress pins the testnet
+// activation invariant: PaybackV2 must be true on VinuChainTestNetRules
+// AND the matching per-network address slot must NOT be the zero sentinel.
+// EnforcePaybackV2StartupCheck enforces this at boot, but a unit test
+// catches an accidental "flip back the flag" or "blank the address" at PR
+// review time before the bad binary ever ships.
+func TestPaybackV2_TestnetActivatedWithNonSentinelAddress(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	require.True(t, rules.Upgrades.PaybackV2,
+		"VinuChainTestNetRules.Upgrades.PaybackV2 must be true — PaybackV2 has shipped on testnet")
+
+	addr, err := PaybackV2ContractAddress(VinuChainTestNetworkID)
+	require.NoError(t, err)
+	require.False(t, PaybackV2AddressIsSentinel(addr),
+		"paybackV2TestnetAddress must be a real deployed QuotaContractV2 address, not the zero sentinel — otherwise the startup check refuses to boot")
 }

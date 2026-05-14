@@ -28,11 +28,13 @@ var paybackV2AddressMu sync.RWMutex
 
 var (
 	// paybackV2TestnetAddress is the QuotaContractV2 address on VinuChain
-	// testnet (chain 206). Replace common.Address{} with the
-	// `deployed addr` printed by scripts/deploy-quotacontract-v2.ts after
-	// running it on testnet. The same value must also be referenced in
-	// the testnet finalizer / runbook so explorers can be re-pointed.
-	paybackV2TestnetAddress = common.Address{}
+	// testnet (chain 206). Deployed 2026-05-15 via
+	// scripts/deploy-quotacontract-v2.ts in vinu-quotacontract, deploy tx
+	// 0x3ed6fc5e1f0b6c14aaf74f9cfbc611ee5eae7973f4aa10f608d4605020bb505a,
+	// owner = NodeDriverAuth-owner EOA 0xf9c82B1117e8BeA97843042521B8FBC93044f347
+	// (recoverable). Replaces the original lost-ProxyAdmin-key V1 proxy
+	// at 0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D.
+	paybackV2TestnetAddress = common.HexToAddress("0xdEA4687FDBA2528d1b30222e199c90b63AF8c850")
 
 	// paybackV2MainnetAddress is the QuotaContractV2 address on VinuChain
 	// mainnet (chain 207). Stays sentinel until the mainnet rollout. See

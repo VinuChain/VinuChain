@@ -412,6 +412,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch4:             true,
 			SfcV2Patch5:             true,
 			ElemontPubkeyValidation: true,
+			PaybackV2:               true,
 		},
 	}
 	rules.Economy.QuotaCacheAddress = common.HexToAddress("0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D")

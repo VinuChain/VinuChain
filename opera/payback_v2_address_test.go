@@ -18,29 +18,30 @@ func TestPaybackV2ContractAddress_UnknownNetwork(t *testing.T) {
 		"error path must return zero address so caller cannot accidentally use it")
 }
 
-// TestPaybackV2ContractAddress_KnownNetworks returns the sentinel zero
-// until the real addresses are baked in. Re-keying when an address is
-// recorded would catch an accidental commit that wipes the value.
+// TestPaybackV2ContractAddress_KnownNetworks pins the per-network address
+// slot for each rollout phase. Testnet has shipped, so the testnet slot
+// MUST equal the exact deployed QuotaContractV2 address — an accidental
+// commit that wipes it back to the zero sentinel would fail the startup
+// check at boot, but this catches the wipe before the binary ever ships.
+// Mainnet + staging stay sentinel until their rollouts complete.
 func TestPaybackV2ContractAddress_KnownNetworks(t *testing.T) {
+	const testnetV2 = "0xdEA4687FDBA2528d1b30222e199c90b63AF8c850"
 	cases := []struct {
 		name      string
 		networkID uint64
+		expected  common.Address
 	}{
-		{"testnet", VinuChainTestNetworkID},
-		{"mainnet", VinuChainMainNetworkID},
-		{"staging", VinuChainStagingNetworkID},
+		{"testnet", VinuChainTestNetworkID, common.HexToAddress(testnetV2)},
+		{"mainnet", VinuChainMainNetworkID, common.Address{}},
+		{"staging", VinuChainStagingNetworkID, common.Address{}},
 	}
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			addr, err := PaybackV2ContractAddress(c.networkID)
 			require.NoError(t, err, "known networkID must not error")
-			// Until the contract is deployed, the address is the zero sentinel.
-			// When the V2 address is recorded in payback_v2_address.go, this
-			// assertion will start failing — at which point this test should
-			// be updated to assert the EXACT address that was baked in.
-			require.Equal(t, common.Address{}, addr,
-				"address slot for %s must remain the zero sentinel until the V2 contract is deployed", c.name)
+			require.Equal(t, c.expected, addr,
+				"address slot for %s must equal the expected deployed/sentinel value", c.name)
 		})
 	}
 }
@@ -81,18 +82,23 @@ func TestSetPaybackV2ContractAddressForTesting(t *testing.T) {
 	}
 }
 
-// TestEnforcePaybackV2StartupCheck_PassesWithFlagOff is the default
-// scaffold state: every network constructor leaves PaybackV2=false, so the
-// startup check must pass even with sentinel addresses everywhere. This is
-// the state the scaffold release ships in.
-func TestEnforcePaybackV2StartupCheck_PassesWithFlagOff(t *testing.T) {
-	// Sanity: confirm the constructors do indeed have PaybackV2=false at scaffold time.
-	require.False(t, VinuChainTestNetRules().Upgrades.PaybackV2,
-		"scaffold-state testnet rules must NOT have PaybackV2 enabled until the contract is deployed and recorded")
+// TestEnforcePaybackV2StartupCheck_PassesInPostTestnetRolloutState pins the
+// current shipping state: testnet has PaybackV2=true with a real deployed
+// address; mainnet + staging stay false with sentinel addresses. The
+// startup check must NOT panic in this shape — it only panics when a flag
+// is set true while the matching address slot is still the zero sentinel.
+func TestEnforcePaybackV2StartupCheck_PassesInPostTestnetRolloutState(t *testing.T) {
+	// Sanity: confirm the live shape — testnet on, mainnet still off.
+	require.True(t, VinuChainTestNetRules().Upgrades.PaybackV2,
+		"testnet rules must have PaybackV2 enabled — PaybackV2 has shipped on testnet")
+	testnetAddr, err := PaybackV2ContractAddress(VinuChainTestNetworkID)
+	require.NoError(t, err)
+	require.False(t, PaybackV2AddressIsSentinel(testnetAddr),
+		"testnet V2 address must be non-sentinel for the check to pass")
 	require.False(t, VinuChainMainNetRules().Upgrades.PaybackV2,
 		"mainnet must NOT have PaybackV2 enabled until its mainnet rollout prerequisites complete")
 	require.NotPanics(t, func() { EnforcePaybackV2StartupCheck() },
-		"startup check must pass when every constructor leaves PaybackV2 off, regardless of sentinel address state")
+		"startup check must pass: testnet has flag+address paired, mainnet/staging are off-with-sentinel")
 }
 
 // TestEnforcePaybackV2StartupCheck_StagingCoverage pins the staging-aware
