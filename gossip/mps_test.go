@@ -485,6 +485,22 @@ func TestMisbehaviourProofsWrongBlockEpoch(t *testing.T) {
 	}
 	require.Greater(env.store.GetEpoch(), correctMp.WrongBlockVote.Pals[0].Val.Epoch)
 
+	// Advance the chain one more epoch AFTER capturing correctMp.Block so that
+	// the block sits at least one epoch behind the current epoch. Without this,
+	// the "goodEpochMp" leg at the end of the test (which rewrites Val.Epoch to
+	// FindBlockEpoch(block)) lands on Pal 1 whose Signed.Locator.Epoch is
+	// GetEpoch()-1 from the sign() closure below. If FindBlockEpoch(block)
+	// equals GetEpoch(), then Val.Epoch > Signed.Locator.Epoch and basiccheck's
+	// FutureBVsEpoch fires before the intended heavycheck.ErrWrongPayloadHash
+	// assertion, manifesting as a flake (the test passed iff goroutine
+	// scheduling caused an extra epoch seal between block capture and sign(),
+	// which was non-deterministic under CPU contention — ~7% bare, higher under
+	// load). Adding a third ApplyTxs makes the relationship deterministic.
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(1, 1, common.Big0))
+	require.NoError(err)
+	require.Less(env.store.FindBlockEpoch(correctMp.WrongBlockVote.Block), env.store.GetEpoch(),
+		"correctMp.Block must be at least one epoch behind current at sign() time so basiccheck passes for the goodEpochMp leg")
+
 	// sign
 	sign := func(mp *inter.MisbehaviourProof) {
 		for i, p := range mp.WrongBlockVote.Pals {
