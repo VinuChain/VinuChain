@@ -74,6 +74,22 @@ type OperaEVMProcessor struct {
 	paybackCache *payback.PaybackCache
 }
 
+// SetRules refreshes the processor's consensus-rules view mid-block. Called
+// from block_processor.go::sealEpochIfNeeded right after an activation branch
+// that mutates bp.es.Rules (currently only the PaybackV2 QuotaCacheAddress
+// swap). Without this, the next Execute() in the same block would call
+// PaybackCache.PrepareForBlock + EvmWriter.SetPaybackProxyAddr with the
+// stale pre-seal address, leaving a one-block window where receipts encode
+// FeeRefund against the OLD contract and stakeFor txs targeting the NEW
+// contract are not recorded in StakesMap.
+//
+// Clears cachedBaseFee so the next evmBlockWith re-evaluates against the
+// fresh rules (London + MinGasPrice live on Rules).
+func (p *OperaEVMProcessor) SetRules(net opera.Rules) {
+	p.net = net
+	p.cachedBaseFee = nil
+}
+
 func (p *OperaEVMProcessor) evmBlockWith(txs types.Transactions) *evmcore.EvmBlock {
 	if p.cachedBaseFee == nil && p.net.Upgrades.London {
 		// Defensive copy: rules pointer is shared across blocks and callers.

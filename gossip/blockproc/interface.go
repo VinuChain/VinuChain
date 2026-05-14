@@ -51,6 +51,13 @@ type ConfirmedEventsModule interface {
 type EVMProcessor interface {
 	Execute(txs types.Transactions) types.Receipts
 	Finalize() (evmBlock *evmcore.EvmBlock, skippedTxs []uint32, receipts types.Receipts)
+	// SetRules refreshes the processor's view of consensus rules mid-block.
+	// Required because the processor takes a value copy of Rules at Start()
+	// time, but an epoch-seal-time activation (e.g. PaybackV2 swapping
+	// Economy.QuotaCacheAddress) must be visible to post-internal and user
+	// txs in the SAME activation block. Without this, the activation block is
+	// a one-block window where the processor still sees the pre-seal address.
+	SetRules(net opera.Rules)
 }
 
 type EVM interface {

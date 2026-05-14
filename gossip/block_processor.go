@@ -512,6 +512,17 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Activating PaybackV2: switching QuotaCacheAddress",
 			"block", bp.blockCtx.Idx, "from", oldAddr.Hex(), "to", newAddr.Hex())
 		bp.es.Rules.Economy.QuotaCacheAddress = newAddr
+		// Refresh the in-flight evmProcessor's rules so post-internal and user
+		// txs in the SAME activation block see the new address. Without this,
+		// receipts in the activation block encode FeeRefund against the OLD
+		// contract, stakeFor txs targeting the NEW contract are not recorded
+		// in StakesMap, and EvmWriter's isSystemContract still protects the
+		// OLD address rather than the NEW. evmProcessor.net is a value copy
+		// taken at initProcessors time, so a mutation of bp.es.Rules alone is
+		// invisible to the next Execute().
+		if bp.evmProcessor != nil {
+			bp.evmProcessor.SetRules(bp.es.Rules)
+		}
 	}
 	bp.store.SetBlockEpochState(bp.bs, bp.es)
 	bp.newValidators = bp.es.Validators

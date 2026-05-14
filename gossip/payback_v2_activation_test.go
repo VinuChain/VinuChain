@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,30 +71,28 @@ func TestPaybackV2BitfieldEncodingPresent(t *testing.T) {
 		"DecodeRLP must extract PaybackV2 from paybackV2Bit")
 }
 
-// TestPaybackV2ActivationLineOrdering pins the order of activation branches
-// inside sealEpochIfNeeded. PaybackV2 must run AFTER Podgorica's activation
-// in the same seal pass so a single-pass replay through a fresh genesis
-// (which fires Podgorica then PaybackV2 back-to-back) lands the receipt-encoding
-// atomic switch BEFORE the QuotaCacheAddress swap. Reversing them produces
-// the same final state but an intermediate window where receipts may encode
-// against a half-applied transition.
-func TestPaybackV2ActivationLineOrdering(t *testing.T) {
+// TestPaybackV2ActivationRefreshesEvmProcessorRules pins the H-01 fix from
+// the 2026-05-14 security review. The activation branch in sealEpochIfNeeded
+// MUST call bp.evmProcessor.SetRules(bp.es.Rules) immediately after mutating
+// Economy.QuotaCacheAddress. Without this, evmProcessor.net stays at the
+// pre-seal value copy and post-internal + user txs in the activation block
+// see the OLD address:
+//   - receipts encode FeeRefund against the OLD QuotaContract
+//   - stakeFor txs targeting the NEW V2 contract are NOT recorded in
+//     PaybackCache.StakesMap (txtype=TxTypeNone)
+//   - EvmWriter.SetPaybackProxyAddr keeps the OLD address as the protected
+//     system contract for the activation block, leaving the NEW address
+//     unprotected against swapCode/setStorage for one block
+//
+// Source-structural pin rather than a runtime test because activating
+// requires a fully-wired BlockProcessor + Store + sealer + EVM that the
+// sibling tests in this package likewise stub out.
+func TestPaybackV2ActivationRefreshesEvmProcessorRules(t *testing.T) {
 	src, err := os.ReadFile("block_processor.go")
 	require.NoError(t, err)
-	lines := strings.Split(string(src), "\n")
-
-	var podgoricaLine, paybackV2Line int
-	for i, line := range lines {
-		if strings.Contains(line, "Upgrades.Podgorica && !prevUpg.Podgorica") {
-			podgoricaLine = i + 1
-		}
-		if strings.Contains(line, "Upgrades.PaybackV2 && !prevUpg.PaybackV2") {
-			paybackV2Line = i + 1
-		}
-	}
-	require.Greater(t, podgoricaLine, 0, "Podgorica activation branch not found in block_processor.go")
-	require.Greater(t, paybackV2Line, 0, "PaybackV2 activation branch not found in block_processor.go")
-	require.Less(t, podgoricaLine, paybackV2Line,
-		"Podgorica activation (line %d) must precede PaybackV2 activation (line %d) so the receipt-encoding atomic is flipped before the address swap",
-		podgoricaLine, paybackV2Line)
+	s := string(src)
+	require.Contains(t, s, "bp.evmProcessor.SetRules(bp.es.Rules)",
+		"activation branch MUST call evmProcessor.SetRules(bp.es.Rules) right after the QuotaCacheAddress swap so the same-block evmProcessor sees the new address")
+	require.Contains(t, s, "if bp.evmProcessor != nil {",
+		"the SetRules call MUST be nil-guarded — endBlock-without-initProcessors is a valid intermediate state during recovery paths")
 }

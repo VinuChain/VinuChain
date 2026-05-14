@@ -257,11 +257,16 @@ type Upgrades struct {
 	// (~75k VC testnet / ~19k VC mainnet) is orphaned by design;
 	// existing stakers must re-stake on the new contract.
 	//
-	// Fresh-install replay safety: the hardcoded rule constructor leaves
-	// rules.Economy.QuotaCacheAddress at the OLD address. A fresh-install
-	// node replays from genesis with the old address sealed in chaindata,
-	// then transitions to the new address at the same activation block as
-	// the live chain, producing bit-identical state.
+	// Fresh-install replay safety: bit-identical post-activation state
+	// requires the fresh-install operator to replay from a chaindata
+	// snapshot taken AFTER the live-chain PaybackV2 activation block.
+	// A stale genesis (pre-PaybackV2 activation) will re-stage PaybackV2 at
+	// the wrong block via service.go staging and diverge from the live chain
+	// by "wrong event epoch hash" — the same divergence shape that already
+	// bites pre-Podgorica/SfcV2/Elemont genesis replays. See
+	// deployment-log.md "Mainnet Upgrade Prerequisites" — PaybackV2 falls
+	// in the same prerequisite bucket: snapshot + regenerated genesis +
+	// operator "no fresh installs during the window" announcement.
 	//
 	// Startup safety: opera.EnforcePaybackV2StartupCheck() refuses to start
 	// the node if any rule constructor sets PaybackV2=true while the V2
