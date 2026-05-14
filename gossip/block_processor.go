@@ -483,6 +483,36 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Activating Podgorica fee refund encoding", "block", bp.blockCtx.Idx)
 		types.FeeRefundActive.Store(true)
 	}
+	// PaybackV2 swaps Economy.QuotaCacheAddress from the original
+	// upgradeable proxy (testnet 0x824B93dE...29C5D, mainnet
+	// 0x1c4269fb...cd0acda6) to a freshly-deployed non-proxy
+	// QuotaContractV2. The new address comes from
+	// opera.PaybackV2ContractAddress, which is per-network and baked into
+	// the binary; the original proxy's ProxyAdmin owner key is
+	// unrecoverable so this is the only path to changing the contract.
+	//
+	// log.Crit on a missing address (network unknown, or sentinel) rather
+	// than silently leaving the old address. EnforcePaybackV2StartupCheck()
+	// at boot time prevents shipping a binary that would hit this branch
+	// in the steady-state activation case; this Crit is a defence-in-depth
+	// guard for the off-path "PaybackV2 staged via DirtyRules without the
+	// binary's startup check ever firing" failure mode (which should be
+	// unreachable but is cheap to guard against).
+	if bp.es.Rules.Upgrades.PaybackV2 && !prevUpg.PaybackV2 {
+		newAddr, err := opera.PaybackV2ContractAddress(bp.es.Rules.NetworkID)
+		if err != nil {
+			log.Crit("PaybackV2 activation failed: unknown network",
+				"networkID", bp.es.Rules.NetworkID, "err", err)
+		}
+		if opera.PaybackV2AddressIsSentinel(newAddr) {
+			log.Crit("PaybackV2 activation failed: V2 contract address is the zero sentinel — binary was shipped without baking in the deployed address",
+				"networkID", bp.es.Rules.NetworkID, "block", bp.blockCtx.Idx)
+		}
+		oldAddr := bp.es.Rules.Economy.QuotaCacheAddress
+		log.Info("Activating PaybackV2: switching QuotaCacheAddress",
+			"block", bp.blockCtx.Idx, "from", oldAddr.Hex(), "to", newAddr.Hex())
+		bp.es.Rules.Economy.QuotaCacheAddress = newAddr
+	}
 	bp.store.SetBlockEpochState(bp.bs, bp.es)
 	bp.newValidators = bp.es.Validators
 	bp.txListener.Update(bp.bs, bp.es)

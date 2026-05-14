@@ -34,6 +34,7 @@ const (
 	sfcV2Patch4Bit                    = 1 << 9
 	elemontPubkeyValidationBit        = 1 << 10
 	sfcV2Patch5Bit                    = 1 << 11
+	paybackV2Bit                      = 1 << 12
 )
 
 var DefaultVMConfig = vm.Config{
@@ -235,6 +236,37 @@ type Upgrades struct {
 	// the placeholder bytes have not yet been replaced with a real compiled
 	// SFC, preventing a release from silently shipping the sentinel.
 	SfcV2Patch5 bool
+	// PaybackV2 switches Economy.QuotaCacheAddress from the original
+	// upgradeable proxy (testnet 0x824B93dE...29C5D, mainnet
+	// 0x1c4269fb...cd0acda6) to a freshly-deployed non-proxy
+	// QuotaContractV2 whose address is held in opera/payback_v2_address.go.
+	// Required because both networks' Quota ProxyAdmin owner EOA
+	// (0x07b4ef04...b9a5) is unrecoverable: the original proxy cannot be
+	// upgraded to add stakeFor(address), and a one-time migration via a
+	// new contract is the only way to enable third-party staking and
+	// unblock future quota changes.
+	//
+	// At activation block (next epoch seal after the binary set the flag in
+	// the hardcoded rule constructor), gossip/block_processor.go overwrites
+	// bp.es.Rules.Economy.QuotaCacheAddress with PaybackV2ContractAddress
+	// for the local network. The contract address is read by the payback
+	// cache resolver (payback/payback_cache.go resolveContractAddress), so
+	// every subsequent receipt encoding, fee refund computation, and
+	// vc_getPaybackBalance call uses the new contract from block
+	// activationBlock+1 onwards. The OLD proxy's backing balance
+	// (~75k VC testnet / ~19k VC mainnet) is orphaned by design;
+	// existing stakers must re-stake on the new contract.
+	//
+	// Fresh-install replay safety: the hardcoded rule constructor leaves
+	// rules.Economy.QuotaCacheAddress at the OLD address. A fresh-install
+	// node replays from genesis with the old address sealed in chaindata,
+	// then transitions to the new address at the same activation block as
+	// the live chain, producing bit-identical state.
+	//
+	// Startup safety: opera.EnforcePaybackV2StartupCheck() refuses to start
+	// the node if any rule constructor sets PaybackV2=true while the V2
+	// contract address for that network is still the zero sentinel.
+	PaybackV2 bool
 }
 
 type UpgradeHeight struct {
