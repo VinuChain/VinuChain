@@ -341,6 +341,11 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			changed = true
 			log.Info("Staged SfcV2Patch5 upgrade from binary rules; will activate at next epoch seal")
 		}
+		if hardcoded.Upgrades.SfcV2Patch6 && !pending.Upgrades.SfcV2Patch6 {
+			pending.Upgrades.SfcV2Patch6 = true
+			changed = true
+			log.Info("Staged SfcV2Patch6 upgrade from binary rules; will activate at next epoch seal")
+		}
 		if hardcoded.Upgrades.PaybackV2 && !pending.Upgrades.PaybackV2 {
 			pending.Upgrades.PaybackV2 = true
 			changed = true

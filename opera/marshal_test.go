@@ -367,6 +367,54 @@ func TestRulesSfcV2Patch5DefaultsRLP(t *testing.T) {
 	}
 }
 
+func TestRulesSfcV2Patch6TrueRLP(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	rules.Upgrades.SfcV2Patch6 = true
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.SfcV2Patch6,
+		"Upgrades.SfcV2Patch6 must round-trip as true through RLP")
+}
+
+func TestRulesSfcV2Patch6DefaultsRLP(t *testing.T) {
+	// Mainnet constructors leave SfcV2Patch6 false. Mainnet has not yet
+	// activated SfcV2 and will install the latest available bytecode directly
+	// on its first activation, so re-flash flags are unnecessary. Testnet
+	// activates Patch6 as the Cycle-162 orphan-delegation backfill edge.
+	cases := []struct {
+		mk      func() Rules
+		expect  bool
+		network string
+	}{
+		{MainNetRules, false, "MainNetRules"},
+		{VinuChainMainNetRules, false, "VinuChainMainNetRules"},
+		{VinuChainTestNetRules, true, "VinuChainTestNetRules"},
+	}
+	for _, c := range cases {
+		rules := c.mk()
+		require := require.New(t)
+		require.Equal(c.expect, rules.Upgrades.SfcV2Patch6,
+			"%s SfcV2Patch6 default mismatch", c.network)
+
+		b, err := rlp.EncodeToBytes(rules)
+		require.NoError(err)
+
+		decodedRules := Rules{}
+		require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+		require.Equal(rules.String(), decodedRules.String())
+		require.Equal(c.expect, decodedRules.Upgrades.SfcV2Patch6,
+			"%s Upgrades.SfcV2Patch6 must round-trip through RLP", c.network)
+	}
+}
+
 func TestRulesPaybackV2PatchTrueRLP(t *testing.T) {
 	rules := VinuChainTestNetRules()
 	rules.Upgrades.PaybackV2Patch = true

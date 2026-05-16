@@ -380,6 +380,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch5 && !prevUpg.SfcV2Patch5 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch6 && !prevUpg.SfcV2Patch6 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -470,6 +473,15 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch5 && !prevUpg.SfcV2Patch5 {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 5)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch5ContractBin())
+	}
+	// SfcV2Patch6 installs the Cycle-162 bytecode sourced from
+	// VinuChain/vinuchain-lists. Cycle-162 adds orphan-delegation recovery:
+	// registerStake(uint256), owner-only backfillStakes(address[],uint256[]),
+	// and an orphan-tolerant undelegate-to-zero path that skips _removeStake(0)
+	// for legacy entries missing stakePosition.
+	if bp.es.Rules.Upgrades.SfcV2Patch6 && !prevUpg.SfcV2Patch6 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 6)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch6ContractBin())
 	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*

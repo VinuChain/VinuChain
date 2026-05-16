@@ -120,6 +120,9 @@ func (u Upgrades) EncodeRLP(w io.Writer) error {
 	if u.SfcV2Patch5 {
 		bitmap.V |= sfcV2Patch5Bit
 	}
+	if u.SfcV2Patch6 {
+		bitmap.V |= sfcV2Patch6Bit
+	}
 	if u.PaybackV2 {
 		bitmap.V |= paybackV2Bit
 	}
@@ -150,6 +153,7 @@ func (u *Upgrades) DecodeRLP(s *rlp.Stream) error {
 	u.SfcV2Patch4 = (bitmap.V & sfcV2Patch4Bit) != 0
 	u.ElemontPubkeyValidation = (bitmap.V & elemontPubkeyValidationBit) != 0
 	u.SfcV2Patch5 = (bitmap.V & sfcV2Patch5Bit) != 0
+	u.SfcV2Patch6 = (bitmap.V & sfcV2Patch6Bit) != 0
 	u.PaybackV2 = (bitmap.V & paybackV2Bit) != 0
 	u.PaybackV2Patch = (bitmap.V & paybackV2PatchBit) != 0
 	return nil

@@ -24,7 +24,7 @@ func GetContractBin() []byte {
 // activations. Legacy SfcV2Patch* re-flash paths keep their cycle-specific
 // accessors so historical testnet upgrade edges remain explicit.
 func GetLatestContractBin() []byte {
-	return GetPatch5ContractBin()
+	return GetPatch6ContractBin()
 }
 
 // ContractAddress is the SFC contract address

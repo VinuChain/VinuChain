@@ -36,6 +36,7 @@ const (
 	sfcV2Patch5Bit                    = 1 << 11
 	paybackV2Bit                      = 1 << 12
 	paybackV2PatchBit                 = 1 << 13
+	sfcV2Patch6Bit                    = 1 << 14
 )
 
 var DefaultVMConfig = vm.Config{
@@ -237,6 +238,18 @@ type Upgrades struct {
 	// the placeholder bytes have not yet been replaced with a real compiled
 	// SFC, preventing a release from silently shipping the sentinel.
 	SfcV2Patch5 bool
+	// SfcV2Patch6 re-flashes the SFC V2 bytecode a sixth time to install the
+	// Cycle-162 bytecode sourced from VinuChain/vinuchain-lists. Cycle-162
+	// repairs legacy orphaned delegation entries where getStake is non-zero
+	// but stakePosition is zero: affected delegators can self-register with
+	// registerStake(uint256), the owner can batch backfill known pairs with
+	// backfillStakes(address[],uint256[]), and undelegate-to-zero no longer
+	// reverts on the missing stakePosition sentinel.
+	//
+	// Testnet-only at activation time: mainnet has not yet activated any
+	// SfcV2* flag and will consume the latest available bytecode directly
+	// on its first SfcV2 activation.
+	SfcV2Patch6 bool
 	// PaybackV2 switches Economy.QuotaCacheAddress from the original
 	// upgradeable proxy (testnet 0x824B93dE...29C5D, mainnet
 	// 0x1c4269fb...cd0acda6) to a freshly-deployed non-proxy
@@ -419,6 +432,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch3:             true,
 			SfcV2Patch4:             true,
 			SfcV2Patch5:             true,
+			SfcV2Patch6:             true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
 			PaybackV2Patch:          true,
