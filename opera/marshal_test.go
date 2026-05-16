@@ -367,6 +367,50 @@ func TestRulesSfcV2Patch5DefaultsRLP(t *testing.T) {
 	}
 }
 
+func TestRulesPaybackV2PatchTrueRLP(t *testing.T) {
+	rules := VinuChainTestNetRules()
+	rules.Upgrades.PaybackV2Patch = true
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.PaybackV2Patch,
+		"Upgrades.PaybackV2Patch must round-trip as true through RLP")
+}
+
+func TestRulesPaybackV2PatchDefaultsRLP(t *testing.T) {
+	cases := []struct {
+		mk      func() Rules
+		expect  bool
+		network string
+	}{
+		{MainNetRules, false, "MainNetRules"},
+		{VinuChainMainNetRules, false, "VinuChainMainNetRules"},
+		{VinuChainTestNetRules, true, "VinuChainTestNetRules"},
+	}
+	for _, c := range cases {
+		rules := c.mk()
+		require := require.New(t)
+		require.Equal(c.expect, rules.Upgrades.PaybackV2Patch,
+			"%s PaybackV2Patch default mismatch", c.network)
+
+		b, err := rlp.EncodeToBytes(rules)
+		require.NoError(err)
+
+		decodedRules := Rules{}
+		require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+		require.Equal(rules.String(), decodedRules.String())
+		require.Equal(c.expect, decodedRules.Upgrades.PaybackV2Patch,
+			"%s Upgrades.PaybackV2Patch must round-trip through RLP", c.network)
+	}
+}
+
 func TestRulesBerlinCompatibilityRLP(t *testing.T) {
 	require := require.New(t)
 

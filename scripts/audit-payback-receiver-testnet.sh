@@ -3,22 +3,18 @@ set -euo pipefail
 
 RPC_URL="${RPC_URL:-https://vinufoundation-rpc.com}"
 EXPECTED_CHAIN_ID="${EXPECTED_CHAIN_ID:-0xce}"
-EXPECTED_CLIENT_VERSION="${EXPECTED_CLIENT_VERSION:-v2.0.17-elemont}"
-EXPECTED_CLIENT_COMMIT="${EXPECTED_CLIENT_COMMIT:-bbc34e6}"
-EXPECTED_QUOTA_PROXY="${EXPECTED_QUOTA_PROXY:-0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D}"
-EXPECTED_PROXY_ADMIN="${EXPECTED_PROXY_ADMIN:-0xcE154534e1E8F4Cc9Ab642Ad1816Ee1A237055F4}"
-EXPECTED_PROXY_ADMIN_OWNER="${EXPECTED_PROXY_ADMIN_OWNER:-0x07B4eF04b62E69aE14A715cdcae692fa7033b9a5}"
-KNOWN_PRE_RECEIVER_IMPLEMENTATION="${KNOWN_PRE_RECEIVER_IMPLEMENTATION:-0x0c8735bD6b3E90eaD4cdAB917474Cc6e8E58ce82}"
-STAKE_FOR_SELECTOR="${STAKE_FOR_SELECTOR:-4bf69206}"
-EIP1967_IMPLEMENTATION_SLOT="0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
-OWNER_SELECTOR="0x8da5cb5b"
+EXPECTED_CLIENT_VERSION="${EXPECTED_CLIENT_VERSION:-v2.0.19-elemont}"
+EXPECTED_CLIENT_COMMIT="${EXPECTED_CLIENT_COMMIT:-}"
+EXPECTED_PAYBACK_V2="${EXPECTED_PAYBACK_V2:-0x89D1cBD9DEAaB4dFf6f800a336FBDd9A5c6829e4}"
+EXPECTED_OWNER="${EXPECTED_OWNER:-0xf9c82B1117e8BeA97843042521B8FBC93044f347}"
 
-truthy() {
-  case "${1:-}" in
-    1 | true | TRUE | yes | YES | y | Y) return 0 ;;
-    *) return 1 ;;
-  esac
-}
+OWNER_SELECTOR="0x8da5cb5b"
+FEE_REFUND_BLOCK_COUNT_SELECTOR="0x0fe34e68"
+MIN_STAKE_SELECTOR="0x375b3c0a"
+QUOTA_FACTOR_SELECTOR="0x976dd021"
+HOLD_TIME_SELECTOR="0x097d5155"
+STAKE_FOR_SELECTOR="4bf69206"
+UNSTAKE_FOR_SELECTOR="36ef088c"
 
 lower() {
   tr '[:upper:]' '[:lower:]'
@@ -59,28 +55,32 @@ json_array() {
   fi
 }
 
+eth_call() {
+  local to="$1"
+  local data="$2"
+  rpc eth_call "$(jq -nc --arg to "$to" --arg data "$data" '[{to:$to,data:$data},"latest"]')" | jq -r '.'
+}
+
 failures=()
-ready_blockers=()
 
 client_version="$(rpc web3_clientVersion | jq -r '.')"
 chain_id="$(rpc eth_chainId | jq -r '.')"
 syncing_json="$(rpc eth_syncing)"
 block_number_hex="$(rpc eth_blockNumber | jq -r '.')"
-rules_json="$(rpc eth_getRules '["latest"]')"
+rules_json="$(rpc vc_getRules '["latest"]')"
 
-quota_proxy_from_rules="$(jq -r '.Economy.QuotaCacheAddress // ""' <<<"$rules_json")"
-quota_proxy_lc="$(normalize_address "$EXPECTED_QUOTA_PROXY")"
-rules_quota_lc="$(normalize_address "$quota_proxy_from_rules")"
-proxy_admin_lc="$(normalize_address "$EXPECTED_PROXY_ADMIN")"
-proxy_admin_owner_lc="$(normalize_address "$EXPECTED_PROXY_ADMIN_OWNER")"
-known_pre_receiver_impl_lc="$(normalize_address "$KNOWN_PRE_RECEIVER_IMPLEMENTATION")"
+expected_payback_v2_lc="$(normalize_address "$EXPECTED_PAYBACK_V2")"
+rules_payback_v2_lc="$(normalize_address "$(jq -r '.Economy.QuotaCacheAddress // ""' <<<"$rules_json")")"
+expected_owner_lc="$(normalize_address "$EXPECTED_OWNER")"
+payback_v2_code="$(rpc eth_getCode "[\"$EXPECTED_PAYBACK_V2\",\"latest\"]" | jq -r '.')"
+payback_v2_code_lc="$(printf '%s' "$payback_v2_code" | lower)"
 
-implementation_slot="$(rpc eth_getStorageAt "[\"$EXPECTED_QUOTA_PROXY\",\"$EIP1967_IMPLEMENTATION_SLOT\",\"latest\"]" | jq -r '.')"
-implementation_lc="$(normalize_address "$implementation_slot")"
-admin_owner_call="$(rpc eth_call "[{\"to\":\"$EXPECTED_PROXY_ADMIN\",\"data\":\"$OWNER_SELECTOR\"},\"latest\"]" | jq -r '.')"
-admin_owner_lc="$(normalize_address "$admin_owner_call")"
-implementation_code="$(rpc eth_getCode "[\"$implementation_lc\",\"latest\"]" | jq -r '.')"
-implementation_code_lc="$(printf '%s' "$implementation_code" | lower)"
+owner_call="$(eth_call "$EXPECTED_PAYBACK_V2" "$OWNER_SELECTOR")"
+owner_lc="$(normalize_address "$owner_call")"
+fee_refund_block_count="$(eth_call "$EXPECTED_PAYBACK_V2" "$FEE_REFUND_BLOCK_COUNT_SELECTOR")"
+min_stake="$(eth_call "$EXPECTED_PAYBACK_V2" "$MIN_STAKE_SELECTOR")"
+quota_factor="$(eth_call "$EXPECTED_PAYBACK_V2" "$QUOTA_FACTOR_SELECTOR")"
+hold_time="$(eth_call "$EXPECTED_PAYBACK_V2" "$HOLD_TIME_SELECTOR")"
 
 if [ "$block_number_hex" = "0x" ]; then
   block_number=0
@@ -96,7 +96,7 @@ if [[ "$client_version" != *"$EXPECTED_CLIENT_VERSION"* ]]; then
   failures+=("client version does not include $EXPECTED_CLIENT_VERSION")
 fi
 
-if [[ "$client_version" != *"$EXPECTED_CLIENT_COMMIT"* ]]; then
+if [ -n "$EXPECTED_CLIENT_COMMIT" ] && [[ "$client_version" != *"$EXPECTED_CLIENT_COMMIT"* ]]; then
   failures+=("client version does not include commit $EXPECTED_CLIENT_COMMIT")
 fi
 
@@ -104,62 +104,45 @@ if [ "$syncing_json" != "false" ]; then
   failures+=("public RPC reports eth_syncing=$syncing_json")
 fi
 
-if [ "$rules_quota_lc" != "$quota_proxy_lc" ]; then
-  failures+=("eth_getRules Economy.QuotaCacheAddress is $rules_quota_lc, expected $quota_proxy_lc")
+if [ "$rules_payback_v2_lc" != "$expected_payback_v2_lc" ]; then
+  failures+=("vc_getRules Economy.QuotaCacheAddress is $rules_payback_v2_lc, expected $expected_payback_v2_lc")
 fi
 
-if [ "$admin_owner_lc" != "$proxy_admin_owner_lc" ]; then
-  failures+=("ProxyAdmin owner is $admin_owner_lc, expected $proxy_admin_owner_lc")
+if [ "$(jq -r '.Upgrades.PaybackV2 // false' <<<"$rules_json")" != "true" ]; then
+  failures+=("vc_getRules Upgrades.PaybackV2 is not true")
 fi
 
-if [ "$implementation_lc" = "0x0000000000000000000000000000000000000000" ]; then
-  failures+=("Quota proxy implementation slot is zero")
+if [ "$(jq -r '.Upgrades.PaybackV2Patch // false' <<<"$rules_json")" != "true" ]; then
+  failures+=("vc_getRules Upgrades.PaybackV2Patch is not true")
 fi
 
-if [ "$implementation_code" = "0x" ]; then
-  failures+=("Quota implementation has no code at $implementation_lc")
-  implementation_code_bytes=0
+if [ "$payback_v2_code" = "0x" ]; then
+  failures+=("corrected PaybackV2 has no code at $expected_payback_v2_lc")
+  payback_v2_code_bytes=0
 else
-  implementation_code_bytes=$(((${#implementation_code} - 2) / 2))
+  payback_v2_code_bytes=$(((${#payback_v2_code} - 2) / 2))
 fi
 
-implementation_has_stake_for=false
-if [[ "$implementation_code_lc" == *"$STAKE_FOR_SELECTOR"* ]]; then
-  implementation_has_stake_for=true
-else
-  ready_blockers+=("Quota implementation bytecode does not contain stakeFor(address) selector 0x$STAKE_FOR_SELECTOR")
+if [[ "$payback_v2_code_lc" != *"$STAKE_FOR_SELECTOR"* ]]; then
+  failures+=("corrected PaybackV2 bytecode does not contain stakeFor(address) selector 0x$STAKE_FOR_SELECTOR")
 fi
 
-implementation_is_known_pre_receiver=false
-if [ "$implementation_lc" = "$known_pre_receiver_impl_lc" ]; then
-  implementation_is_known_pre_receiver=true
-  ready_blockers+=("Quota proxy still points at known pre-receiver implementation $known_pre_receiver_impl_lc")
+if [[ "$payback_v2_code_lc" != *"$UNSTAKE_FOR_SELECTOR"* ]]; then
+  failures+=("corrected PaybackV2 bytecode does not contain unstakeFor(address,uint256) selector 0x$UNSTAKE_FOR_SELECTOR")
+fi
+
+if [ "$owner_lc" != "$expected_owner_lc" ]; then
+  failures+=("corrected PaybackV2 owner is $owner_lc, expected $expected_owner_lc")
 fi
 
 failures_json="$(json_array "${failures[@]}")"
-ready_blockers_json="$(json_array "${ready_blockers[@]}")"
-require_ready=false
-if truthy "${REQUIRE_PAYBACK_RECEIVER_READY:-false}"; then
-  require_ready=true
-fi
-
-ready_status=ready
-if [ "${#ready_blockers[@]}" -gt 0 ]; then
-  ready_status=not_ready
-fi
-
 status=passed
 if [ "${#failures[@]}" -gt 0 ]; then
-  status=failed
-fi
-if $require_ready && [ "${#ready_blockers[@]}" -gt 0 ]; then
   status=failed
 fi
 
 jq -n \
   --arg status "$status" \
-  --arg receiverReadiness "$ready_status" \
-  --argjson requirePaybackReceiverReady "$require_ready" \
   --arg rpcUrl "$RPC_URL" \
   --arg clientVersion "$client_version" \
   --arg expectedClientVersion "$EXPECTED_CLIENT_VERSION" \
@@ -169,24 +152,19 @@ jq -n \
   --argjson syncing "$syncing_json" \
   --arg blockNumberHex "$block_number_hex" \
   --argjson blockNumber "$block_number" \
-  --arg quotaProxy "$quota_proxy_lc" \
-  --arg rulesQuotaProxy "$rules_quota_lc" \
-  --arg proxyAdmin "$proxy_admin_lc" \
-  --arg proxyAdminOwner "$admin_owner_lc" \
-  --arg expectedProxyAdminOwner "$proxy_admin_owner_lc" \
-  --arg implementation "$implementation_lc" \
-  --arg knownPreReceiverImplementation "$known_pre_receiver_impl_lc" \
-  --argjson implementationCodeBytes "$implementation_code_bytes" \
-  --argjson implementationHasStakeFor "$implementation_has_stake_for" \
-  --argjson implementationIsKnownPreReceiver "$implementation_is_known_pre_receiver" \
-  --arg stakeForSelector "0x$STAKE_FOR_SELECTOR" \
+  --arg paybackV2 "$rules_payback_v2_lc" \
+  --arg expectedPaybackV2 "$expected_payback_v2_lc" \
+  --arg owner "$owner_lc" \
+  --arg expectedOwner "$expected_owner_lc" \
+  --argjson codeBytes "$payback_v2_code_bytes" \
+  --arg feeRefundBlockCount "$fee_refund_block_count" \
+  --arg minStake "$min_stake" \
+  --arg quotaFactor "$quota_factor" \
+  --arg holdTime "$hold_time" \
   --argjson upgrades "$(jq -c '.Upgrades' <<<"$rules_json")" \
   --argjson failures "$failures_json" \
-  --argjson readyBlockers "$ready_blockers_json" \
   '{
     status: $status,
-    receiverReadiness: $receiverReadiness,
-    requirePaybackReceiverReady: $requirePaybackReceiverReady,
     rpc: {
       url: $rpcUrl,
       clientVersion: $clientVersion,
@@ -199,30 +177,23 @@ jq -n \
       blockNumber: $blockNumber
     },
     rules: {
-      quotaProxy: $rulesQuotaProxy,
-      expectedQuotaProxy: $quotaProxy,
+      paybackV2: $paybackV2,
+      expectedPaybackV2: $expectedPaybackV2,
       upgrades: $upgrades
     },
-    quotaProxy: {
-      proxy: $quotaProxy,
-      proxyAdmin: $proxyAdmin,
-      proxyAdminOwner: $proxyAdminOwner,
-      expectedProxyAdminOwner: $expectedProxyAdminOwner,
-      implementation: $implementation,
-      knownPreReceiverImplementation: $knownPreReceiverImplementation,
-      implementationCodeBytes: $implementationCodeBytes,
-      implementationHasStakeFor: $implementationHasStakeFor,
-      implementationIsKnownPreReceiver: $implementationIsKnownPreReceiver,
-      stakeForSelector: $stakeForSelector
+    contract: {
+      address: $expectedPaybackV2,
+      owner: $owner,
+      expectedOwner: $expectedOwner,
+      codeBytes: $codeBytes,
+      feeRefundBlockCount: $feeRefundBlockCount,
+      minStake: $minStake,
+      quotaFactor: $quotaFactor,
+      holdTime: $holdTime
     },
-    failures: $failures,
-    readyBlockers: $readyBlockers
+    failures: $failures
   }'
 
 if [ "${#failures[@]}" -gt 0 ]; then
-  exit 1
-fi
-
-if $require_ready && [ "${#ready_blockers[@]}" -gt 0 ]; then
   exit 1
 fi

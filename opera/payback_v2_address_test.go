@@ -19,19 +19,15 @@ func TestPaybackV2ContractAddress_UnknownNetwork(t *testing.T) {
 }
 
 // TestPaybackV2ContractAddress_KnownNetworks pins the per-network address
-// slot for each rollout phase. Testnet has shipped, so the testnet slot
-// MUST equal the exact deployed QuotaContractV2 address — an accidental
-// commit that wipes it back to the zero sentinel would fail the startup
-// check at boot, but this catches the wipe before the binary ever ships.
-// Mainnet + staging stay sentinel until their rollouts complete.
+// slot for each rollout phase. Testnet points at the corrected 2026-05-16
+// deployment. Mainnet + staging stay sentinel until their rollouts complete.
 func TestPaybackV2ContractAddress_KnownNetworks(t *testing.T) {
-	const testnetV2 = "0xdEA4687FDBA2528d1b30222e199c90b63AF8c850"
 	cases := []struct {
 		name      string
 		networkID uint64
 		expected  common.Address
 	}{
-		{"testnet", VinuChainTestNetworkID, common.HexToAddress(testnetV2)},
+		{"testnet", VinuChainTestNetworkID, common.HexToAddress("0x89D1cBD9DEAaB4dFf6f800a336FBDd9A5c6829e4")},
 		{"mainnet", VinuChainMainNetworkID, common.Address{}},
 		{"staging", VinuChainStagingNetworkID, common.Address{}},
 	}
@@ -82,23 +78,23 @@ func TestSetPaybackV2ContractAddressForTesting(t *testing.T) {
 	}
 }
 
-// TestEnforcePaybackV2StartupCheck_PassesInPostTestnetRolloutState pins the
-// current shipping state: testnet has PaybackV2=true with a real deployed
-// address; mainnet + staging stay false with sentinel addresses. The
-// startup check must NOT panic in this shape — it only panics when a flag
-// is set true while the matching address slot is still the zero sentinel.
-func TestEnforcePaybackV2StartupCheck_PassesInPostTestnetRolloutState(t *testing.T) {
-	// Sanity: confirm the live shape — testnet on, mainnet still off.
+// TestEnforcePaybackV2StartupCheck_AllowsCorrectedTestnetRedeploy pins the
+// source state after the corrected 2026-05-16 deployment: testnet rules declare
+// PaybackV2 and PaybackV2Patch, and the corrected address is baked in, so the
+// startup check must allow the binary to boot.
+func TestEnforcePaybackV2StartupCheck_AllowsCorrectedTestnetRedeploy(t *testing.T) {
 	require.True(t, VinuChainTestNetRules().Upgrades.PaybackV2,
-		"testnet rules must have PaybackV2 enabled — PaybackV2 has shipped on testnet")
+		"testnet rules keep PaybackV2 enabled")
+	require.True(t, VinuChainTestNetRules().Upgrades.PaybackV2Patch,
+		"testnet rules stage PaybackV2Patch so the corrected deployment can replace the bad active address")
 	testnetAddr, err := PaybackV2ContractAddress(VinuChainTestNetworkID)
 	require.NoError(t, err)
 	require.False(t, PaybackV2AddressIsSentinel(testnetAddr),
-		"testnet V2 address must be non-sentinel for the check to pass")
+		"testnet V2 address must be the corrected non-sentinel deployment")
 	require.False(t, VinuChainMainNetRules().Upgrades.PaybackV2,
 		"mainnet must NOT have PaybackV2 enabled until its mainnet rollout prerequisites complete")
 	require.NotPanics(t, func() { EnforcePaybackV2StartupCheck() },
-		"startup check must pass: testnet has flag+address paired, mainnet/staging are off-with-sentinel")
+		"startup check must allow corrected testnet PaybackV2 deployment")
 }
 
 // TestEnforcePaybackV2StartupCheck_StagingCoverage pins the staging-aware

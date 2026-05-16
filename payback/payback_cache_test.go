@@ -666,6 +666,23 @@ func TestAddTransaction_StakeForReceiverRefundConsumesReceiverQuota(t *testing.T
 	}
 }
 
+func TestGetTxTypeRecognizesUnstakeFor(t *testing.T) {
+	receiver := common.HexToAddress("0x1111222233334444555566667777888899990000")
+	data := append([]byte{}, unstakeForSelector...)
+	data = append(data, common.LeftPadBytes(receiver.Bytes(), abiEncodedUint256Len)...)
+	data = append(data, common.LeftPadBytes(big.NewInt(123).Bytes(), abiEncodedUint256Len)...)
+
+	tx, sender := signedPaybackTx(t, data, big.NewInt(0))
+	txtype, stakeAddress := getTxTypeAndStakeAddress(tx, nil, sender)
+
+	if txtype != TxTypeUnstake {
+		t.Fatalf("tx type = %s, want %s", txtype, TxTypeUnstake)
+	}
+	if stakeAddress != receiver {
+		t.Fatalf("unstakeFor stake address = %s, want receiver %s", stakeAddress, receiver)
+	}
+}
+
 func TestAddTransaction_FeeRefundAtCapacityErrorsForNewAddress(t *testing.T) {
 	contractABI, _ := abi.JSON(strings.NewReader(paybackProxy.QuotaProxyABI))
 

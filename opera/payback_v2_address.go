@@ -27,14 +27,11 @@ import (
 var paybackV2AddressMu sync.RWMutex
 
 var (
-	// paybackV2TestnetAddress is the QuotaContractV2 address on VinuChain
-	// testnet (chain 206). Deployed 2026-05-15 via
-	// scripts/deploy-quotacontract-v2.ts in vinu-quotacontract, deploy tx
-	// 0x3ed6fc5e1f0b6c14aaf74f9cfbc611ee5eae7973f4aa10f608d4605020bb505a,
-	// owner = NodeDriverAuth-owner EOA 0xf9c82B1117e8BeA97843042521B8FBC93044f347
-	// (recoverable). Replaces the original lost-ProxyAdmin-key V1 proxy
-	// at 0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D.
-	paybackV2TestnetAddress = common.HexToAddress("0xdEA4687FDBA2528d1b30222e199c90b63AF8c850")
+	// paybackV2TestnetAddress is the corrected QuotaContractV2 deployed on
+	// 2026-05-16. It supersedes the 2026-05-15 deployment at
+	// 0xdEA4687FDBA2528d1b30222e199c90b63AF8c850, which had receiver-owned
+	// withdrawal semantics for stakeFor(receiver).
+	paybackV2TestnetAddress = common.HexToAddress("0x89D1cBD9DEAaB4dFf6f800a336FBDd9A5c6829e4")
 
 	// paybackV2MainnetAddress is the QuotaContractV2 address on VinuChain
 	// mainnet (chain 207). Stays sentinel until the mainnet rollout. See
@@ -151,11 +148,11 @@ func SetPaybackV2ContractAddressForTesting(networkID uint64, addr common.Address
 // network is still the zero sentinel. Wired into the opera binary via
 // cmd/opera/launcher/payback_v2_startup_check.go's init().
 //
-// The check is per-network: enabling PaybackV2 on testnet rules with a
-// real testnet address while mainnet rules leave PaybackV2 false (and
-// mainnet address still sentinel) is the expected staged-rollout state.
+// The check is per-network: enabling PaybackV2/PaybackV2Patch on testnet
+// rules with a real testnet address while mainnet rules leave both flags false
+// (and mainnet address still sentinel) is the expected staged-rollout state.
 // The check ONLY refuses to start when a network's hardcoded rules say
-// "activate PaybackV2" but its address slot is empty.
+// "activate PaybackV2 or its patch" but its address slot is empty.
 func EnforcePaybackV2StartupCheck() {
 	paybackV2AddressMu.RLock()
 	defer paybackV2AddressMu.RUnlock()
@@ -176,10 +173,10 @@ func EnforcePaybackV2StartupCheck() {
 		{"VinuChain Mainnet", VinuChainMainNetRules(), paybackV2MainnetAddress},
 	}
 	for _, c := range checks {
-		if c.rules.Upgrades.PaybackV2 && PaybackV2AddressIsSentinel(c.addr) {
+		if (c.rules.Upgrades.PaybackV2 || c.rules.Upgrades.PaybackV2Patch) && PaybackV2AddressIsSentinel(c.addr) {
 			panic(errors.New(
 				"PaybackV2 startup check failed: " + c.network +
-					" rule constructor has PaybackV2=true but the V2 contract address is still the zero sentinel. " +
+					" rule constructor has PaybackV2 or PaybackV2Patch true but the V2 contract address is still the zero sentinel. " +
 					"Deploy QuotaContractV2 via scripts/deploy-quotacontract-v2.ts and record its address in opera/payback_v2_address.go before shipping this binary.",
 			))
 		}

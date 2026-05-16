@@ -268,7 +268,7 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	net := store.GetRules()
 	txSigner := gsignercache.Wrap(types.LatestSignerForChainID(new(big.Int).SetUint64(net.NetworkID)))
 	svc.heavyCheckReader.Store = store
-	svc.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(svc.store, svc.store.GetEpoch()))                                          // read pub keys of current epoch from DB
+	svc.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(svc.store, svc.store.GetEpoch()))                                                                  // read pub keys of current epoch from DB
 	svc.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(svc.store, svc.store.GetValidators(), svc.store.GetEpoch(), net.Economy, net.Upgrades.Podgorica)) // read gaspower check data from DB
 	// FeeRefundActive is initialized from the *stored* (in-effect) Podgorica
 	// flag, not from staged DirtyRules. This is intentional: pre-seal blocks
@@ -345,6 +345,11 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			pending.Upgrades.PaybackV2 = true
 			changed = true
 			log.Info("Staged PaybackV2 upgrade from binary rules; will activate at next epoch seal")
+		}
+		if hardcoded.Upgrades.PaybackV2Patch && !pending.Upgrades.PaybackV2Patch {
+			pending.Upgrades.PaybackV2Patch = true
+			changed = true
+			log.Info("Staged PaybackV2Patch upgrade from binary rules; will activate at next epoch seal")
 		}
 		if changed {
 			bs.DirtyRules = &pending

@@ -483,6 +483,32 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 		log.Info("Activating Podgorica fee refund encoding", "block", bp.blockCtx.Idx)
 		types.FeeRefundActive.Store(true)
 	}
+	rebindPaybackV2 := func(reason string) {
+		newAddr, err := opera.PaybackV2ContractAddress(bp.es.Rules.NetworkID)
+		if err != nil {
+			log.Crit(reason+" failed: unknown network",
+				"networkID", bp.es.Rules.NetworkID, "err", err)
+		}
+		if opera.PaybackV2AddressIsSentinel(newAddr) {
+			log.Crit(reason+" failed: V2 contract address is the zero sentinel — binary was shipped without baking in the deployed address",
+				"networkID", bp.es.Rules.NetworkID, "block", bp.blockCtx.Idx)
+		}
+		oldAddr := bp.es.Rules.Economy.QuotaCacheAddress
+		log.Info(reason+": switching QuotaCacheAddress",
+			"block", bp.blockCtx.Idx, "from", oldAddr.Hex(), "to", newAddr.Hex())
+		bp.es.Rules.Economy.QuotaCacheAddress = newAddr
+		// Refresh the in-flight evmProcessor's rules so post-internal and user
+		// txs in the SAME activation block see the new address. Without this,
+		// receipts in the activation block encode FeeRefund against the OLD
+		// contract, stakeFor txs targeting the NEW contract are not recorded
+		// in StakesMap, and EvmWriter's isSystemContract still protects the
+		// OLD address rather than the NEW. evmProcessor.net is a value copy
+		// taken at initProcessors time, so a mutation of bp.es.Rules alone is
+		// invisible to the next Execute().
+		if bp.evmProcessor != nil {
+			bp.evmProcessor.SetRules(bp.es.Rules)
+		}
+	}
 	// PaybackV2 swaps Economy.QuotaCacheAddress from the original
 	// upgradeable proxy (testnet 0x824B93dE...29C5D, mainnet
 	// 0x1c4269fb...cd0acda6) to a freshly-deployed non-proxy
@@ -499,30 +525,15 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	// binary's startup check ever firing" failure mode (which should be
 	// unreachable but is cheap to guard against).
 	if bp.es.Rules.Upgrades.PaybackV2 && !prevUpg.PaybackV2 {
-		newAddr, err := opera.PaybackV2ContractAddress(bp.es.Rules.NetworkID)
-		if err != nil {
-			log.Crit("PaybackV2 activation failed: unknown network",
-				"networkID", bp.es.Rules.NetworkID, "err", err)
-		}
-		if opera.PaybackV2AddressIsSentinel(newAddr) {
-			log.Crit("PaybackV2 activation failed: V2 contract address is the zero sentinel — binary was shipped without baking in the deployed address",
-				"networkID", bp.es.Rules.NetworkID, "block", bp.blockCtx.Idx)
-		}
-		oldAddr := bp.es.Rules.Economy.QuotaCacheAddress
-		log.Info("Activating PaybackV2: switching QuotaCacheAddress",
-			"block", bp.blockCtx.Idx, "from", oldAddr.Hex(), "to", newAddr.Hex())
-		bp.es.Rules.Economy.QuotaCacheAddress = newAddr
-		// Refresh the in-flight evmProcessor's rules so post-internal and user
-		// txs in the SAME activation block see the new address. Without this,
-		// receipts in the activation block encode FeeRefund against the OLD
-		// contract, stakeFor txs targeting the NEW contract are not recorded
-		// in StakesMap, and EvmWriter's isSystemContract still protects the
-		// OLD address rather than the NEW. evmProcessor.net is a value copy
-		// taken at initProcessors time, so a mutation of bp.es.Rules alone is
-		// invisible to the next Execute().
-		if bp.evmProcessor != nil {
-			bp.evmProcessor.SetRules(bp.es.Rules)
-		}
+		rebindPaybackV2("Activating PaybackV2")
+	}
+	// PaybackV2Patch exists for the 2026-05-16 testnet repair where
+	// PaybackV2 was already active with a buggy receiver-owned withdrawal
+	// contract. Because the original PaybackV2 edge has already fired on
+	// the live chain, this second flag provides the deterministic edge that
+	// switches QuotaCacheAddress to the corrected staker-owned deployment.
+	if bp.es.Rules.Upgrades.PaybackV2Patch && !prevUpg.PaybackV2Patch {
+		rebindPaybackV2("Activating PaybackV2Patch")
 	}
 	bp.store.SetBlockEpochState(bp.bs, bp.es)
 	bp.newValidators = bp.es.Validators

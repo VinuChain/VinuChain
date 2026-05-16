@@ -41,9 +41,10 @@ const (
 )
 
 var (
-	stakeSelector    = methodSelector("stake()")
-	stakeForSelector = methodSelector("stakeFor(address)")
-	unstakeSelector  = methodSelector("unstake(uint256)")
+	stakeSelector      = methodSelector("stake()")
+	stakeForSelector   = methodSelector("stakeFor(address)")
+	unstakeSelector    = methodSelector("unstake(uint256)")
+	unstakeForSelector = methodSelector("unstakeFor(address,uint256)")
 )
 
 type TxInfo struct {
@@ -332,6 +333,12 @@ func getTxTypeAndStakeAddress(tx *types.Transaction, contractABI *abi.ABI, sende
 	if bytes.Equal(selector, unstakeSelector) {
 		return TxTypeUnstake, sender
 	}
+	if bytes.Equal(selector, unstakeForSelector) {
+		if stakeAddress, ok := decodeStakeForAddress(data); ok {
+			return TxTypeUnstake, stakeAddress
+		}
+		return TxTypeNone, common.Address{}
+	}
 
 	if contractABI != nil {
 		if method, err := contractABI.MethodById(selector); err == nil {
@@ -344,6 +351,10 @@ func getTxTypeAndStakeAddress(tx *types.Transaction, contractABI *abi.ABI, sende
 				}
 			case "unstake":
 				return TxTypeUnstake, sender
+			case "unstakeFor":
+				if stakeAddress, ok := decodeStakeForAddress(data); ok {
+					return TxTypeUnstake, stakeAddress
+				}
 			}
 		}
 	}

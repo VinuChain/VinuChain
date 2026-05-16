@@ -8,20 +8,22 @@ import (
 )
 
 // TestPaybackV2ActivationSwitchesQuotaCacheAddress is a source-structural
-// pin for the PaybackV2 activation branch in sealEpochIfNeeded.
+// pin for the PaybackV2 activation branches in sealEpochIfNeeded.
 //
 // Rationale: a live activation test would need a fully-wired BlockProcessor
 // (Store, EVM state, sealer, validator set, etc.) which the existing
 // sibling tests in this package likewise stub out. So we pin the contract:
-//  1. The activation site exists and is gated on `Upgrades.PaybackV2 && !prevUpg.PaybackV2`
-//     so it fires exactly once at the transition edge.
-//  2. The site reads the new address from opera.PaybackV2ContractAddress so
+//  1. The original activation site is gated on `Upgrades.PaybackV2 && !prevUpg.PaybackV2`
+//     so it fires exactly once at the first PaybackV2 transition edge.
+//  2. The patch activation site is gated on `Upgrades.PaybackV2Patch && !prevUpg.PaybackV2Patch`
+//     so an already-active testnet can deterministically rebind the bad V2 address.
+//  3. The site reads the new address from opera.PaybackV2ContractAddress so
 //     a future address change cannot accidentally introduce a second source
 //     of truth.
-//  3. The site rejects the sentinel address via opera.PaybackV2AddressIsSentinel,
+//  4. The site rejects the sentinel address via opera.PaybackV2AddressIsSentinel,
 //     so a binary that lost the deployed address mid-build aborts at the
 //     activation block rather than silently bricking payback.
-//  4. The site overwrites bp.es.Rules.Economy.QuotaCacheAddress in place,
+//  5. The site overwrites bp.es.Rules.Economy.QuotaCacheAddress in place,
 //     so the downstream payback cache resolver picks up the new address
 //     in the same seal pass.
 func TestPaybackV2ActivationSwitchesQuotaCacheAddress(t *testing.T) {
@@ -31,13 +33,15 @@ func TestPaybackV2ActivationSwitchesQuotaCacheAddress(t *testing.T) {
 
 	require.Contains(t, s, "Upgrades.PaybackV2 && !prevUpg.PaybackV2",
 		"sealEpochIfNeeded must gate PaybackV2 activation on the !prevUpg edge so it fires exactly once at transition")
+	require.Contains(t, s, "Upgrades.PaybackV2Patch && !prevUpg.PaybackV2Patch",
+		"sealEpochIfNeeded must gate PaybackV2Patch on its own !prevUpg edge so already-active testnet can rebind once")
 	require.Contains(t, s, "opera.PaybackV2ContractAddress(bp.es.Rules.NetworkID)",
 		"activation must read the new address from opera.PaybackV2ContractAddress to keep a single source of truth")
 	require.Contains(t, s, "opera.PaybackV2AddressIsSentinel(newAddr)",
 		"activation must refuse to swap to the zero sentinel — this is the defence-in-depth guard for a binary that lost its deployed address")
 	require.Contains(t, s, "bp.es.Rules.Economy.QuotaCacheAddress = newAddr",
 		"activation must overwrite Economy.QuotaCacheAddress in place so the payback cache picks it up at the next resolve")
-	require.Contains(t, s, "log.Crit(\"PaybackV2 activation failed: V2 contract address is the zero sentinel",
+	require.Contains(t, s, "failed: V2 contract address is the zero sentinel",
 		"sentinel-detection log line must fingerprint the failure cause for operators")
 }
 
@@ -55,6 +59,10 @@ func TestPaybackV2StagingFromHardcodedRules(t *testing.T) {
 		"service.go must stage PaybackV2 from binary rules into pending DirtyRules so the next epoch seal activates it")
 	require.Contains(t, s, "Staged PaybackV2 upgrade from binary rules",
 		"staging log line must follow the existing pattern so log-greppers can find the activation event")
+	require.Contains(t, s, "hardcoded.Upgrades.PaybackV2Patch && !pending.Upgrades.PaybackV2Patch",
+		"service.go must stage PaybackV2Patch from binary rules into pending DirtyRules so the next epoch seal rebinds active testnet")
+	require.Contains(t, s, "Staged PaybackV2Patch upgrade from binary rules",
+		"patch staging log line must follow the existing pattern so log-greppers can find the repair event")
 }
 
 // TestPaybackV2BitfieldEncodingPresent pins the RLP bitfield wiring in
@@ -69,6 +77,9 @@ func TestPaybackV2BitfieldEncodingPresent(t *testing.T) {
 	require.Contains(t, s, "bitmap.V |= paybackV2Bit", "EncodeRLP must OR in paybackV2Bit when PaybackV2 is true")
 	require.Contains(t, s, "u.PaybackV2 = (bitmap.V & paybackV2Bit) != 0",
 		"DecodeRLP must extract PaybackV2 from paybackV2Bit")
+	require.Contains(t, s, "bitmap.V |= paybackV2PatchBit", "EncodeRLP must OR in paybackV2PatchBit when PaybackV2Patch is true")
+	require.Contains(t, s, "u.PaybackV2Patch = (bitmap.V & paybackV2PatchBit) != 0",
+		"DecodeRLP must extract PaybackV2Patch from paybackV2PatchBit")
 }
 
 // TestPaybackV2ActivationRefreshesEvmProcessorRules pins the H-01 fix from

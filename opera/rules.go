@@ -35,6 +35,7 @@ const (
 	elemontPubkeyValidationBit        = 1 << 10
 	sfcV2Patch5Bit                    = 1 << 11
 	paybackV2Bit                      = 1 << 12
+	paybackV2PatchBit                 = 1 << 13
 )
 
 var DefaultVMConfig = vm.Config{
@@ -272,6 +273,13 @@ type Upgrades struct {
 	// the node if any rule constructor sets PaybackV2=true while the V2
 	// contract address for that network is still the zero sentinel.
 	PaybackV2 bool
+	// PaybackV2Patch re-runs the PaybackV2 QuotaCacheAddress rebinding for
+	// chains that already crossed the PaybackV2 activation edge with a bad
+	// V2 address. It is intentionally separate from PaybackV2 because the
+	// original edge only fires once; testnet needs a deterministic follow-up
+	// edge to replace the receiver-owned withdrawal deployment with the
+	// corrected staker-owned contract.
+	PaybackV2Patch bool
 }
 
 type UpgradeHeight struct {
@@ -413,6 +421,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch5:             true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
+			PaybackV2Patch:          true,
 		},
 	}
 	rules.Economy.QuotaCacheAddress = common.HexToAddress("0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D")
