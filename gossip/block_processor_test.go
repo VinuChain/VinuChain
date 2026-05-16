@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/utils/workers"
 )
@@ -115,6 +116,13 @@ func TestMultipleSfcV2PatchActivationsLogWarn(t *testing.T) {
 		require.GreaterOrEqual(t, count, 2,
 			"expected at least 2 references to !prevUpg.%s (one in the counter, one at the activation site); found %d", flag, count)
 	}
+}
+
+func TestShouldBackfillSfcV2MainnetDelegationsIncludesStaging(t *testing.T) {
+	require.True(t, shouldBackfillSfcV2MainnetDelegations(opera.VinuChainMainNetworkID))
+	require.True(t, shouldBackfillSfcV2MainnetDelegations(opera.VinuChainStagingNetworkID))
+	require.False(t, shouldBackfillSfcV2MainnetDelegations(opera.VinuChainTestNetworkID))
+	require.False(t, shouldBackfillSfcV2MainnetDelegations(opera.VinuChainNewNetworkID))
 }
 
 // TestDispatchBlockAsyncPathHasRecovery verifies that the async code path

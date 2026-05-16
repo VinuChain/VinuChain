@@ -244,7 +244,10 @@ type Upgrades struct {
 	// but stakePosition is zero: affected delegators can self-register with
 	// registerStake(uint256), the owner can batch backfill known pairs with
 	// backfillStakes(address[],uint256[]), and undelegate-to-zero no longer
-	// reverts on the missing stakePosition sentinel.
+	// reverts on the missing stakePosition sentinel. On VinuChain testnet, the
+	// Patch6 activation path also backfills the known live Cycle-162 missing
+	// delegation rows, including stale stakePosition values that point at a
+	// different stakes[] entry.
 	//
 	// Testnet-only at activation time: mainnet has not yet activated any
 	// SfcV2* flag and will consume the latest available bytecode directly

@@ -407,6 +407,12 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2 && !prevUpg.SfcV2 {
 		log.Info("Applying SFC V2 bytecode upgrade", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetLatestContractBin())
+		if shouldBackfillSfcV2MainnetDelegations(bp.es.Rules.NetworkID) {
+			stats := sfc.BackfillSfcV2MainnetDelegations(bp.statedb, uint64(bp.blockCtx.Time))
+			if stats.Changed() {
+				log.Info("Backfilled SFC V2 mainnet delegations", "block", bp.blockCtx.Idx, "appended", stats.Appended, "repaired", stats.Repaired)
+			}
+		}
 	}
 	// SfcV2Patch re-flashes the SFC V2 bytecode on activation. This path
 	// exists so a network that already activated SfcV2 with an earlier
@@ -478,10 +484,18 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	// VinuChain/vinuchain-lists. Cycle-162 adds orphan-delegation recovery:
 	// registerStake(uint256), owner-only backfillStakes(address[],uint256[]),
 	// and an orphan-tolerant undelegate-to-zero path that skips _removeStake(0)
-	// for legacy entries missing stakePosition.
+	// for legacy entries missing stakePosition. Testnet also backfills the
+	// known live Cycle-162 delegation holes directly at activation, including
+	// stale stakePosition values that point at a different stakes[] row.
 	if bp.es.Rules.Upgrades.SfcV2Patch6 && !prevUpg.SfcV2Patch6 {
 		log.Info("Re-applying SFC V2 bytecode upgrade (patch 6)", "block", bp.blockCtx.Idx)
 		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch6ContractBin())
+		if bp.es.Rules.NetworkID == opera.VinuChainTestNetworkID {
+			stats := sfc.BackfillPatch6TestnetDelegations(bp.statedb, uint64(bp.blockCtx.Time))
+			if stats.Changed() {
+				log.Info("Backfilled SFC Patch6 testnet delegations", "block", bp.blockCtx.Idx, "appended", stats.Appended, "repaired", stats.Repaired)
+			}
+		}
 	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*
@@ -550,6 +564,10 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	bp.store.SetBlockEpochState(bp.bs, bp.es)
 	bp.newValidators = bp.es.Validators
 	bp.txListener.Update(bp.bs, bp.es)
+}
+
+func shouldBackfillSfcV2MainnetDelegations(networkID uint64) bool {
+	return networkID == opera.VinuChainMainNetworkID || networkID == opera.VinuChainStagingNetworkID
 }
 
 // processBlock executes post-internal transactions, finalizes EVM state,
