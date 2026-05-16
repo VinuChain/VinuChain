@@ -145,10 +145,10 @@ install -m 0755 "$TARGET/build/opera.new" "$TARGET/build/opera"
    -d '{"jsonrpc":"2.0","id":1,"method":"web3_clientVersion","params":[]}'`
    — response should include the new version string.
 3. Trace probe:
-   `curl -s -X POST http://localhost:18545 -H 'content-type: application/json' \
-   -d '{"jsonrpc":"2.0","id":1,"method":"debug_traceBlockByNumber","params":["latest",{"tracer":"callTracer"}]}'`
-   — must return a result, not `method not found`. If this fails you are
-   on a non-trace checkout.
+   `curl -s -X POST http://localhost:4000/ -H 'content-type: application/json' \
+   -d '{"jsonrpc":"2.0","id":1,"method":"trace_block","params":["latest"]}'`
+   — must return a trace result, not `method not found`. If this fails you are
+   on a non-trace checkout or the `trace` namespace is not enabled.
 4. ALB target group (`ec2-vinu-new-alb-ec2`) goes back to healthy within a
    few health check intervals.
 
