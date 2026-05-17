@@ -207,6 +207,80 @@ func TestRulesLondonRLP(t *testing.T) {
 	require.True(decodedRules.Upgrades.London)
 }
 
+func TestRulesShanghaiRLP(t *testing.T) {
+	rules := MainNetRules()
+	rules.Upgrades.Berlin = true
+	rules.Upgrades.London = true
+	rules.Upgrades.Shanghai = true
+	require := require.New(t)
+
+	b, err := rlp.EncodeToBytes(rules)
+	require.NoError(err)
+
+	decodedRules := Rules{}
+	require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+	require.Equal(rules.String(), decodedRules.String())
+	require.True(decodedRules.Upgrades.Berlin)
+	require.True(decodedRules.Upgrades.London)
+	require.True(decodedRules.Upgrades.Shanghai)
+}
+
+func TestRulesShanghaiDefaultsRLP(t *testing.T) {
+	cases := []struct {
+		mk      func() Rules
+		expect  bool
+		network string
+	}{
+		{MainNetRules, false, "MainNetRules"},
+		{TestNetRules, false, "TestNetRules"},
+		{VinuChainMainNetRules, false, "VinuChainMainNetRules"},
+		{VinuChainTestNetRules, true, "VinuChainTestNetRules"},
+		{FakeNetRules, true, "FakeNetRules"},
+		{LegacyFakeNetRules, true, "LegacyFakeNetRules"},
+	}
+	for _, c := range cases {
+		rules := c.mk()
+		require := require.New(t)
+		require.Equal(c.expect, rules.Upgrades.Shanghai,
+			"%s Shanghai default mismatch", c.network)
+
+		b, err := rlp.EncodeToBytes(rules)
+		require.NoError(err)
+
+		decodedRules := Rules{}
+		require.NoError(rlp.DecodeBytes(b, &decodedRules))
+
+		require.Equal(rules.String(), decodedRules.String())
+		require.Equal(c.expect, decodedRules.Upgrades.Shanghai,
+			"%s Upgrades.Shanghai must round-trip through RLP", c.network)
+	}
+}
+
+func TestEvmChainConfigShanghaiActivationHeight(t *testing.T) {
+	before := Upgrades{Berlin: true, London: true}
+	after := before
+	after.Shanghai = true
+	rules := VinuChainTestNetRules()
+
+	cfg := rules.EvmChainConfig([]UpgradeHeight{
+		{Upgrades: before, Height: 0},
+		{Upgrades: after, Height: 123},
+	})
+
+	require.Equal(t, big.NewInt(0), cfg.BerlinBlock)
+	require.Equal(t, big.NewInt(0), cfg.LondonBlock)
+	require.Equal(t, big.NewInt(123), cfg.ShanghaiBlock)
+}
+
+func TestEvmChainConfigShanghaiDisabledNil(t *testing.T) {
+	rules := VinuChainMainNetRules()
+	cfg := rules.EvmChainConfig([]UpgradeHeight{{Upgrades: rules.Upgrades, Height: 0}})
+
+	require.Nil(t, cfg.ShanghaiBlock,
+		"mainnet rules prepare Shanghai support but must not activate it by default")
+}
+
 func TestRulesSfcV2Patch2RLP(t *testing.T) {
 	rules := VinuChainTestNetRules()
 	require := require.New(t)

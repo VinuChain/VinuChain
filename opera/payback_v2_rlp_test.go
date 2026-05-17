@@ -28,6 +28,7 @@ func TestPaybackV2_RLPRoundtrip(t *testing.T) {
 	require.False(t, decoded.Elemont, "no other flag must spuriously appear after decode")
 	require.False(t, decoded.SfcV2Patch5, "no other flag must spuriously appear after decode")
 	require.False(t, decoded.SfcV2Patch6, "no other flag must spuriously appear after decode")
+	require.False(t, decoded.Shanghai, "no other flag must spuriously appear after decode")
 }
 
 // TestPaybackV2_BitfieldDoesNotClashWithOtherFlags confirms the new bit
@@ -51,6 +52,7 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 		"PaybackV2":               paybackV2Bit,
 		"PaybackV2Patch":          paybackV2PatchBit,
 		"SfcV2Patch6":             sfcV2Patch6Bit,
+		"Shanghai":                shanghaiBit,
 	}
 	seen := map[uint64]string{}
 	for name, bit := range flags {
@@ -62,6 +64,7 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 	require.Equal(t, uint64(1<<12), uint64(paybackV2Bit), "paybackV2Bit must be 1<<12 (next free bit after sfcV2Patch5Bit)")
 	require.Equal(t, uint64(1<<13), uint64(paybackV2PatchBit), "paybackV2PatchBit must be 1<<13 (next free bit after paybackV2Bit)")
 	require.Equal(t, uint64(1<<14), uint64(sfcV2Patch6Bit), "sfcV2Patch6Bit must be 1<<14 (next free bit after paybackV2PatchBit)")
+	require.Equal(t, uint64(1<<15), uint64(shanghaiBit), "shanghaiBit must be 1<<15 (next free bit after sfcV2Patch6Bit)")
 }
 
 // TestPaybackV2_MainnetAndLegacyConstructorsStayFalse defends against an

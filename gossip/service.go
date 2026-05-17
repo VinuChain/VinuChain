@@ -311,6 +311,11 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			changed = true
 			log.Info("Staged Elemont upgrade from binary rules; will activate at next epoch seal")
 		}
+		if hardcoded.Upgrades.Shanghai && !pending.Upgrades.Shanghai {
+			pending.Upgrades.Shanghai = true
+			changed = true
+			log.Info("Staged Shanghai upgrade from binary rules; will activate at next epoch seal")
+		}
 		if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {
 			pending.Upgrades.SfcV2Patch = true
 			changed = true
