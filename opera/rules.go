@@ -38,6 +38,7 @@ const (
 	paybackV2PatchBit                 = 1 << 13
 	sfcV2Patch6Bit                    = 1 << 14
 	shanghaiBit                       = 1 << 15
+	cancunBit                         = 1 << 16
 )
 
 var DefaultVMConfig = vm.Config{
@@ -146,7 +147,11 @@ type Upgrades struct {
 	London bool
 	// Shanghai enables Ethereum Shanghai execution-layer compatibility:
 	// warm coinbase, PUSH0, and initcode metering/limits.
-	Shanghai  bool
+	Shanghai bool
+	// Cancun enables selected Ethereum Cancun/Dencun EVM opcode compatibility
+	// that is applicable to VinuChain without blob transactions:
+	// transient storage (TLOAD/TSTORE) and MCOPY.
+	Cancun    bool
 	Llr       bool
 	Podgorica bool
 	// SfcV2 enables the V2 SFC bytecode upgrade and the 30% fee burn mechanism.
@@ -314,6 +319,7 @@ func (r Rules) EvmChainConfig(hh []UpgradeHeight) *ethparams.ChainConfig {
 	cfg.BerlinBlock = nil
 	cfg.LondonBlock = nil
 	cfg.ShanghaiBlock = nil
+	cfg.CancunBlock = nil
 	for i, h := range hh {
 		height := new(big.Int)
 		if i > 0 {
@@ -338,6 +344,13 @@ func (r Rules) EvmChainConfig(hh []UpgradeHeight) *ethparams.ChainConfig {
 		}
 		if !h.Upgrades.Shanghai {
 			cfg.ShanghaiBlock = nil
+		}
+
+		if cfg.CancunBlock == nil && h.Upgrades.Cancun {
+			cfg.CancunBlock = height
+		}
+		if !h.Upgrades.Cancun {
+			cfg.CancunBlock = nil
 		}
 	}
 	return &cfg
@@ -386,6 +399,7 @@ func FakeNetRules() Rules {
 			Berlin:      true,
 			London:      true,
 			Shanghai:    true,
+			Cancun:      true,
 			Llr:         true,
 			Podgorica:   true,
 			SfcV2:       true,
@@ -413,6 +427,7 @@ func LegacyFakeNetRules() Rules {
 			Berlin:      true,
 			London:      true,
 			Shanghai:    true,
+			Cancun:      true,
 			Llr:         true,
 			Podgorica:   true,
 			SfcV2:       true,
@@ -441,6 +456,7 @@ func VinuChainTestNetRules() Rules {
 			Berlin:                  true,
 			London:                  true,
 			Shanghai:                true,
+			Cancun:                  true,
 			Llr:                     true,
 			Podgorica:               true,
 			SfcV2:                   true,
