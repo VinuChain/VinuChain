@@ -658,7 +658,13 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
-	// Ensure the transaction has more gas than the basic tx fee.
+	if err := pool.validateTxIntrinsic(tx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pool *TxPool) validateTxIntrinsic(tx *types.Transaction) error {
 	if pool.shanghai && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
 		return ErrMaxInitCodeSizeExceeded
 	}
@@ -1330,6 +1336,46 @@ func (pool *TxPool) reset(oldHead, newHead *EvmHeader) {
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
 	pool.shanghai = pool.chainconfig.IsShanghai(next)
+	pool.dropShanghaiInvalidTxs()
+}
+
+func (pool *TxPool) validateShanghaiTx(tx *types.Transaction) error {
+	if !pool.shanghai || tx.To() != nil {
+		return nil
+	}
+	if len(tx.Data()) > params.MaxInitCodeSize {
+		return ErrMaxInitCodeSizeExceeded
+	}
+	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), true, true, pool.istanbul, true)
+	if err != nil {
+		return err
+	}
+	if tx.Gas() < intrGas {
+		return ErrIntrinsicGas
+	}
+	return nil
+}
+
+func (pool *TxPool) dropShanghaiInvalidTxs() {
+	var drops []common.Hash
+	for _, list := range pool.pending {
+		for _, tx := range list.Flatten() {
+			if err := pool.validateShanghaiTx(tx); err != nil {
+				drops = append(drops, tx.Hash())
+			}
+		}
+	}
+	for _, list := range pool.queue {
+		for _, tx := range list.Flatten() {
+			if err := pool.validateShanghaiTx(tx); err != nil {
+				drops = append(drops, tx.Hash())
+			}
+		}
+	}
+	for _, hash := range drops {
+		log.Trace("Removed fork-invalid transaction", "hash", hash)
+		pool.removeTx(hash, true)
+	}
 }
 
 // promoteExecutables moves transactions that have become processable from the

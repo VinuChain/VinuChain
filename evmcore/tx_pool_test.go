@@ -458,6 +458,81 @@ func TestTransactionPoolShanghaiMetersInitcodeGas(t *testing.T) {
 	}
 }
 
+func TestTransactionPoolDropsPreShanghaiPendingInitcodeAfterActivation(t *testing.T) {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = nil
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	data := make([]byte, 33)
+	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := pricedContractCreation(0, preShanghaiGas, big.NewInt(1), key, data)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if _, err := pool.add(tx, false); err != nil {
+		t.Fatalf("pre-Shanghai add: %v", err)
+	}
+	<-pool.requestPromoteExecutables(newAccountSet(types.HomesteadSigner{}, from))
+	if pool.pending[from] == nil || pool.pending[from].Len() != 1 {
+		t.Fatalf("expected pre-Shanghai tx to be pending")
+	}
+
+	cfg.ShanghaiBlock = big.NewInt(2)
+	<-pool.requestReset(nil, nil)
+
+	if pool.all.Get(tx.Hash()) != nil {
+		t.Fatalf("fork-invalid pending tx remained in txpool after Shanghai activation")
+	}
+	if pending, queued := pool.Stats(); pending != 0 || queued != 0 {
+		t.Fatalf("txpool stats after Shanghai activation = pending %d queued %d, want 0/0", pending, queued)
+	}
+}
+
+func TestTransactionPoolDropsPreShanghaiQueuedInitcodeAfterActivation(t *testing.T) {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = nil
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	data := make([]byte, 33)
+	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := pricedContractCreation(1, preShanghaiGas, big.NewInt(1), key, data)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if _, err := pool.add(tx, false); err != nil {
+		t.Fatalf("pre-Shanghai add: %v", err)
+	}
+	if pool.queue[from] == nil || pool.queue[from].Len() != 1 {
+		t.Fatalf("expected pre-Shanghai future tx to be queued")
+	}
+
+	cfg.ShanghaiBlock = big.NewInt(2)
+	<-pool.requestReset(nil, nil)
+
+	if pool.all.Get(tx.Hash()) != nil {
+		t.Fatalf("fork-invalid queued tx remained in txpool after Shanghai activation")
+	}
+	if pending, queued := pool.Stats(); pending != 0 || queued != 0 {
+		t.Fatalf("txpool stats after Shanghai activation = pending %d queued %d, want 0/0", pending, queued)
+	}
+}
+
 func TestTransactionTipAboveFeeCap(t *testing.T) {
 	t.Parallel()
 

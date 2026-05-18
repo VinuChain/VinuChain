@@ -7,7 +7,10 @@ import (
 	base "github.com/Fantom-foundation/lachesis-base/eventcheck/epochcheck"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/Fantom-foundation/go-opera/eventcheck/basiccheck"
+	"github.com/Fantom-foundation/go-opera/evmcore"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/opera"
 )
@@ -110,6 +113,16 @@ func CheckTxs(txs types.Transactions, rules opera.Rules) error {
 		}
 		if tx.GasFeeCapIntCmp(rules.Economy.MinGasPrice) < 0 {
 			return ErrUnderpriced
+		}
+		if rules.Upgrades.Shanghai && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
+			return evmcore.ErrMaxInitCodeSizeExceeded
+		}
+		intrGas, err := evmcore.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, true, rules.Upgrades.Shanghai)
+		if err != nil {
+			return err
+		}
+		if tx.Gas() < intrGas {
+			return basiccheck.ErrIntrinsicGas
 		}
 	}
 	return nil

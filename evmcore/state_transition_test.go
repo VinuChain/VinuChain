@@ -50,12 +50,13 @@ func TestIntrinsicGasEIP3860AddsInitcodeWordCost(t *testing.T) {
 func TestTransitionDbShanghaiRejectsOversizedInitcode(t *testing.T) {
 	const gasLimit = uint64(1_000_000)
 	sender := common.HexToAddress("0x1111")
+	startBalance := big.NewInt(1_000_000_000)
 
 	statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	statedb.SetBalance(sender, big.NewInt(1_000_000_000))
+	statedb.SetBalance(sender, startBalance)
 
 	header := &EvmHeader{
 		Number:   big.NewInt(1),
@@ -77,9 +78,64 @@ func TestTransitionDbShanghaiRejectsOversizedInitcode(t *testing.T) {
 		true,
 	)
 
-	_, err = ApplyMessage(evm, msg, new(GasPool).AddGas(gasLimit), nil)
+	gp := new(GasPool).AddGas(gasLimit)
+	_, err = ApplyMessage(evm, msg, gp, nil)
 	if !errors.Is(err, ErrMaxInitCodeSizeExceeded) {
 		t.Fatalf("ApplyMessage error = %v, want %v", err, ErrMaxInitCodeSizeExceeded)
+	}
+	if got := statedb.GetBalance(sender); got.Cmp(startBalance) != 0 {
+		t.Fatalf("sender balance mutated on skipped oversized initcode: got %v, want %v", got, startBalance)
+	}
+	if got := uint64(*gp); got != gasLimit {
+		t.Fatalf("gas pool mutated on skipped oversized initcode: got %d, want %d", got, gasLimit)
+	}
+}
+
+func TestTransitionDbShanghaiIntrinsicGasErrorDoesNotDebit(t *testing.T) {
+	data := make([]byte, 33)
+	gasLimit, err := IntrinsicGas(data, nil, true, true, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender := common.HexToAddress("0x1111")
+	startBalance := big.NewInt(1_000_000_000)
+
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statedb.SetBalance(sender, startBalance)
+
+	header := &EvmHeader{
+		Number:   big.NewInt(1),
+		GasLimit: gasLimit,
+		BaseFee:  big.NewInt(0),
+	}
+	evm := vm.NewEVM(NewEVMBlockContext(header, minimalDummyChain{}, nil), vm.TxContext{}, statedb, shanghaiTestChainConfig(), vm.Config{})
+	msg := types.NewMessage(
+		sender,
+		nil,
+		0,
+		big.NewInt(0),
+		gasLimit,
+		big.NewInt(1),
+		nil,
+		nil,
+		data,
+		nil,
+		true,
+	)
+
+	gp := new(GasPool).AddGas(gasLimit)
+	_, err = ApplyMessage(evm, msg, gp, nil)
+	if !errors.Is(err, ErrIntrinsicGas) {
+		t.Fatalf("ApplyMessage error = %v, want %v", err, ErrIntrinsicGas)
+	}
+	if got := statedb.GetBalance(sender); got.Cmp(startBalance) != 0 {
+		t.Fatalf("sender balance mutated on skipped intrinsic gas error: got %v, want %v", got, startBalance)
+	}
+	if got := uint64(*gp); got != gasLimit {
+		t.Fatalf("gas pool mutated on skipped intrinsic gas error: got %d, want %d", got, gasLimit)
 	}
 }
 

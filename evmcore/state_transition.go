@@ -277,10 +277,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	// Note: insufficient balance for **topmost** call isn't a consensus error in Opera, unlike Ethereum
 	// Such transaction will revert and consume sender's gas
 
-	// Check clauses 1-3, buy gas if everything is correct
-	if err := st.preCheck(); err != nil {
-		return nil, err
-	}
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	contractCreation := msg.To() == nil
@@ -290,19 +286,24 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	london := st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber)
 	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.BlockNumber)
 
-	// Check clauses 4-5, subtract intrinsic gas if everything is correct
+	// Check clauses 4-5 before buying gas; skipped invalid transactions must
+	// not debit balances or block gas.
 	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, homestead, istanbul, shanghai)
 	if err != nil {
 		return nil, err
 	}
-	if st.gas < gas {
-		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gas, gas)
-	}
-	st.gas -= gas
-
 	if shanghai && contractCreation && len(st.data) > params.MaxInitCodeSize {
 		return nil, fmt.Errorf("%w: code size %v limit %v", ErrMaxInitCodeSizeExceeded, len(st.data), params.MaxInitCodeSize)
 	}
+	if msg.Gas() < gas {
+		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, msg.Gas(), gas)
+	}
+
+	// Buy gas only after fork-dependent transaction validation succeeds.
+	if err := st.preCheck(); err != nil {
+		return nil, err
+	}
+	st.gas -= gas
 
 	// Set up the initial access list.
 	if rules := st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber); rules.IsBerlin {

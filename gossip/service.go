@@ -214,6 +214,101 @@ func cryptoRandIntn(n int) int {
 	return int(binary.BigEndian.Uint64(b[:])>>1) % n
 }
 
+func stageHardcodedUpgrades(store *Store) bool {
+	net := store.GetRules()
+	hardcoded := opera.MainNetRulesForNetwork(net.NetworkID)
+	if hardcoded == nil {
+		return false
+	}
+	es := store.GetEpochState()
+	bs := store.GetBlockState()
+	pending := es.Rules.Copy()
+	if bs.DirtyRules != nil {
+		pending = bs.DirtyRules.Copy()
+	}
+	changed := false
+	if hardcoded.Upgrades.SfcV2 && !pending.Upgrades.SfcV2 {
+		pending.Upgrades.SfcV2 = true
+		changed = true
+		log.Info("Staged SfcV2 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.Podgorica && !pending.Upgrades.Podgorica {
+		pending.Upgrades.Podgorica = true
+		changed = true
+		log.Info("Staged Podgorica upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.Elemont && !pending.Upgrades.Elemont {
+		pending.Upgrades.Elemont = true
+		changed = true
+		log.Info("Staged Elemont upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.Shanghai && !pending.Upgrades.Shanghai {
+		pending.Upgrades.Shanghai = true
+		changed = true
+		log.Info("Staged Shanghai upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.Cancun && !pending.Upgrades.Cancun {
+		if es.Rules.Upgrades.Shanghai {
+			pending.Upgrades.Cancun = true
+			changed = true
+			log.Info("Staged Cancun upgrade from binary rules; will activate at next epoch seal")
+		} else {
+			log.Info("Deferring Cancun upgrade from binary rules until Shanghai is active")
+		}
+	}
+	if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {
+		pending.Upgrades.SfcV2Patch = true
+		changed = true
+		log.Info("Staged SfcV2Patch upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.SfcV2Patch2 && !pending.Upgrades.SfcV2Patch2 {
+		pending.Upgrades.SfcV2Patch2 = true
+		changed = true
+		log.Info("Staged SfcV2Patch2 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.SfcV2Patch3 && !pending.Upgrades.SfcV2Patch3 {
+		pending.Upgrades.SfcV2Patch3 = true
+		changed = true
+		log.Info("Staged SfcV2Patch3 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.SfcV2Patch4 && !pending.Upgrades.SfcV2Patch4 {
+		pending.Upgrades.SfcV2Patch4 = true
+		changed = true
+		log.Info("Staged SfcV2Patch4 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.ElemontPubkeyValidation && !pending.Upgrades.ElemontPubkeyValidation {
+		pending.Upgrades.ElemontPubkeyValidation = true
+		changed = true
+		log.Info("Staged ElemontPubkeyValidation upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.SfcV2Patch5 && !pending.Upgrades.SfcV2Patch5 {
+		pending.Upgrades.SfcV2Patch5 = true
+		changed = true
+		log.Info("Staged SfcV2Patch5 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.SfcV2Patch6 && !pending.Upgrades.SfcV2Patch6 {
+		pending.Upgrades.SfcV2Patch6 = true
+		changed = true
+		log.Info("Staged SfcV2Patch6 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.PaybackV2 && !pending.Upgrades.PaybackV2 {
+		pending.Upgrades.PaybackV2 = true
+		changed = true
+		log.Info("Staged PaybackV2 upgrade from binary rules; will activate at next epoch seal")
+	}
+	if hardcoded.Upgrades.PaybackV2Patch && !pending.Upgrades.PaybackV2Patch {
+		pending.Upgrades.PaybackV2Patch = true
+		changed = true
+		log.Info("Staged PaybackV2Patch upgrade from binary rules; will activate at next epoch seal")
+	}
+	if changed {
+		bs.DirtyRules = &pending
+		store.SetBlockEpochState(bs, es)
+		store.FlushBlockEpochState()
+	}
+	return changed
+}
+
 func newService(config Config, store *Store, blockProc BlockProc, engine lachesis.Consensus, dagIndexer *vecmt.Index, newTxPool func(evmcore.StateReader) TxPool) (*Service, error) {
 	svc := &Service{
 		config:             config,
@@ -288,94 +383,7 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 	// V2 bytecode swap). Writing the new flags directly into es.Rules here
 	// would defeat that transition guard and silently leave on-chain side
 	// effects unapplied on a binary upgrade.
-	if hardcoded := opera.MainNetRulesForNetwork(net.NetworkID); hardcoded != nil {
-		es := store.GetEpochState()
-		bs := store.GetBlockState()
-		pending := es.Rules.Copy()
-		if bs.DirtyRules != nil {
-			pending = bs.DirtyRules.Copy()
-		}
-		changed := false
-		if hardcoded.Upgrades.SfcV2 && !pending.Upgrades.SfcV2 {
-			pending.Upgrades.SfcV2 = true
-			changed = true
-			log.Info("Staged SfcV2 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.Podgorica && !pending.Upgrades.Podgorica {
-			pending.Upgrades.Podgorica = true
-			changed = true
-			log.Info("Staged Podgorica upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.Elemont && !pending.Upgrades.Elemont {
-			pending.Upgrades.Elemont = true
-			changed = true
-			log.Info("Staged Elemont upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.Shanghai && !pending.Upgrades.Shanghai {
-			pending.Upgrades.Shanghai = true
-			changed = true
-			log.Info("Staged Shanghai upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.Cancun && !pending.Upgrades.Cancun {
-			if es.Rules.Upgrades.Shanghai {
-				pending.Upgrades.Cancun = true
-				changed = true
-				log.Info("Staged Cancun upgrade from binary rules; will activate at next epoch seal")
-			} else {
-				log.Info("Deferring Cancun upgrade from binary rules until Shanghai is active")
-			}
-		}
-		if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {
-			pending.Upgrades.SfcV2Patch = true
-			changed = true
-			log.Info("Staged SfcV2Patch upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.SfcV2Patch2 && !pending.Upgrades.SfcV2Patch2 {
-			pending.Upgrades.SfcV2Patch2 = true
-			changed = true
-			log.Info("Staged SfcV2Patch2 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.SfcV2Patch3 && !pending.Upgrades.SfcV2Patch3 {
-			pending.Upgrades.SfcV2Patch3 = true
-			changed = true
-			log.Info("Staged SfcV2Patch3 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.SfcV2Patch4 && !pending.Upgrades.SfcV2Patch4 {
-			pending.Upgrades.SfcV2Patch4 = true
-			changed = true
-			log.Info("Staged SfcV2Patch4 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.ElemontPubkeyValidation && !pending.Upgrades.ElemontPubkeyValidation {
-			pending.Upgrades.ElemontPubkeyValidation = true
-			changed = true
-			log.Info("Staged ElemontPubkeyValidation upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.SfcV2Patch5 && !pending.Upgrades.SfcV2Patch5 {
-			pending.Upgrades.SfcV2Patch5 = true
-			changed = true
-			log.Info("Staged SfcV2Patch5 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.SfcV2Patch6 && !pending.Upgrades.SfcV2Patch6 {
-			pending.Upgrades.SfcV2Patch6 = true
-			changed = true
-			log.Info("Staged SfcV2Patch6 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.PaybackV2 && !pending.Upgrades.PaybackV2 {
-			pending.Upgrades.PaybackV2 = true
-			changed = true
-			log.Info("Staged PaybackV2 upgrade from binary rules; will activate at next epoch seal")
-		}
-		if hardcoded.Upgrades.PaybackV2Patch && !pending.Upgrades.PaybackV2Patch {
-			pending.Upgrades.PaybackV2Patch = true
-			changed = true
-			log.Info("Staged PaybackV2Patch upgrade from binary rules; will activate at next epoch seal")
-		}
-		if changed {
-			bs.DirtyRules = &pending
-			store.SetBlockEpochState(bs, es)
-			store.FlushBlockEpochState()
-		}
-	}
+	stageHardcodedUpgrades(store)
 	svc.checkers = makeCheckers(config.HeavyCheck, txSigner, &svc.heavyCheckReader, &svc.gasPowerCheckReader, svc.store)
 
 	// create tx pool

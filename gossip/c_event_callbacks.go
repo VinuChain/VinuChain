@@ -142,6 +142,7 @@ func (s *Service) switchEpochTo(newEpoch idx.Epoch) {
 	s.dagIndexer.SetElemont(rules.Upgrades.Elemont)
 	s.gasPowerCheckReader.Ctx.Store(NewGasPowerContext(s.store, s.store.GetValidators(), newEpoch, rules.Economy, rules.Upgrades.Podgorica)) // read gaspower check data from disk
 	s.heavyCheckReader.Pubkeys.Store(readEpochPubKeys(s.store, newEpoch))
+	stageHardcodedUpgrades(s.store)
 	// notify about new epoch
 	for _, em := range s.emitters {
 		em.OnNewEpoch(s.store.GetValidators(), newEpoch)

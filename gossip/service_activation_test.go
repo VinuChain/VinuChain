@@ -268,7 +268,7 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 // TestRuntimeActivationSequencesShanghaiBeforeCancun pins the skipped-binary
 // path for EVM fork activation. A node that boots a post-Cancun binary from
 // pre-Shanghai stored rules must not activate Shanghai and Cancun at the same
-// epoch seal; Cancun is staged only after Shanghai is already active.
+// epoch seal; Cancun is staged for the following seal after Shanghai is active.
 func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 	logger.SetTestMode(t)
 
@@ -283,30 +283,26 @@ func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 	require.False(t, bs.DirtyRules.Upgrades.Cancun,
 		"Cancun must not stage until Shanghai is active")
 
-	sealTestEpoch(t, env)
+	env.t = env.t.Add(nextEpoch)
+	require.NoError(t, env.EmitUntil(func() bool {
+		return env.store.GetEpochState().Rules.Upgrades.Shanghai
+	}))
 	postShanghai := env.store.GetEpochState()
 	require.True(t, postShanghai.Rules.Upgrades.Shanghai,
 		"Shanghai must be active after the first seal")
 	require.False(t, postShanghai.Rules.Upgrades.Cancun,
 		"Cancun must remain inactive at the Shanghai activation seal")
 
-	store := env.store
-	blockProc := DefaultBlockProc()
-	blockProc.EventsModule = testConfirmedEventsModule{blockProc.EventsModule, env}
-	engine, vecClock := makeTestEngine(store)
-	txPool := &dummyTxPool{}
-	_, err := newService(DefaultConfig(cachescale.Identity), store, blockProc, engine, vecClock, func(_ evmcore.StateReader) TxPool {
-		return txPool
-	})
-	require.NoError(t, err)
-
 	bs = env.store.GetBlockState()
 	require.NotNil(t, bs.DirtyRules,
-		"second boot after Shanghai seal must stage Cancun")
+		"continuous node must stage Cancun after the Shanghai seal")
 	require.True(t, bs.DirtyRules.Upgrades.Cancun,
 		"Cancun must stage once Shanghai is active")
 
-	sealTestEpoch(t, env)
+	env.t = env.t.Add(nextEpoch)
+	require.NoError(t, env.EmitUntil(func() bool {
+		return env.store.GetEpochState().Rules.Upgrades.Cancun
+	}))
 	postCancun := env.store.GetEpochState()
 	require.True(t, postCancun.Rules.Upgrades.Shanghai)
 	require.True(t, postCancun.Rules.Upgrades.Cancun,
