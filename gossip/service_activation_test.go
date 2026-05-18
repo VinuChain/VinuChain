@@ -54,6 +54,7 @@ func newPreShanghaiCancunTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validat
 	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
 	rules.Upgrades.Shanghai = false
 	rules.Upgrades.Cancun = false
+	rules.Upgrades.Prague = false
 
 	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
 }
@@ -265,11 +266,12 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 		"stored epoch state SfcV2 must be true after the seal")
 }
 
-// TestRuntimeActivationSequencesShanghaiBeforeCancun pins the skipped-binary
-// path for EVM fork activation. A node that boots a post-Cancun binary from
-// pre-Shanghai stored rules must not activate Shanghai and Cancun at the same
-// epoch seal; Cancun is staged for the following seal after Shanghai is active.
-func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
+// TestRuntimeActivationSequencesShanghaiCancunPrague pins the skipped-binary
+// path for EVM fork activation. A node that boots a post-Prague binary from
+// pre-Shanghai stored rules must not activate Shanghai, Cancun, and Prague at
+// the same epoch seal; each fork is staged for the following seal after its
+// predecessor is active.
+func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 	logger.SetTestMode(t)
 
 	env := newPreShanghaiCancunTestEnv(2, 3)
@@ -282,6 +284,8 @@ func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 		"Shanghai must stage first on a pre-Shanghai datadir")
 	require.False(t, bs.DirtyRules.Upgrades.Cancun,
 		"Cancun must not stage until Shanghai is active")
+	require.False(t, bs.DirtyRules.Upgrades.Prague,
+		"Prague must not stage until Cancun is active")
 
 	env.t = env.t.Add(nextEpoch)
 	require.NoError(t, env.EmitUntil(func() bool {
@@ -292,12 +296,16 @@ func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 		"Shanghai must be active after the first seal")
 	require.False(t, postShanghai.Rules.Upgrades.Cancun,
 		"Cancun must remain inactive at the Shanghai activation seal")
+	require.False(t, postShanghai.Rules.Upgrades.Prague,
+		"Prague must remain inactive at the Shanghai activation seal")
 
 	bs = env.store.GetBlockState()
 	require.NotNil(t, bs.DirtyRules,
 		"continuous node must stage Cancun after the Shanghai seal")
 	require.True(t, bs.DirtyRules.Upgrades.Cancun,
 		"Cancun must stage once Shanghai is active")
+	require.False(t, bs.DirtyRules.Upgrades.Prague,
+		"Prague must not stage until Cancun is active")
 
 	env.t = env.t.Add(nextEpoch)
 	require.NoError(t, env.EmitUntil(func() bool {
@@ -307,12 +315,82 @@ func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 	require.True(t, postCancun.Rules.Upgrades.Shanghai)
 	require.True(t, postCancun.Rules.Upgrades.Cancun,
 		"Cancun must be active after the second seal")
+	require.False(t, postCancun.Rules.Upgrades.Prague,
+		"Prague must remain inactive at the Cancun activation seal")
 
-	cfg := postCancun.Rules.EvmChainConfig(env.store.GetUpgradeHeights())
+	bs = env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"continuous node must stage Prague after the Cancun seal")
+	require.True(t, bs.DirtyRules.Upgrades.Prague,
+		"Prague must stage once Cancun is active")
+
+	env.t = env.t.Add(nextEpoch)
+	require.NoError(t, env.EmitUntil(func() bool {
+		return env.store.GetEpochState().Rules.Upgrades.Prague
+	}))
+	postPrague := env.store.GetEpochState()
+	require.True(t, postPrague.Rules.Upgrades.Shanghai)
+	require.True(t, postPrague.Rules.Upgrades.Cancun)
+	require.True(t, postPrague.Rules.Upgrades.Prague,
+		"Prague must be active after the third seal")
+
+	cfg := postPrague.Rules.EvmChainConfig(env.store.GetUpgradeHeights())
 	require.NotNil(t, cfg.ShanghaiBlock)
 	require.NotNil(t, cfg.CancunBlock)
+	require.NotNil(t, cfg.PragueBlock)
 	require.Less(t, cfg.ShanghaiBlock.Uint64(), cfg.CancunBlock.Uint64(),
 		"Shanghai and Cancun activation heights must remain ordered")
+	require.Less(t, cfg.CancunBlock.Uint64(), cfg.PragueBlock.Uint64(),
+		"Cancun and Prague activation heights must remain ordered")
+}
+
+func TestRuntimeActivationClearsPrematurePragueDirtyRule(t *testing.T) {
+	logger.SetTestMode(t)
+
+	rules := opera.VinuChainTestNetRules()
+	rules.Epochs.MaxEpochDuration = inter.Timestamp(maxEpochDuration)
+	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
+	rules.Upgrades.Shanghai = false
+	rules.Upgrades.Cancun = false
+	rules.Upgrades.Prague = false
+
+	genStore := makefakegenesis.FakeGenesisStoreWithRulesAndStart(
+		3,
+		utils.ToVC(genesisBalance),
+		utils.ToVC(genesisStake),
+		rules,
+		2,
+		2,
+	)
+	store := NewMemStore()
+	if _, err := store.ApplyGenesis(genStore.Genesis()); err != nil {
+		t.Fatal(err)
+	}
+
+	bs, es := store.GetBlockEpochState()
+	dirty := es.Rules.Copy()
+	dirty.Upgrades.Shanghai = true
+	dirty.Upgrades.Cancun = true
+	dirty.Upgrades.Prague = true
+	bs.DirtyRules = &dirty
+	store.SetBlockEpochState(bs, es)
+
+	blockProc := DefaultBlockProc()
+	engine, vecClock := makeTestEngine(store)
+	txPool := &dummyTxPool{}
+	_, err := newService(DefaultConfig(cachescale.Identity), store, blockProc, engine, vecClock, func(_ evmcore.StateReader) TxPool {
+		return txPool
+	})
+	require.NoError(t, err)
+
+	bs = store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules)
+	require.True(t, bs.DirtyRules.Upgrades.Shanghai,
+		"Shanghai may stay staged before its seal")
+	require.False(t, bs.DirtyRules.Upgrades.Cancun,
+		"Cancun must be cleared if it was staged before Shanghai became active")
+	require.False(t, bs.DirtyRules.Upgrades.Prague,
+		"Prague must be cleared if it was staged before Cancun became active")
 }
 
 func TestCommitRestagesCancunAfterSealingBlockStateOverwrite(t *testing.T) {
@@ -336,6 +414,8 @@ func TestCommitRestagesCancunAfterSealingBlockStateOverwrite(t *testing.T) {
 		"restaged rules must preserve already-active Shanghai")
 	require.True(t, bs.DirtyRules.Upgrades.Cancun,
 		"Cancun must be restaged if an async sealing block write cleared DirtyRules")
+	require.False(t, bs.DirtyRules.Upgrades.Prague,
+		"Prague must not stage until Cancun is active")
 }
 
 // TestRuntimeActivationIdempotentAcrossRestart pins the multi-restart

@@ -60,7 +60,7 @@ func validateTx(tx *types.Transaction) error {
 		return ErrNegativeValue
 	}
 	// Ensure the transaction has more gas than the basic tx fee.
-	intrGas, err := evmcore.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, true, false)
+	intrGas, err := evmcore.IntrinsicGas(tx.Data(), tx.AccessList(), tx.SetCodeAuthorizations(), tx.To() == nil, true, true, false)
 	if err != nil {
 		return err
 	}

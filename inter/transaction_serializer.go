@@ -17,6 +17,7 @@ var ErrUnknownTxType = errors.New("unknown tx type")
 // accessListLen allocation so make(types.AccessList, n) stays within
 // ProtocolMaxMsgSize, preventing memory amplification from crafted P2P events.
 const accessListEntrySize = 44
+const authorizationEntrySize = 80
 
 func encodeSig(r, s *big.Int) (sig [64]byte) {
 	copy(sig[0:], cser.PaddedBytes(r.Bytes(), 32)[:32])
@@ -30,8 +31,15 @@ func decodeSig(sig [64]byte) (r, s *big.Int) {
 	return
 }
 
+func bigOrZero(v *big.Int) *big.Int {
+	if v == nil {
+		return new(big.Int)
+	}
+	return v
+}
+
 func TransactionMarshalCSER(w *cser.Writer, tx *types.Transaction) error {
-	if tx.Type() != types.LegacyTxType && tx.Type() != types.AccessListTxType && tx.Type() != types.DynamicFeeTxType {
+	if tx.Type() != types.LegacyTxType && tx.Type() != types.AccessListTxType && tx.Type() != types.DynamicFeeTxType && tx.Type() != types.SetCodeTxType {
 		return ErrUnknownTxType
 	}
 	if tx.Type() != types.LegacyTxType {
@@ -44,7 +52,7 @@ func TransactionMarshalCSER(w *cser.Writer, tx *types.Transaction) error {
 	}
 	w.U64(tx.Nonce())
 	w.U64(tx.Gas())
-	if tx.Type() == types.DynamicFeeTxType {
+	if tx.Type() == types.DynamicFeeTxType || tx.Type() == types.SetCodeTxType {
 		w.BigInt(tx.GasTipCap())
 		w.BigInt(tx.GasFeeCap())
 	} else {
@@ -60,7 +68,7 @@ func TransactionMarshalCSER(w *cser.Writer, tx *types.Transaction) error {
 	w.BigInt(v)
 	sig := encodeSig(r, s)
 	w.FixedBytes(sig[:])
-	if tx.Type() == types.AccessListTxType || tx.Type() == types.DynamicFeeTxType {
+	if tx.Type() == types.AccessListTxType || tx.Type() == types.DynamicFeeTxType || tx.Type() == types.SetCodeTxType {
 		w.BigInt(tx.ChainId())
 		w.U32(uint32(len(tx.AccessList())))
 		for _, tuple := range tx.AccessList() {
@@ -68,6 +76,18 @@ func TransactionMarshalCSER(w *cser.Writer, tx *types.Transaction) error {
 			w.U32(uint32(len(tuple.StorageKeys)))
 			for _, h := range tuple.StorageKeys {
 				w.FixedBytes(h.Bytes())
+			}
+		}
+		if tx.Type() == types.SetCodeTxType {
+			authList := tx.SetCodeAuthorizations()
+			w.U32(uint32(len(authList)))
+			for _, auth := range authList {
+				w.BigInt(bigOrZero(auth.ChainID))
+				w.FixedBytes(auth.Address.Bytes())
+				w.U64(auth.Nonce)
+				w.U8(auth.V)
+				w.BigInt(bigOrZero(auth.R))
+				w.BigInt(bigOrZero(auth.S))
 			}
 		}
 	}
@@ -86,7 +106,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 	var gasPrice *big.Int
 	var gasTipCap *big.Int
 	var gasFeeCap *big.Int
-	if txType == types.DynamicFeeTxType {
+	if txType == types.DynamicFeeTxType || txType == types.SetCodeTxType {
 		gasTipCap = r.BigInt()
 		gasFeeCap = r.BigInt()
 	} else {
@@ -119,7 +139,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 			R:        _r,
 			S:        s,
 		}), nil
-	} else if txType == types.AccessListTxType || txType == types.DynamicFeeTxType {
+	} else if txType == types.AccessListTxType || txType == types.DynamicFeeTxType || txType == types.SetCodeTxType {
 		chainID := r.BigInt()
 		accessListLen := r.U32()
 		if accessListLen > ProtocolMaxMsgSize/accessListEntrySize {
@@ -151,7 +171,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 				R:          _r,
 				S:          s,
 			}), nil
-		} else {
+		} else if txType == types.DynamicFeeTxType {
 			return types.NewTx(&types.DynamicFeeTx{
 				ChainID:    chainID,
 				Nonce:      nonce,
@@ -162,6 +182,41 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 				Value:      amount,
 				Data:       data,
 				AccessList: accessList,
+				V:          v,
+				R:          _r,
+				S:          s,
+			}), nil
+		} else {
+			if to == nil {
+				return nil, errors.New("cannot deserialize set-code tx without recipient")
+			}
+			authListLen := r.U32()
+			if authListLen > ProtocolMaxMsgSize/authorizationEntrySize {
+				return nil, cser.ErrTooLargeAlloc
+			}
+			authList := make([]types.SetCodeAuthorization, authListLen)
+			for i := range authList {
+				authList[i].ChainID = r.BigInt()
+				r.FixedBytes(authList[i].Address[:])
+				authList[i].Nonce = r.U64()
+				authList[i].V = r.U8()
+				authList[i].R = r.BigInt()
+				authList[i].S = r.BigInt()
+			}
+			if err := types.ValidateSetCodeAuthorizations(authList); err != nil {
+				return nil, err
+			}
+			return types.NewTx(&types.SetCodeTx{
+				ChainID:    chainID,
+				Nonce:      nonce,
+				GasTipCap:  gasTipCap,
+				GasFeeCap:  gasFeeCap,
+				Gas:        gasLimit,
+				To:         *to,
+				Value:      amount,
+				Data:       data,
+				AccessList: accessList,
+				AuthList:   authList,
 				V:          v,
 				R:          _r,
 				S:          s,

@@ -93,6 +93,36 @@ func TestTransactionUnmarshalCSER_RoundTrip(t *testing.T) {
 		roundTripTx(t, tx)
 	})
 
+	t.Run("setcode", func(t *testing.T) {
+		tx := types.NewTx(&types.SetCodeTx{
+			ChainID:   big.NewInt(207),
+			Nonce:     6,
+			GasTipCap: big.NewInt(1e9),
+			GasFeeCap: big.NewInt(2e9),
+			Gas:       80_000,
+			To:        common.Address{0xee},
+			Value:     big.NewInt(0),
+			Data:      []byte{0x01, 0x02},
+			AccessList: types.AccessList{
+				{Address: common.Address{0x03}, StorageKeys: []common.Hash{{0x04}}},
+			},
+			AuthList: []types.SetCodeAuthorization{
+				{
+					ChainID: big.NewInt(207),
+					Address: common.Address{0x05},
+					Nonce:   9,
+					V:       1,
+					R:       big.NewInt(10),
+					S:       big.NewInt(11),
+				},
+			},
+			V: big.NewInt(0),
+			R: big.NewInt(12),
+			S: big.NewInt(13),
+		})
+		roundTripTx(t, tx)
+	})
+
 	t.Run("contract_creation", func(t *testing.T) {
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce:    0,
@@ -178,6 +208,32 @@ func TestTransactionUnmarshalCSER_UnknownType(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnknownTxType)
 }
 
+func TestTransactionUnmarshalCSER_RejectsOverUint256SetCodeAuthScalar(t *testing.T) {
+	tooBig := new(big.Int).Lsh(big.NewInt(1), 256)
+	tx := types.NewTx(&types.SetCodeTx{
+		ChainID:   big.NewInt(207),
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(1),
+		Gas:       80_000,
+		To:        common.Address{0xee},
+		Value:     big.NewInt(0),
+		AuthList: []types.SetCodeAuthorization{
+			{
+				ChainID: tooBig,
+				Address: common.Address{0x05},
+				R:       big.NewInt(10),
+				S:       big.NewInt(11),
+			},
+		},
+		V: big.NewInt(0),
+		R: big.NewInt(12),
+		S: big.NewInt(13),
+	})
+
+	_, err := unmarshalTxCSER(t, marshalTxCSER(t, tx))
+	require.ErrorIs(t, err, types.ErrAuthorizationValueOverflow)
+}
+
 func roundTripTx(t *testing.T, tx *types.Transaction) {
 	t.Helper()
 	raw := marshalTxCSER(t, tx)
@@ -189,4 +245,14 @@ func roundTripTx(t *testing.T, tx *types.Transaction) {
 	require.Equal(t, tx.Gas(), got.Gas(), "gas mismatch")
 	require.Equal(t, tx.Value().String(), got.Value().String(), "value mismatch")
 	require.Equal(t, len(tx.AccessList()), len(got.AccessList()), "access list length mismatch")
+	require.Equal(t, len(tx.SetCodeAuthorizations()), len(got.SetCodeAuthorizations()), "authorization list length mismatch")
+	for i, want := range tx.SetCodeAuthorizations() {
+		have := got.SetCodeAuthorizations()[i]
+		require.Equal(t, want.ChainID.String(), have.ChainID.String(), "authorization %d chain ID mismatch", i)
+		require.Equal(t, want.Address, have.Address, "authorization %d address mismatch", i)
+		require.Equal(t, want.Nonce, have.Nonce, "authorization %d nonce mismatch", i)
+		require.Equal(t, want.V, have.V, "authorization %d y-parity mismatch", i)
+		require.Equal(t, want.R.String(), have.R.String(), "authorization %d r mismatch", i)
+		require.Equal(t, want.S.String(), have.S.String(), "authorization %d s mismatch", i)
+	}
 }

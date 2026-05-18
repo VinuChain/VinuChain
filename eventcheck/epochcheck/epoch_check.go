@@ -100,15 +100,25 @@ func (v *Checker) checkGas(e inter.EventPayloadI, rules opera.Rules) error {
 }
 
 func CheckTxs(txs types.Transactions, rules opera.Rules) error {
-	maxType := uint8(0)
-	if rules.Upgrades.Berlin {
-		maxType = 1
-	}
-	if rules.Upgrades.London {
-		maxType = 2
-	}
 	for _, tx := range txs {
-		if tx.Type() > maxType {
+		switch tx.Type() {
+		case types.LegacyTxType:
+		case types.AccessListTxType:
+			if !rules.Upgrades.Berlin {
+				return ErrUnsupportedTxType
+			}
+		case types.DynamicFeeTxType:
+			if !rules.Upgrades.London {
+				return ErrUnsupportedTxType
+			}
+		case types.SetCodeTxType:
+			if !rules.Upgrades.Prague || len(tx.SetCodeAuthorizations()) == 0 || tx.To() == nil {
+				return ErrUnsupportedTxType
+			}
+			if err := types.ValidateSetCodeAuthorizations(tx.SetCodeAuthorizations()); err != nil {
+				return err
+			}
+		default:
 			return ErrUnsupportedTxType
 		}
 		if tx.GasFeeCapIntCmp(rules.Economy.MinGasPrice) < 0 {
@@ -117,7 +127,7 @@ func CheckTxs(txs types.Transactions, rules opera.Rules) error {
 		if rules.Upgrades.Shanghai && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
 			return evmcore.ErrMaxInitCodeSizeExceeded
 		}
-		intrGas, err := evmcore.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, true, rules.Upgrades.Shanghai)
+		intrGas, err := evmcore.IntrinsicGas(tx.Data(), tx.AccessList(), tx.SetCodeAuthorizations(), tx.To() == nil, true, true, rules.Upgrades.Shanghai)
 		if err != nil {
 			return err
 		}

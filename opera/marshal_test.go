@@ -213,6 +213,7 @@ func TestRulesShanghaiRLP(t *testing.T) {
 	rules.Upgrades.London = true
 	rules.Upgrades.Shanghai = true
 	rules.Upgrades.Cancun = true
+	rules.Upgrades.Prague = true
 	require := require.New(t)
 
 	b, err := rlp.EncodeToBytes(rules)
@@ -226,6 +227,7 @@ func TestRulesShanghaiRLP(t *testing.T) {
 	require.True(decodedRules.Upgrades.London)
 	require.True(decodedRules.Upgrades.Shanghai)
 	require.True(decodedRules.Upgrades.Cancun)
+	require.True(decodedRules.Upgrades.Prague)
 }
 
 func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
@@ -233,14 +235,15 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 		mk             func() Rules
 		expectShanghai bool
 		expectCancun   bool
+		expectPrague   bool
 		network        string
 	}{
-		{MainNetRules, false, false, "MainNetRules"},
-		{TestNetRules, false, false, "TestNetRules"},
-		{VinuChainMainNetRules, false, false, "VinuChainMainNetRules"},
-		{VinuChainTestNetRules, true, true, "VinuChainTestNetRules"},
-		{FakeNetRules, true, true, "FakeNetRules"},
-		{LegacyFakeNetRules, true, true, "LegacyFakeNetRules"},
+		{MainNetRules, false, false, false, "MainNetRules"},
+		{TestNetRules, false, false, false, "TestNetRules"},
+		{VinuChainMainNetRules, false, false, false, "VinuChainMainNetRules"},
+		{VinuChainTestNetRules, true, true, true, "VinuChainTestNetRules"},
+		{FakeNetRules, true, true, true, "FakeNetRules"},
+		{LegacyFakeNetRules, true, true, true, "LegacyFakeNetRules"},
 	}
 	for _, c := range cases {
 		rules := c.mk()
@@ -249,6 +252,8 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 			"%s Shanghai default mismatch", c.network)
 		require.Equal(c.expectCancun, rules.Upgrades.Cancun,
 			"%s Cancun default mismatch", c.network)
+		require.Equal(c.expectPrague, rules.Upgrades.Prague,
+			"%s Prague default mismatch", c.network)
 
 		b, err := rlp.EncodeToBytes(rules)
 		require.NoError(err)
@@ -261,6 +266,8 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 			"%s Upgrades.Shanghai must round-trip through RLP", c.network)
 		require.Equal(c.expectCancun, decodedRules.Upgrades.Cancun,
 			"%s Upgrades.Cancun must round-trip through RLP", c.network)
+		require.Equal(c.expectPrague, decodedRules.Upgrades.Prague,
+			"%s Upgrades.Prague must round-trip through RLP", c.network)
 	}
 }
 
@@ -269,6 +276,7 @@ func TestEvmChainConfigShanghaiActivationHeight(t *testing.T) {
 	after := before
 	after.Shanghai = true
 	after.Cancun = true
+	after.Prague = true
 	rules := VinuChainTestNetRules()
 
 	cfg := rules.EvmChainConfig([]UpgradeHeight{
@@ -280,6 +288,7 @@ func TestEvmChainConfigShanghaiActivationHeight(t *testing.T) {
 	require.Equal(t, big.NewInt(0), cfg.LondonBlock)
 	require.Equal(t, big.NewInt(123), cfg.ShanghaiBlock)
 	require.Equal(t, big.NewInt(123), cfg.CancunBlock)
+	require.Equal(t, big.NewInt(123), cfg.PragueBlock)
 }
 
 func TestEvmChainConfigCancunCanActivateAfterShanghai(t *testing.T) {
@@ -295,6 +304,23 @@ func TestEvmChainConfigCancunCanActivateAfterShanghai(t *testing.T) {
 
 	require.Equal(t, big.NewInt(0), cfg.ShanghaiBlock)
 	require.Equal(t, big.NewInt(456), cfg.CancunBlock)
+	require.Nil(t, cfg.PragueBlock)
+}
+
+func TestEvmChainConfigPragueCanActivateAfterCancun(t *testing.T) {
+	before := Upgrades{Berlin: true, London: true, Shanghai: true, Cancun: true}
+	after := before
+	after.Prague = true
+	rules := VinuChainTestNetRules()
+
+	cfg := rules.EvmChainConfig([]UpgradeHeight{
+		{Upgrades: before, Height: 0},
+		{Upgrades: after, Height: 789},
+	})
+
+	require.Equal(t, big.NewInt(0), cfg.ShanghaiBlock)
+	require.Equal(t, big.NewInt(0), cfg.CancunBlock)
+	require.Equal(t, big.NewInt(789), cfg.PragueBlock)
 }
 
 func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
@@ -305,6 +331,8 @@ func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
 		"mainnet rules prepare Shanghai support but must not activate it by default")
 	require.Nil(t, cfg.CancunBlock,
 		"mainnet rules prepare Cancun support but must not activate it by default")
+	require.Nil(t, cfg.PragueBlock,
+		"mainnet rules prepare Prague/EIP-7702 support but must not activate it by default")
 }
 
 func TestRulesSfcV2Patch2RLP(t *testing.T) {

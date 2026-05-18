@@ -88,4 +88,25 @@ var (
 
 	// ErrSenderNoEOA is returned if the sender of a transaction is a contract.
 	ErrSenderNoEOA = errors.New("sender not an eoa")
+
+	// ErrEmptyAuthList is returned if a set-code transaction has no authorizations.
+	ErrEmptyAuthList = errors.New("empty authorization list")
+
+	// ErrSetCodeTxCreate is returned if a set-code transaction attempts contract creation.
+	ErrSetCodeTxCreate = errors.New("set-code transaction cannot create contract")
+
+	// ErrAuthorizationWrongChainID is returned if an authorization targets the wrong chain.
+	ErrAuthorizationWrongChainID = errors.New("authorization has wrong chain id")
+
+	// ErrAuthorizationNonceOverflow is returned if an authorization nonce cannot be incremented.
+	ErrAuthorizationNonceOverflow = errors.New("authorization nonce overflow")
+
+	// ErrAuthorizationInvalidSignature is returned if an authorization signature is invalid.
+	ErrAuthorizationInvalidSignature = errors.New("authorization has invalid signature")
+
+	// ErrAuthorizationDestinationHasCode is returned if an authorization authority is already a contract.
+	ErrAuthorizationDestinationHasCode = errors.New("authorization destination has code")
+
+	// ErrAuthorizationNonceMismatch is returned if an authorization nonce does not match state.
+	ErrAuthorizationNonceMismatch = errors.New("authorization nonce mismatch")
 )

@@ -79,6 +79,7 @@ type Message interface {
 	IsFake() bool
 	Data() []byte
 	AccessList() types.AccessList
+	SetCodeAuthorizations() []types.SetCodeAuthorization
 }
 
 // ExecutionResult includes all output after executing given evm
@@ -118,7 +119,7 @@ func (result *ExecutionResult) Revert() []byte {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation bool, isHomestead, isEIP2028, isEIP3860 bool) (uint64, error) {
+func IntrinsicGas(data []byte, accessList types.AccessList, authList []types.SetCodeAuthorization, isContractCreation bool, isHomestead, isEIP2028, isEIP3860 bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
 	var gas uint64
 	if isContractCreation && isHomestead {
@@ -162,6 +163,12 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 	if accessList != nil {
 		gas += uint64(len(accessList)) * params.TxAccessListAddressGas
 		gas += uint64(accessList.StorageKeys()) * params.TxAccessListStorageKeyGas
+	}
+	if authList != nil {
+		if (math.MaxUint64-gas)/params.CallNewAccountGas < uint64(len(authList)) {
+			return 0, ErrGasUintOverflow
+		}
+		gas += uint64(len(authList)) * params.CallNewAccountGas
 	}
 	return gas, nil
 }
@@ -236,10 +243,30 @@ func (st *StateTransition) preCheck() error {
 			return fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooLow,
 				st.msg.From().Hex(), msgNonce, stNonce)
 		}
-		// Make sure the sender is an EOA
+		// Make sure the sender is an EOA. EIP-7702 delegation designators are
+		// allowed after Prague because they represent delegated EOAs, not
+		// deployed contracts.
 		if codeHash := st.state.GetCodeHash(st.msg.From()); codeHash != emptyCodeHash && codeHash != (common.Hash{}) {
-			return fmt.Errorf("%w: address %v, codehash: %s", ErrSenderNoEOA,
-				st.msg.From().Hex(), codeHash)
+			prague := st.evm.ChainConfig().IsPrague(st.evm.Context.BlockNumber)
+			if !prague {
+				return fmt.Errorf("%w: address %v, codehash: %s", ErrSenderNoEOA,
+					st.msg.From().Hex(), codeHash)
+			}
+			if _, ok := types.ParseDelegation(st.state.GetCode(st.msg.From())); !ok {
+				return fmt.Errorf("%w: address %v, codehash: %s", ErrSenderNoEOA,
+					st.msg.From().Hex(), codeHash)
+			}
+		}
+	}
+	if authList := st.msg.SetCodeAuthorizations(); authList != nil {
+		if err := types.ValidateSetCodeAuthorizations(authList); err != nil {
+			return err
+		}
+		if st.msg.To() == nil {
+			return fmt.Errorf("%w: address %v", ErrSetCodeTxCreate, st.msg.From().Hex())
+		}
+		if len(authList) == 0 {
+			return fmt.Errorf("%w: address %v", ErrEmptyAuthList, st.msg.From().Hex())
 		}
 	}
 	// Note: Opera doesn't need to check gasFeeCap >= BaseFee, because it's already checked by epochcheck
@@ -285,10 +312,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.Context.BlockNumber)
 	london := st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber)
 	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.BlockNumber)
+	prague := st.evm.ChainConfig().IsPrague(st.evm.Context.BlockNumber)
+	authList := msg.SetCodeAuthorizations()
+
+	if authList != nil && !prague {
+		return nil, ErrTxTypeNotSupported
+	}
 
 	// Check clauses 4-5 before buying gas; skipped invalid transactions must
 	// not debit balances or block gas.
-	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, homestead, istanbul, shanghai)
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), authList, contractCreation, homestead, istanbul, shanghai)
 	if err != nil {
 		return nil, err
 	}
@@ -322,6 +355,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		if authList != nil {
+			for _, auth := range authList {
+				_ = st.applyAuthorization(&auth)
+			}
+		}
+		if prague {
+			if addr, ok := types.ParseDelegation(st.state.GetCode(*msg.To())); ok {
+				st.state.AddAddressToAccessList(addr)
+			}
+		}
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	// Penalize 10% of unused gas to discourage over-estimation.
@@ -343,6 +386,52 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		Err:        vmerr,
 		ReturnData: ret,
 	}, nil
+}
+
+// validateAuthorization validates an EIP-7702 authorization against the state.
+func (st *StateTransition) validateAuthorization(auth *types.SetCodeAuthorization) (common.Address, error) {
+	chainID := st.evm.ChainConfig().ChainID
+	if chainID == nil {
+		chainID = new(big.Int)
+	}
+	if auth.ChainID != nil && auth.ChainID.Sign() != 0 && auth.ChainID.Cmp(chainID) != 0 {
+		return common.Address{}, ErrAuthorizationWrongChainID
+	}
+	if auth.Nonce == math.MaxUint64 {
+		return common.Address{}, ErrAuthorizationNonceOverflow
+	}
+	authority, err := auth.Authority()
+	if err != nil {
+		return common.Address{}, fmt.Errorf("%w: %v", ErrAuthorizationInvalidSignature, err)
+	}
+	st.state.AddAddressToAccessList(authority)
+	if code := st.state.GetCode(authority); len(code) != 0 {
+		if _, ok := types.ParseDelegation(code); !ok {
+			return authority, ErrAuthorizationDestinationHasCode
+		}
+	}
+	if have := st.state.GetNonce(authority); have != auth.Nonce {
+		return authority, ErrAuthorizationNonceMismatch
+	}
+	return authority, nil
+}
+
+// applyAuthorization applies an EIP-7702 code delegation to the state.
+func (st *StateTransition) applyAuthorization(auth *types.SetCodeAuthorization) error {
+	authority, err := st.validateAuthorization(auth)
+	if err != nil {
+		return err
+	}
+	if st.state.Exist(authority) {
+		st.state.AddRefund(params.CallNewAccountGas - params.TxAuthTupleGas)
+	}
+	st.state.SetNonce(authority, auth.Nonce+1)
+	if auth.Address == (common.Address{}) {
+		st.state.SetCode(authority, nil)
+	} else {
+		st.state.SetCode(authority, types.AddressToDelegation(auth.Address))
+	}
+	return nil
 }
 
 func (st *StateTransition) refundGas(refundQuotient uint64) {

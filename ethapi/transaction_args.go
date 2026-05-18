@@ -52,8 +52,9 @@ type TransactionArgs struct {
 	Input *hexutil.Bytes `json:"input"`
 
 	// Introduced by AccessListTxType transaction.
-	AccessList *types.AccessList `json:"accessList,omitempty"`
-	ChainID    *hexutil.Big      `json:"chainId,omitempty"`
+	AccessList        *types.AccessList            `json:"accessList,omitempty"`
+	ChainID           *hexutil.Big                 `json:"chainId,omitempty"`
+	AuthorizationList []types.SetCodeAuthorization `json:"authorizationList,omitempty"`
 }
 
 // from retrieves the transaction sender address.
@@ -79,6 +80,14 @@ func (arg *TransactionArgs) data() []byte {
 func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend) error {
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	}
+	if args.AuthorizationList != nil {
+		if args.GasPrice != nil {
+			return errors.New("set-code transaction cannot use gasPrice")
+		}
+		if args.To == nil {
+			return errors.New("set-code transaction requires to")
+		}
 	}
 	// After london, default to 1559 unless gasPrice is set
 	head := b.CurrentBlock().Header()
@@ -146,6 +155,7 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend) error {
 			Value:                args.Value,
 			Data:                 args.Data,
 			AccessList:           args.AccessList,
+			AuthorizationList:    args.AuthorizationList,
 		}
 		pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 		estimated, err := DoEstimateGas(ctx, b, callArgs, pendingBlockNr, b.RPCGasCap())
@@ -229,7 +239,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (t
 	if args.AccessList != nil {
 		accessList = *args.AccessList
 	}
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	msg := types.NewMessageWithSetCodeAuthorizations(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, args.AuthorizationList, true)
 	return msg, nil
 }
 
@@ -238,6 +248,23 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (t
 func (args *TransactionArgs) toTransaction() *types.Transaction {
 	var data types.TxData
 	switch {
+	case args.AuthorizationList != nil:
+		al := types.AccessList{}
+		if args.AccessList != nil {
+			al = *args.AccessList
+		}
+		data = &types.SetCodeTx{
+			To:         *args.To,
+			ChainID:    (*big.Int)(args.ChainID),
+			Nonce:      uint64(*args.Nonce),
+			Gas:        uint64(*args.Gas),
+			GasFeeCap:  (*big.Int)(args.MaxFeePerGas),
+			GasTipCap:  (*big.Int)(args.MaxPriorityFeePerGas),
+			Value:      (*big.Int)(args.Value),
+			Data:       args.data(),
+			AccessList: al,
+			AuthList:   args.AuthorizationList,
+		}
 	case args.MaxFeePerGas != nil:
 		al := types.AccessList{}
 		if args.AccessList != nil {

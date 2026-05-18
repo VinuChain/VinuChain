@@ -227,6 +227,16 @@ func stageHardcodedUpgrades(store *Store) bool {
 		pending = bs.DirtyRules.Copy()
 	}
 	changed := false
+	if pending.Upgrades.Cancun && !es.Rules.Upgrades.Shanghai {
+		pending.Upgrades.Cancun = false
+		changed = true
+		log.Warn("Cleared prematurely staged Cancun upgrade; will restage after Shanghai is active")
+	}
+	if pending.Upgrades.Prague && !es.Rules.Upgrades.Cancun {
+		pending.Upgrades.Prague = false
+		changed = true
+		log.Warn("Cleared prematurely staged Prague upgrade; will restage after Cancun is active")
+	}
 	if hardcoded.Upgrades.SfcV2 && !pending.Upgrades.SfcV2 {
 		pending.Upgrades.SfcV2 = true
 		changed = true
@@ -254,6 +264,15 @@ func stageHardcodedUpgrades(store *Store) bool {
 			log.Info("Staged Cancun upgrade from binary rules; will activate at next epoch seal")
 		} else {
 			log.Info("Deferring Cancun upgrade from binary rules until Shanghai is active")
+		}
+	}
+	if hardcoded.Upgrades.Prague && !pending.Upgrades.Prague {
+		if es.Rules.Upgrades.Cancun {
+			pending.Upgrades.Prague = true
+			changed = true
+			log.Info("Staged Prague upgrade from binary rules; will activate at next epoch seal")
+		} else {
+			log.Info("Deferring Prague upgrade from binary rules until Cancun is active")
 		}
 	}
 	if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {

@@ -141,6 +141,32 @@ func dynamicFeeTx(nonce uint64, gaslimit uint64, gasFee *big.Int, tip *big.Int, 
 	return tx
 }
 
+func setCodeTx(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey, auths []types.SetCodeAuthorization) *types.Transaction {
+	tx, _ := types.SignNewTx(key, types.NewPragueSigner(params.TestChainConfig.ChainID), &types.SetCodeTx{
+		ChainID:   params.TestChainConfig.ChainID,
+		Nonce:     nonce,
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(1),
+		Gas:       gaslimit,
+		To:        common.Address{},
+		Value:     big.NewInt(0),
+		AuthList:  auths,
+	})
+	return tx
+}
+
+func pragueTxPoolConfig() *params.ChainConfig {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	cfg.CancunBlock = common.Big0
+	cfg.PragueBlock = common.Big0
+	return &cfg
+}
+
 func setupTxPool() (*TxPool, *ecdsa.PrivateKey) {
 	return setupTxPoolWithConfig(params.TestChainConfig)
 }
@@ -303,6 +329,12 @@ func testSetNonce(pool *TxPool, addr common.Address, nonce uint64) {
 	pool.mu.Unlock()
 }
 
+func testSetCode(pool *TxPool, addr common.Address, code []byte) {
+	pool.mu.Lock()
+	pool.currentState.SetCode(addr, code)
+	pool.mu.Unlock()
+}
+
 func TestInvalidTransactions(t *testing.T) {
 	t.Parallel()
 
@@ -445,7 +477,7 @@ func TestTransactionPoolShanghaiMetersInitcodeGas(t *testing.T) {
 	defer pool.Stop()
 
 	data := make([]byte, 33)
-	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	preShanghaiGas, err := IntrinsicGas(data, nil, nil, true, true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,6 +487,143 @@ func TestTransactionPoolShanghaiMetersInitcodeGas(t *testing.T) {
 
 	if err := pool.AddRemote(tx); !errors.Is(err, ErrIntrinsicGas) {
 		t.Fatalf("expected %v, got %v", ErrIntrinsicGas, err)
+	}
+}
+
+func TestTransactionPoolPragueGatesSetCodeTx(t *testing.T) {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	cfg.CancunBlock = common.Big0
+	cfg.PragueBlock = nil
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	auths := []types.SetCodeAuthorization{
+		{ChainID: params.TestChainConfig.ChainID, Address: common.HexToAddress("0x1234"), R: big.NewInt(1), S: big.NewInt(1)},
+	}
+	tx := setCodeTx(0, params.TxGas+params.CallNewAccountGas, key, auths)
+	from, _ := types.Sender(types.NewPragueSigner(params.TestChainConfig.ChainID), tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrTxTypeNotSupported) {
+		t.Fatalf("pre-Prague AddRemote error = %v, want %v", err, ErrTxTypeNotSupported)
+	}
+	cfg.PragueBlock = common.Big0
+	<-pool.requestReset(nil, nil)
+	if err := pool.AddRemote(tx); err != nil {
+		t.Fatalf("Prague AddRemote error = %v", err)
+	}
+}
+
+func TestTransactionPoolRejectsEmptySetCodeAuthList(t *testing.T) {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	cfg.CancunBlock = common.Big0
+	cfg.PragueBlock = common.Big0
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	tx := setCodeTx(0, params.TxGas, key, []types.SetCodeAuthorization{})
+	from, _ := types.Sender(types.NewPragueSigner(params.TestChainConfig.ChainID), tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrEmptyAuthList) {
+		t.Fatalf("empty-auth AddRemote error = %v, want %v", err, ErrEmptyAuthList)
+	}
+}
+
+func TestTransactionPoolRejectsNonDelegationContractSender(t *testing.T) {
+	pool, key := setupTxPoolWithConfig(pragueTxPoolConfig())
+	defer pool.Stop()
+
+	tx := transaction(0, params.TxGas, key)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+	testSetCode(pool, from, []byte{0x60, 0x00})
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrSenderNoEOA) {
+		t.Fatalf("contract sender AddRemote error = %v, want %v", err, ErrSenderNoEOA)
+	}
+}
+
+func TestTransactionPoolRejectsGappedDelegatedSender(t *testing.T) {
+	pool, key := setupTxPoolWithConfig(pragueTxPoolConfig())
+	defer pool.Stop()
+
+	tx := transaction(1, params.TxGas, key)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+	testSetCode(pool, from, types.AddressToDelegation(common.HexToAddress("0x1234")))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrOutOfOrderTxFromDelegated) {
+		t.Fatalf("delegated future-nonce AddRemote error = %v, want %v", err, ErrOutOfOrderTxFromDelegated)
+	}
+}
+
+func TestTransactionPoolRejectsReservedQueuedSetCodeAuthority(t *testing.T) {
+	pool, key := setupTxPoolWithConfig(pragueTxPoolConfig())
+	defer pool.Stop()
+
+	authorityKey, _ := crypto.GenerateKey()
+	authority := crypto.PubkeyToAddress(authorityKey.PublicKey)
+	authorityTx := transaction(1, params.TxGas, authorityKey)
+	testAddBalance(pool, authority, big.NewInt(1_000_000_000))
+	if err := pool.AddRemote(authorityTx); err != nil {
+		t.Fatalf("authority queued tx AddRemote error = %v", err)
+	}
+
+	auth, err := types.SignSetCode(authorityKey, types.SetCodeAuthorization{
+		ChainID: params.TestChainConfig.ChainID,
+		Address: common.HexToAddress("0x5678"),
+		Nonce:   0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := setCodeTx(0, params.TxGas+params.CallNewAccountGas, key, []types.SetCodeAuthorization{auth})
+	from, _ := types.Sender(types.NewPragueSigner(params.TestChainConfig.ChainID), tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrAuthorityReserved) {
+		t.Fatalf("reserved authority AddRemote error = %v, want %v", err, ErrAuthorityReserved)
+	}
+}
+
+func TestTransactionPoolRejectsDuplicateSetCodeAuthority(t *testing.T) {
+	pool, firstKey := setupTxPoolWithConfig(pragueTxPoolConfig())
+	defer pool.Stop()
+
+	authorityKey, _ := crypto.GenerateKey()
+	auth, err := types.SignSetCode(authorityKey, types.SetCodeAuthorization{
+		ChainID: params.TestChainConfig.ChainID,
+		Address: common.HexToAddress("0x5678"),
+		Nonce:   0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstTx := setCodeTx(0, params.TxGas+params.CallNewAccountGas, firstKey, []types.SetCodeAuthorization{auth})
+	firstFrom, _ := types.Sender(types.NewPragueSigner(params.TestChainConfig.ChainID), firstTx)
+	testAddBalance(pool, firstFrom, big.NewInt(1_000_000_000))
+	if err := pool.AddRemote(firstTx); err != nil {
+		t.Fatalf("first set-code AddRemote error = %v", err)
+	}
+
+	secondKey, _ := crypto.GenerateKey()
+	secondTx := setCodeTx(0, params.TxGas+params.CallNewAccountGas, secondKey, []types.SetCodeAuthorization{auth})
+	secondFrom, _ := types.Sender(types.NewPragueSigner(params.TestChainConfig.ChainID), secondTx)
+	testAddBalance(pool, secondFrom, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(secondTx); !errors.Is(err, ErrAuthorityReserved) {
+		t.Fatalf("duplicate authority AddRemote error = %v, want %v", err, ErrAuthorityReserved)
 	}
 }
 
@@ -469,7 +638,7 @@ func TestTransactionPoolDropsPreShanghaiPendingInitcodeAfterActivation(t *testin
 	defer pool.Stop()
 
 	data := make([]byte, 33)
-	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	preShanghaiGas, err := IntrinsicGas(data, nil, nil, true, true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -507,7 +676,7 @@ func TestTransactionPoolDropsPreShanghaiQueuedInitcodeAfterActivation(t *testing
 	defer pool.Stop()
 
 	data := make([]byte, 33)
-	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	preShanghaiGas, err := IntrinsicGas(data, nil, nil, true, true, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

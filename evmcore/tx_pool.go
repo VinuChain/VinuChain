@@ -63,6 +63,14 @@ var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
+	// ErrOutOfOrderTxFromDelegated is returned when a delegated account tries
+	// to pool more than its next executable transaction.
+	ErrOutOfOrderTxFromDelegated = errors.New("gapped-nonce tx from delegated account")
+
+	// ErrAuthorityReserved is returned when a set-code transaction authorizes
+	// an account that is already reserved by pooled transactions.
+	ErrAuthorityReserved = errors.New("authority already reserved")
+
 	// ErrUnderpriced is returned if a transaction's gas price is below the minimum
 	// configured for the transaction pool.
 	ErrUnderpriced = errors.New("transaction underpriced")
@@ -240,6 +248,7 @@ type TxPool struct {
 	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
 	eip1559  bool // Fork indicator whether we are using EIP-1559 type transactions.
 	shanghai bool // Fork indicator whether Shanghai transaction validation is active.
+	prague   bool // Fork indicator whether Prague/EIP-7702 transaction validation is active.
 
 	currentState  *state.StateDB // Current state in the blockchain head
 	pendingNonces *txNoncer      // Pending state tracking virtual nonces
@@ -606,6 +615,20 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if !pool.eip1559 && tx.Type() == types.DynamicFeeTxType {
 		return ErrTxTypeNotSupported
 	}
+	if tx.Type() == types.BlobTxType {
+		return ErrTxTypeNotSupported
+	}
+	if tx.Type() == types.SetCodeTxType && !pool.prague {
+		return ErrTxTypeNotSupported
+	}
+	if tx.Type() == types.SetCodeTxType {
+		if len(tx.SetCodeAuthorizations()) == 0 {
+			return ErrEmptyAuthList
+		}
+		if tx.To() == nil {
+			return ErrSetCodeTxCreate
+		}
+	}
 	// Reject transactions over defined size to prevent DOS attacks
 	if uint64(tx.Size()) > txMaxSize {
 		return ErrOversizedData
@@ -653,6 +676,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
 	}
+	if err := pool.validateSetCodePoolPolicy(from, tx); err != nil {
+		return err
+	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
@@ -664,11 +690,74 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	return nil
 }
 
+func (pool *TxPool) validateSetCodePoolPolicy(from common.Address, tx *types.Transaction) error {
+	if codeHash := pool.currentState.GetCodeHash(from); codeHash != emptyCodeHash && codeHash != (common.Hash{}) {
+		if !pool.prague {
+			return ErrSenderNoEOA
+		}
+		if _, ok := types.ParseDelegation(pool.currentState.GetCode(from)); !ok {
+			return ErrSenderNoEOA
+		}
+		if tx.Nonce() > pool.currentState.GetNonce(from) {
+			return ErrOutOfOrderTxFromDelegated
+		}
+		if list := pool.pending[from]; list != nil && list.Len() > 0 && !list.Overlaps(tx) {
+			return ErrOutOfOrderTxFromDelegated
+		}
+		if list := pool.queue[from]; list != nil && list.Len() > 0 && !list.Overlaps(tx) {
+			return ErrOutOfOrderTxFromDelegated
+		}
+	}
+	if tx.Type() != types.SetCodeTxType {
+		return nil
+	}
+	seen := make(map[common.Address]struct{})
+	for _, auth := range tx.SetCodeAuthorizations() {
+		authority, err := auth.Authority()
+		if err != nil {
+			continue
+		}
+		if _, ok := seen[authority]; ok {
+			continue
+		}
+		seen[authority] = struct{}{}
+		if list := pool.pending[authority]; list != nil && list.Len() > 1 {
+			return ErrAuthorityReserved
+		}
+		if list := pool.queue[authority]; list != nil && list.Len() > 0 {
+			return ErrAuthorityReserved
+		}
+		if pool.hasSetCodeAuthority(authority, from, tx.Nonce()) {
+			return ErrAuthorityReserved
+		}
+	}
+	return nil
+}
+
+func (pool *TxPool) hasSetCodeAuthority(authority common.Address, sender common.Address, nonce uint64) bool {
+	var found bool
+	pool.all.Range(func(_ common.Hash, pooled *types.Transaction, _ bool) bool {
+		pooledSender, err := types.Sender(pool.signer, pooled)
+		if err == nil && pooledSender == sender && pooled.Nonce() == nonce {
+			return true
+		}
+		for _, auth := range pooled.SetCodeAuthorizations() {
+			pooledAuthority, err := auth.Authority()
+			if err == nil && pooledAuthority == authority {
+				found = true
+				return false
+			}
+		}
+		return true
+	}, true, true)
+	return found
+}
+
 func (pool *TxPool) validateTxIntrinsic(tx *types.Transaction) error {
 	if pool.shanghai && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
 		return ErrMaxInitCodeSizeExceeded
 	}
-	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, pool.istanbul, pool.shanghai)
+	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.SetCodeAuthorizations(), tx.To() == nil, true, pool.istanbul, pool.shanghai)
 	if err != nil {
 		return err
 	}
@@ -1336,17 +1425,24 @@ func (pool *TxPool) reset(oldHead, newHead *EvmHeader) {
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
 	pool.shanghai = pool.chainconfig.IsShanghai(next)
+	pool.prague = pool.chainconfig.IsPrague(next)
 	pool.dropShanghaiInvalidTxs()
 }
 
 func (pool *TxPool) validateShanghaiTx(tx *types.Transaction) error {
+	if tx.Type() == types.SetCodeTxType && !pool.prague {
+		return ErrTxTypeNotSupported
+	}
+	if tx.Type() == types.SetCodeTxType && len(tx.SetCodeAuthorizations()) == 0 {
+		return ErrEmptyAuthList
+	}
 	if !pool.shanghai || tx.To() != nil {
 		return nil
 	}
 	if len(tx.Data()) > params.MaxInitCodeSize {
 		return ErrMaxInitCodeSizeExceeded
 	}
-	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), true, true, pool.istanbul, true)
+	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.SetCodeAuthorizations(), true, true, pool.istanbul, true)
 	if err != nil {
 		return err
 	}
