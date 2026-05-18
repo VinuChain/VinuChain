@@ -105,27 +105,34 @@ func (s *stubStateDB) GetCommittedState(common.Address, common.Hash) common.Hash
 	return common.Hash{}
 }
 
-func (s *stubStateDB) CreateAccount(common.Address)                          {}
-func (s *stubStateDB) AddRefund(uint64)                                      {}
-func (s *stubStateDB) SubRefund(uint64)                                      {}
-func (s *stubStateDB) GetRefund() uint64                                     { return 0 }
-func (s *stubStateDB) Suicide(common.Address) bool                           { return false }
-func (s *stubStateDB) HasSuicided(common.Address) bool                       { return false }
-func (s *stubStateDB) Exist(common.Address) bool                             { return true }
-func (s *stubStateDB) Empty(common.Address) bool                             { return false }
-func (s *stubStateDB) RevertToSnapshot(int)                                  {}
-func (s *stubStateDB) Snapshot() int                                         { return 0 }
-func (s *stubStateDB) AddLog(*types.Log)                                     {}
-func (s *stubStateDB) AddPreimage(common.Hash, []byte)                       {}
+func (s *stubStateDB) GetTransientState(common.Address, common.Hash) common.Hash {
+	return common.Hash{}
+}
+
+func (s *stubStateDB) SetTransientState(common.Address, common.Hash, common.Hash) {}
+
+func (s *stubStateDB) CreateAccount(common.Address)                 {}
+func (s *stubStateDB) AddRefund(uint64)                             {}
+func (s *stubStateDB) SubRefund(uint64)                             {}
+func (s *stubStateDB) GetRefund() uint64                            { return 0 }
+func (s *stubStateDB) Suicide(common.Address) bool                  { return false }
+func (s *stubStateDB) HasSuicided(common.Address) bool              { return false }
+func (s *stubStateDB) CreatedInThisTransaction(common.Address) bool { return false }
+func (s *stubStateDB) Exist(common.Address) bool                    { return true }
+func (s *stubStateDB) Empty(common.Address) bool                    { return false }
+func (s *stubStateDB) RevertToSnapshot(int)                         {}
+func (s *stubStateDB) Snapshot() int                                { return 0 }
+func (s *stubStateDB) AddLog(*types.Log)                            {}
+func (s *stubStateDB) AddPreimage(common.Hash, []byte)              {}
 func (s *stubStateDB) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) error {
 	return nil
 }
 func (s *stubStateDB) PrepareAccessList(common.Address, *common.Address, []common.Address, types.AccessList) {
 }
-func (s *stubStateDB) AddressInAccessList(common.Address) bool                        { return false }
-func (s *stubStateDB) SlotInAccessList(common.Address, common.Hash) (bool, bool)      { return false, false }
-func (s *stubStateDB) AddAddressToAccessList(common.Address)                          {}
-func (s *stubStateDB) AddSlotToAccessList(common.Address, common.Hash)                {}
+func (s *stubStateDB) AddressInAccessList(common.Address) bool                   { return false }
+func (s *stubStateDB) SlotInAccessList(common.Address, common.Hash) (bool, bool) { return false, false }
+func (s *stubStateDB) AddAddressToAccessList(common.Address)                     {}
+func (s *stubStateDB) AddSlotToAccessList(common.Address, common.Hash)           {}
 
 var (
 	driverAddr = driver.ContractAddress

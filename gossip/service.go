@@ -317,9 +317,13 @@ func newService(config Config, store *Store, blockProc BlockProc, engine lachesi
 			log.Info("Staged Shanghai upgrade from binary rules; will activate at next epoch seal")
 		}
 		if hardcoded.Upgrades.Cancun && !pending.Upgrades.Cancun {
-			pending.Upgrades.Cancun = true
-			changed = true
-			log.Info("Staged Cancun upgrade from binary rules; will activate at next epoch seal")
+			if es.Rules.Upgrades.Shanghai {
+				pending.Upgrades.Cancun = true
+				changed = true
+				log.Info("Staged Cancun upgrade from binary rules; will activate at next epoch seal")
+			} else {
+				log.Info("Deferring Cancun upgrade from binary rules until Shanghai is active")
+			}
 		}
 		if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {
 			pending.Upgrades.SfcV2Patch = true

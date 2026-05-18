@@ -121,6 +121,11 @@ func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key
 	return tx
 }
 
+func pricedContractCreation(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, data []byte) *types.Transaction {
+	tx, _ := types.SignTx(types.NewContractCreation(nonce, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner{}, key)
+	return tx
+}
+
 func dynamicFeeTx(nonce uint64, gaslimit uint64, gasFee *big.Int, tip *big.Int, key *ecdsa.PrivateKey) *types.Transaction {
 	tx, _ := types.SignNewTx(key, types.LatestSignerForChainID(params.TestChainConfig.ChainID), &types.DynamicFeeTx{
 		ChainID:    params.TestChainConfig.ChainID,
@@ -403,6 +408,53 @@ func TestTransactionNegativeValue(t *testing.T) {
 	testAddBalance(pool, from, big.NewInt(1))
 	if err := pool.AddRemote(tx); err != ErrNegativeValue {
 		t.Error("expected", ErrNegativeValue, "got", err)
+	}
+}
+
+func TestTransactionPoolShanghaiRejectsOversizedInitcode(t *testing.T) {
+	t.Parallel()
+
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	tx := pricedContractCreation(0, 1_000_000, big.NewInt(1), key, make([]byte, params.MaxInitCodeSize+1))
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrMaxInitCodeSizeExceeded) {
+		t.Fatalf("expected %v, got %v", ErrMaxInitCodeSizeExceeded, err)
+	}
+}
+
+func TestTransactionPoolShanghaiMetersInitcodeGas(t *testing.T) {
+	t.Parallel()
+
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	pool, key := setupTxPoolWithConfig(&cfg)
+	defer pool.Stop()
+
+	data := make([]byte, 33)
+	preShanghaiGas, err := IntrinsicGas(data, nil, true, true, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := pricedContractCreation(0, preShanghaiGas, big.NewInt(1), key, data)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, big.NewInt(1_000_000_000))
+
+	if err := pool.AddRemote(tx); !errors.Is(err, ErrIntrinsicGas) {
+		t.Fatalf("expected %v, got %v", ErrIntrinsicGas, err)
 	}
 }
 

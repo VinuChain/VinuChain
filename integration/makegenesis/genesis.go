@@ -137,6 +137,8 @@ func (d dummyHeaderReturner) GetHeader(common.Hash, uint64) *evmcore.EvmHeader {
 
 func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types.Transactions) error {
 	bs, es := b.currentEpoch.BlockState.Copy(), b.currentEpoch.EpochState.Copy()
+	genesisUpgrades := es.Rules.Upgrades
+	genesisUpgrades.Cancun = false
 
 	blockCtx := iblockproc.BlockCtx{
 		Idx:     bs.LastBlock.Idx + 1,
@@ -162,7 +164,11 @@ func (b *GenesisBuilder) ExecuteGenesisTxs(blockProc BlockProc, genesisTxs types
 		txListener.OnNewLog(l)
 	}, es.Rules, opera.DefaultVMConfig, es.Rules.EvmChainConfig([]opera.UpgradeHeight{
 		{
-			Upgrades: es.Rules.Upgrades,
+			// Genesis bootstrapping relies on NetworkInitializer removing
+			// itself with SELFDESTRUCT. EIP-6780 would preserve predeployed
+			// code, so synthetic genesis tx execution must stay pre-Cancun
+			// even when the resulting network rules have Cancun active.
+			Upgrades: genesisUpgrades,
 			Height:   0,
 		},
 	}), &pc, es.Epoch)

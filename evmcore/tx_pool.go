@@ -239,6 +239,7 @@ type TxPool struct {
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
 	eip1559  bool // Fork indicator whether we are using EIP-1559 type transactions.
+	shanghai bool // Fork indicator whether Shanghai transaction validation is active.
 
 	currentState  *state.StateDB // Current state in the blockchain head
 	pendingNonces *txNoncer      // Pending state tracking virtual nonces
@@ -658,7 +659,10 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInsufficientFunds
 	}
 	// Ensure the transaction has more gas than the basic tx fee.
-	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil)
+	if pool.shanghai && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
+		return ErrMaxInitCodeSizeExceeded
+	}
+	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, pool.istanbul, pool.shanghai)
 	if err != nil {
 		return err
 	}
@@ -1325,6 +1329,7 @@ func (pool *TxPool) reset(oldHead, newHead *EvmHeader) {
 	pool.istanbul = pool.chainconfig.IsIstanbul(next)
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
+	pool.shanghai = pool.chainconfig.IsShanghai(next)
 }
 
 // promoteExecutables moves transactions that have become processable from the
@@ -1621,7 +1626,6 @@ func (as *accountSet) contains(addr common.Address) bool {
 	_, exist := as.accounts[addr]
 	return exist
 }
-
 
 // containsTx checks if the sender of a given tx is within the set. If the sender
 // cannot be derived, this method returns false.

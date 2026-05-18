@@ -1,6 +1,7 @@
 package evmcore
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -16,6 +17,112 @@ import (
 type minimalDummyChain struct{}
 
 func (minimalDummyChain) GetHeader(_ common.Hash, _ uint64) *EvmHeader { return nil }
+
+func shanghaiTestChainConfig() *params.ChainConfig {
+	cfg := *params.TestChainConfig
+	cfg.HomesteadBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	cfg.CancunBlock = nil
+	return &cfg
+}
+
+func TestIntrinsicGasEIP3860AddsInitcodeWordCost(t *testing.T) {
+	data := make([]byte, 33)
+
+	preShanghai, err := IntrinsicGas(data, nil, true, true, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shanghai, err := IntrinsicGas(data, nil, true, true, true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := preShanghai + 2*params.InitCodeWordGas
+	if shanghai != want {
+		t.Fatalf("Shanghai intrinsic gas = %d, want %d", shanghai, want)
+	}
+}
+
+func TestTransitionDbShanghaiRejectsOversizedInitcode(t *testing.T) {
+	const gasLimit = uint64(1_000_000)
+	sender := common.HexToAddress("0x1111")
+
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statedb.SetBalance(sender, big.NewInt(1_000_000_000))
+
+	header := &EvmHeader{
+		Number:   big.NewInt(1),
+		GasLimit: gasLimit,
+		BaseFee:  big.NewInt(0),
+	}
+	evm := vm.NewEVM(NewEVMBlockContext(header, minimalDummyChain{}, nil), vm.TxContext{}, statedb, shanghaiTestChainConfig(), vm.Config{})
+	msg := types.NewMessage(
+		sender,
+		nil,
+		0,
+		big.NewInt(0),
+		gasLimit,
+		big.NewInt(1),
+		nil,
+		nil,
+		make([]byte, params.MaxInitCodeSize+1),
+		nil,
+		true,
+	)
+
+	_, err = ApplyMessage(evm, msg, new(GasPool).AddGas(gasLimit), nil)
+	if !errors.Is(err, ErrMaxInitCodeSizeExceeded) {
+		t.Fatalf("ApplyMessage error = %v, want %v", err, ErrMaxInitCodeSizeExceeded)
+	}
+}
+
+func TestTransitionDbShanghaiWarmsCoinbase(t *testing.T) {
+	const gasLimit = uint64(100_000)
+	sender := common.HexToAddress("0x1111")
+	receiver := common.HexToAddress("0x2222")
+	coinbase := common.HexToAddress("0xc0de")
+
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statedb.SetBalance(sender, big.NewInt(1_000_000_000))
+
+	header := &EvmHeader{
+		Number:   big.NewInt(1),
+		GasLimit: gasLimit,
+		BaseFee:  big.NewInt(0),
+		Coinbase: coinbase,
+	}
+	evm := vm.NewEVM(NewEVMBlockContext(header, minimalDummyChain{}, nil), vm.TxContext{}, statedb, shanghaiTestChainConfig(), vm.Config{})
+	msg := types.NewMessage(
+		sender,
+		&receiver,
+		0,
+		big.NewInt(0),
+		gasLimit,
+		big.NewInt(1),
+		nil,
+		nil,
+		nil,
+		nil,
+		true,
+	)
+
+	if _, err := ApplyMessage(evm, msg, new(GasPool).AddGas(gasLimit), nil); err != nil {
+		t.Fatalf("ApplyMessage: %v", err)
+	}
+	if !statedb.AddressInAccessList(coinbase) {
+		t.Fatalf("coinbase %s was not warmed under Shanghai rules", coinbase)
+	}
+}
 
 // TestFeeRefundBoundaries verifies that refundGas computes
 // feeRefund = min(fee, availableQuota) across all boundary cases.
@@ -66,14 +173,14 @@ func TestFeeRefundBoundaries(t *testing.T) {
 			msg := types.NewMessage(
 				sender,
 				&receiver,
-				0,               // nonce (isFake skips nonce check)
-				big.NewInt(0),   // value
+				0,             // nonce (isFake skips nonce check)
+				big.NewInt(0), // value
 				gasLimit,
 				big.NewInt(gasPrice),
-				nil, // gasFeeCap (legacy tx)
-				nil, // gasTipCap (legacy tx)
-				nil, // data
-				nil, // accessList
+				nil,  // gasFeeCap (legacy tx)
+				nil,  // gasTipCap (legacy tx)
+				nil,  // data
+				nil,  // accessList
 				true, // isFake: skip nonce/signature validation
 			)
 

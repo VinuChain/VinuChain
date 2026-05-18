@@ -2,6 +2,7 @@ package opera
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -68,6 +69,21 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 	require.Equal(t, uint64(1<<14), uint64(sfcV2Patch6Bit), "sfcV2Patch6Bit must be 1<<14 (next free bit after paybackV2PatchBit)")
 	require.Equal(t, uint64(1<<15), uint64(shanghaiBit), "shanghaiBit must be 1<<15 (next free bit after sfcV2Patch6Bit)")
 	require.Equal(t, uint64(1<<16), uint64(cancunBit), "cancunBit must be 1<<16 (next free bit after shanghaiBit)")
+}
+
+func TestEthereumForkBitsKnownRLP(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, rlp.Encode(&buf, &Upgrades{Shanghai: true, Cancun: true}),
+		"encode must succeed")
+	require.Equal(t, "c483018000", hex.EncodeToString(buf.Bytes()),
+		"Shanghai/Cancun bitmap wire shape must stay stable")
+
+	var decoded Upgrades
+	require.NoError(t, rlp.DecodeBytes(buf.Bytes(), &decoded),
+		"decode must succeed against the fixture bytes")
+	require.True(t, decoded.Shanghai, "Shanghai must decode from bit 1<<15")
+	require.True(t, decoded.Cancun, "Cancun must decode from bit 1<<16")
+	require.False(t, decoded.PaybackV2, "PaybackV2 must not decode from Shanghai/Cancun bits")
 }
 
 // TestPaybackV2_MainnetAndLegacyConstructorsStayFalse defends against an

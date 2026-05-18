@@ -118,10 +118,10 @@ func (result *ExecutionResult) Revert() []byte {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation bool) (uint64, error) {
+func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation bool, isHomestead, isEIP2028, isEIP3860 bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
 	var gas uint64
-	if isContractCreation {
+	if isContractCreation && isHomestead {
 		gas = params.TxGasContractCreation
 	} else {
 		gas = params.TxGas
@@ -136,16 +136,28 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 			}
 		}
 		// Make sure we don't exceed uint64 for all data combinations
-		if (math.MaxUint64-gas)/params.TxDataNonZeroGasEIP2028 < nz {
-			return 0, vm.ErrOutOfGas
+		nonZeroGas := params.TxDataNonZeroGasFrontier
+		if isEIP2028 {
+			nonZeroGas = params.TxDataNonZeroGasEIP2028
 		}
-		gas += nz * params.TxDataNonZeroGasEIP2028
+		if (math.MaxUint64-gas)/nonZeroGas < nz {
+			return 0, ErrGasUintOverflow
+		}
+		gas += nz * nonZeroGas
 
 		z := uint64(len(data)) - nz
 		if (math.MaxUint64-gas)/params.TxDataZeroGas < z {
 			return 0, ErrGasUintOverflow
 		}
 		gas += z * params.TxDataZeroGas
+
+		if isContractCreation && isEIP3860 {
+			lenWords := (uint64(len(data)) + 31) / 32
+			if (math.MaxUint64-gas)/params.InitCodeWordGas < lenWords {
+				return 0, ErrGasUintOverflow
+			}
+			gas += lenWords * params.InitCodeWordGas
+		}
 	}
 	if accessList != nil {
 		gas += uint64(len(accessList)) * params.TxAccessListAddressGas
@@ -273,10 +285,13 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	sender := vm.AccountRef(msg.From())
 	contractCreation := msg.To() == nil
 
+	homestead := st.evm.ChainConfig().IsHomestead(st.evm.Context.BlockNumber)
+	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.Context.BlockNumber)
 	london := st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber)
+	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.BlockNumber)
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation)
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, homestead, istanbul, shanghai)
 	if err != nil {
 		return nil, err
 	}
@@ -285,9 +300,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 	st.gas -= gas
 
+	if shanghai && contractCreation && len(st.data) > params.MaxInitCodeSize {
+		return nil, fmt.Errorf("%w: code size %v limit %v", ErrMaxInitCodeSizeExceeded, len(st.data), params.MaxInitCodeSize)
+	}
+
 	// Set up the initial access list.
 	if rules := st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber); rules.IsBerlin {
 		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+		if rules.IsShanghai {
+			st.state.AddAddressToAccessList(st.evm.Context.Coinbase)
+		}
 	}
 
 	var (

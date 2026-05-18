@@ -62,6 +62,10 @@ var (
 	// than required to start the invocation.
 	ErrIntrinsicGas = errors.New("intrinsic gas too low")
 
+	// ErrMaxInitCodeSizeExceeded is returned if a creation transaction provides
+	// initcode longer than the Shanghai/EIP-3860 limit.
+	ErrMaxInitCodeSizeExceeded = errors.New("max initcode size exceeded")
+
 	// ErrTxTypeNotSupported is returned if a transaction is not supported in the
 	// current network configuration.
 	ErrTxTypeNotSupported = types.ErrTxTypeNotSupported

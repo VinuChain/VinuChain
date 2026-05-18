@@ -45,6 +45,20 @@ func newPreElemontTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *te
 	rules.Upgrades.Podgorica = false
 	rules.Upgrades.Elemont = false
 
+	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
+}
+
+func newPreShanghaiCancunTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *testEnv {
+	rules := opera.VinuChainTestNetRules()
+	rules.Epochs.MaxEpochDuration = inter.Timestamp(maxEpochDuration)
+	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
+	rules.Upgrades.Shanghai = false
+	rules.Upgrades.Cancun = false
+
+	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
+}
+
+func newRuntimeActivationTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator, rules opera.Rules) *testEnv {
 	genStore := makefakegenesis.FakeGenesisStoreWithRulesAndStart(
 		validatorsNum,
 		utils.ToVC(genesisBalance),
@@ -111,6 +125,16 @@ func newPreElemontTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *te
 	env.verWatcher.Start()
 
 	return env
+}
+
+func sealTestEpoch(t *testing.T, env *testEnv) {
+	t.Helper()
+	admin := idx.ValidatorID(1)
+	other := idx.ValidatorID(2)
+	_, err := env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
 }
 
 // TestSfcV2BytecodeSwapAfterRuntimeActivation pins the runtime activation
@@ -229,12 +253,7 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 	// The full pipeline: drive blocks through the seal and assert the
 	// bytecode swap still fires (the staged flags survived).
 	v2Bin := sfc.GetLatestContractBin()
-	admin := idx.ValidatorID(1)
-	other := idx.ValidatorID(2)
-	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
-	require.NoError(t, err)
-	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
-	require.NoError(t, err)
+	sealTestEpoch(t, env)
 
 	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
 	require.NoError(t, err)
@@ -244,6 +263,60 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 	postSealEs := env.store.GetEpochState()
 	require.True(t, postSealEs.Rules.Upgrades.SfcV2,
 		"stored epoch state SfcV2 must be true after the seal")
+}
+
+// TestRuntimeActivationSequencesShanghaiBeforeCancun pins the skipped-binary
+// path for EVM fork activation. A node that boots a post-Cancun binary from
+// pre-Shanghai stored rules must not activate Shanghai and Cancun at the same
+// epoch seal; Cancun is staged only after Shanghai is already active.
+func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
+	logger.SetTestMode(t)
+
+	env := newPreShanghaiCancunTestEnv(2, 3)
+	defer env.Close()
+
+	bs := env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"newService must stage DirtyRules from hardcoded testnet binary rules")
+	require.True(t, bs.DirtyRules.Upgrades.Shanghai,
+		"Shanghai must stage first on a pre-Shanghai datadir")
+	require.False(t, bs.DirtyRules.Upgrades.Cancun,
+		"Cancun must not stage until Shanghai is active")
+
+	sealTestEpoch(t, env)
+	postShanghai := env.store.GetEpochState()
+	require.True(t, postShanghai.Rules.Upgrades.Shanghai,
+		"Shanghai must be active after the first seal")
+	require.False(t, postShanghai.Rules.Upgrades.Cancun,
+		"Cancun must remain inactive at the Shanghai activation seal")
+
+	store := env.store
+	blockProc := DefaultBlockProc()
+	blockProc.EventsModule = testConfirmedEventsModule{blockProc.EventsModule, env}
+	engine, vecClock := makeTestEngine(store)
+	txPool := &dummyTxPool{}
+	_, err := newService(DefaultConfig(cachescale.Identity), store, blockProc, engine, vecClock, func(_ evmcore.StateReader) TxPool {
+		return txPool
+	})
+	require.NoError(t, err)
+
+	bs = env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"second boot after Shanghai seal must stage Cancun")
+	require.True(t, bs.DirtyRules.Upgrades.Cancun,
+		"Cancun must stage once Shanghai is active")
+
+	sealTestEpoch(t, env)
+	postCancun := env.store.GetEpochState()
+	require.True(t, postCancun.Rules.Upgrades.Shanghai)
+	require.True(t, postCancun.Rules.Upgrades.Cancun,
+		"Cancun must be active after the second seal")
+
+	cfg := postCancun.Rules.EvmChainConfig(env.store.GetUpgradeHeights())
+	require.NotNil(t, cfg.ShanghaiBlock)
+	require.NotNil(t, cfg.CancunBlock)
+	require.Less(t, cfg.ShanghaiBlock.Uint64(), cfg.CancunBlock.Uint64(),
+		"Shanghai and Cancun activation heights must remain ordered")
 }
 
 // TestRuntimeActivationIdempotentAcrossRestart pins the multi-restart
