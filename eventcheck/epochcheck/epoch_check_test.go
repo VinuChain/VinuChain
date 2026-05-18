@@ -2,14 +2,17 @@ package epochcheck
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/Fantom-foundation/go-opera/eventcheck/basiccheck"
 	"github.com/Fantom-foundation/go-opera/evmcore"
+	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/opera"
 )
 
@@ -45,5 +48,18 @@ func TestCheckTxsShanghaiMetersInitcodeGas(t *testing.T) {
 	rules.Upgrades.Shanghai = false
 	if err := CheckTxs(types.Transactions{tx}, rules); err != nil {
 		t.Fatalf("pre-Shanghai CheckTxs error = %v", err)
+	}
+}
+
+func TestCalcGasPowerUsedSaturatesTxGasOverflow(t *testing.T) {
+	rules := shanghaiCheckRules()
+	e := &inter.MutableEventPayload{}
+	e.SetTxs(types.Transactions{
+		types.NewTransaction(0, common.Address{}, big.NewInt(0), math.MaxUint64-1, big.NewInt(0), nil),
+		types.NewTransaction(1, common.Address{}, big.NewInt(0), 10, big.NewInt(0), nil),
+	})
+
+	if got := CalcGasPowerUsed(e, rules); got != math.MaxUint64 {
+		t.Fatalf("CalcGasPowerUsed = %d, want saturated %d", got, uint64(math.MaxUint64))
 	}
 }

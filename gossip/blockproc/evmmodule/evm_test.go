@@ -1,6 +1,7 @@
 package evmmodule
 
 import (
+	"crypto/ecdsa"
 	"math"
 	"math/big"
 	"testing"
@@ -11,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
@@ -99,6 +102,49 @@ func newStartedProcessor(t *testing.T, blockIdx idx.Block, rules opera.Rules, ch
 	op, ok := p.(*OperaEVMProcessor)
 	require.True(t, ok, "Start must return an *OperaEVMProcessor")
 	return op, sdb
+}
+
+func forkTestRules(shanghai, cancun bool) opera.Rules {
+	rules := opera.VinuChainTestNetRules()
+	rules.Upgrades.Shanghai = shanghai
+	rules.Upgrades.Cancun = cancun
+	rules.Economy.MinGasPrice = big.NewInt(1)
+	return rules
+}
+
+func fundedSender(t *testing.T, sdb *state.StateDB) (*ecdsa.PrivateKey, common.Address) {
+	t.Helper()
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	sdb.SetBalance(addr, big.NewInt(1_000_000_000_000_000_000))
+	return key, addr
+}
+
+func signCreationTx(t *testing.T, p *OperaEVMProcessor, key *ecdsa.PrivateKey, nonce uint64, code []byte) *types.Transaction {
+	t.Helper()
+	tx := types.NewContractCreation(nonce, big.NewInt(0), 1_000_000, p.net.Economy.MinGasPrice, code)
+	signed, err := types.SignTx(tx, types.MakeSigner(p.evmCfg, p.blockIdx), key)
+	require.NoError(t, err)
+	return signed
+}
+
+func signCallTx(t *testing.T, p *OperaEVMProcessor, key *ecdsa.PrivateKey, nonce uint64, to common.Address) *types.Transaction {
+	t.Helper()
+	tx := types.NewTransaction(nonce, to, big.NewInt(0), 1_000_000, p.net.Economy.MinGasPrice, nil)
+	signed, err := types.SignTx(tx, types.MakeSigner(p.evmCfg, p.blockIdx), key)
+	require.NoError(t, err)
+	return signed
+}
+
+func executeSingleTx(t *testing.T, p *OperaEVMProcessor, tx *types.Transaction) *types.Receipt {
+	t.Helper()
+	receipts := p.Execute(types.Transactions{tx})
+	_, skipped, finalReceipts := p.Finalize()
+	require.Empty(t, skipped)
+	require.Len(t, receipts, 1)
+	require.Len(t, finalReceipts, 1)
+	return finalReceipts[0]
 }
 
 // --- Module construction --------------------------------------------------
@@ -216,4 +262,103 @@ func TestExecute_EmptyTxList_DoesNotPanic(t *testing.T) {
 		receipts := p.Execute(nil)
 		require.Empty(t, receipts)
 	})
+}
+
+func TestExecuteShanghaiPush0ThroughProcessor(t *testing.T) {
+	initcode := []byte{byte(vm.PUSH0), byte(vm.PUSH0), byte(vm.RETURN)}
+
+	preShanghai, preState := newStartedProcessor(t, idx.Block(0), forkTestRules(false, false), newStubChain())
+	preKey, _ := fundedSender(t, preState)
+	preReceipt := executeSingleTx(t, preShanghai, signCreationTx(t, preShanghai, preKey, 0, initcode))
+	require.Equal(t, types.ReceiptStatusFailed, preReceipt.Status,
+		"PUSH0 must fail before Shanghai when executed through the VinuChain processor")
+
+	shanghai, shanghaiState := newStartedProcessor(t, idx.Block(0), forkTestRules(true, false), newStubChain())
+	shanghaiKey, _ := fundedSender(t, shanghaiState)
+	shanghaiReceipt := executeSingleTx(t, shanghai, signCreationTx(t, shanghai, shanghaiKey, 0, initcode))
+	require.Equal(t, types.ReceiptStatusSuccessful, shanghaiReceipt.Status,
+		"PUSH0 must execute after Shanghai through the VinuChain processor")
+}
+
+func TestExecuteCancunTransientStorageThroughProcessor(t *testing.T) {
+	code := []byte{
+		byte(vm.PUSH1), 0x2a,
+		byte(vm.PUSH1), 0x01,
+		byte(vm.TSTORE),
+		byte(vm.PUSH1), 0x01,
+		byte(vm.TLOAD),
+		byte(vm.PUSH0),
+		byte(vm.MSTORE),
+		byte(vm.STOP),
+	}
+
+	preCancun, preState := newStartedProcessor(t, idx.Block(0), forkTestRules(true, false), newStubChain())
+	preKey, _ := fundedSender(t, preState)
+	contract := common.HexToAddress("0x100")
+	preState.SetCode(contract, code)
+	preReceipt := executeSingleTx(t, preCancun, signCallTx(t, preCancun, preKey, 0, contract))
+	require.Equal(t, types.ReceiptStatusFailed, preReceipt.Status,
+		"TSTORE/TLOAD must fail before Cancun when executed through the VinuChain processor")
+
+	cancun, cancunState := newStartedProcessor(t, idx.Block(0), forkTestRules(true, true), newStubChain())
+	cancunKey, _ := fundedSender(t, cancunState)
+	cancunState.SetCode(contract, code)
+	cancunReceipt := executeSingleTx(t, cancun, signCallTx(t, cancun, cancunKey, 0, contract))
+	require.Equal(t, types.ReceiptStatusSuccessful, cancunReceipt.Status,
+		"TSTORE/TLOAD must execute after Cancun through the VinuChain processor")
+}
+
+func TestExecuteCancunMcopyThroughProcessor(t *testing.T) {
+	value := []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+	}
+	code := []byte{byte(vm.PUSH32)}
+	code = append(code, value...)
+	code = append(code,
+		byte(vm.PUSH1), 0x20,
+		byte(vm.MSTORE),
+		byte(vm.PUSH1), 0x20,
+		byte(vm.PUSH1), 0x20,
+		byte(vm.PUSH0),
+		byte(vm.MCOPY),
+		byte(vm.STOP),
+	)
+
+	preCancun, preState := newStartedProcessor(t, idx.Block(0), forkTestRules(true, false), newStubChain())
+	preKey, _ := fundedSender(t, preState)
+	contract := common.HexToAddress("0x101")
+	preState.SetCode(contract, code)
+	preReceipt := executeSingleTx(t, preCancun, signCallTx(t, preCancun, preKey, 0, contract))
+	require.Equal(t, types.ReceiptStatusFailed, preReceipt.Status,
+		"MCOPY must fail before Cancun when executed through the VinuChain processor")
+
+	cancun, cancunState := newStartedProcessor(t, idx.Block(0), forkTestRules(true, true), newStubChain())
+	cancunKey, _ := fundedSender(t, cancunState)
+	cancunState.SetCode(contract, code)
+	cancunReceipt := executeSingleTx(t, cancun, signCallTx(t, cancun, cancunKey, 0, contract))
+	require.Equal(t, types.ReceiptStatusSuccessful, cancunReceipt.Status,
+		"MCOPY must execute after Cancun through the VinuChain processor")
+}
+
+func TestExecuteCancunSelfdestructThroughProcessor(t *testing.T) {
+	cancun, sdb := newStartedProcessor(t, idx.Block(0), forkTestRules(true, true), newStubChain())
+	key, _ := fundedSender(t, sdb)
+	contract := common.HexToAddress("0x102")
+	beneficiary := common.HexToAddress("0x202")
+	code := append([]byte{byte(vm.PUSH20)}, beneficiary.Bytes()...)
+	code = append(code, byte(vm.SELFDESTRUCT))
+	sdb.SetCode(contract, code)
+	sdb.SetBalance(contract, big.NewInt(100))
+
+	receipt := executeSingleTx(t, cancun, signCallTx(t, cancun, key, 0, contract))
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+	require.Equal(t, 0, sdb.GetBalance(contract).Sign(),
+		"Cancun SELFDESTRUCT must transfer an existing contract balance")
+	require.Equal(t, 0, sdb.GetBalance(beneficiary).Cmp(big.NewInt(100)),
+		"Cancun SELFDESTRUCT must credit the beneficiary")
+	require.NotZero(t, sdb.GetCodeSize(contract),
+		"Cancun SELFDESTRUCT must preserve existing contract code")
 }

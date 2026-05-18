@@ -294,6 +294,12 @@ func (s *Service) mayCommit(epochSealing bool) {
 func (s *Service) commit(epochSealing bool) {
 	// s.engineMu is locked here
 	s.blockProcWg.Wait()
+	if epochSealing {
+		// Async block processing writes the sealing block state after EndBlock.
+		// Restage hardcoded follow-up upgrades after that write so DirtyRules
+		// cannot be lost by a transaction-bearing sealing block.
+		stageHardcodedUpgrades(s.store)
+	}
 	// if gcmode is full and snapsync is finalized, clean all the old state trie
 	// and commit the state trie at the current block
 	if !s.store.cfg.EVM.Cache.TrieDirtyDisabled && s.handler.syncStatus.AcceptEvents() {

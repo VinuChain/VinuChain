@@ -57,7 +57,7 @@ func safeAddU64(a, b uint64) uint64 {
 func CalcGasPowerUsed(e inter.EventPayloadI, rules opera.Rules) uint64 {
 	txsGas := uint64(0)
 	for _, tx := range e.Txs() {
-		txsGas += tx.Gas()
+		txsGas = safeAddU64(txsGas, tx.Gas())
 	}
 
 	gasCfg := rules.Economy.Gas

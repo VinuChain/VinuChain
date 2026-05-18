@@ -315,6 +315,29 @@ func TestRuntimeActivationSequencesShanghaiBeforeCancun(t *testing.T) {
 		"Shanghai and Cancun activation heights must remain ordered")
 }
 
+func TestCommitRestagesCancunAfterSealingBlockStateOverwrite(t *testing.T) {
+	logger.SetTestMode(t)
+
+	env := newPreShanghaiCancunTestEnv(2, 3)
+	defer env.Close()
+
+	bs, es := env.store.GetBlockEpochState()
+	es.Rules.Upgrades.Shanghai = true
+	es.Rules.Upgrades.Cancun = false
+	bs.DirtyRules = nil
+	env.store.SetBlockEpochState(bs, es)
+
+	env.commit(true)
+
+	bs = env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"epoch-sealing commit must restage follow-up hardcoded upgrades after block processing")
+	require.True(t, bs.DirtyRules.Upgrades.Shanghai,
+		"restaged rules must preserve already-active Shanghai")
+	require.True(t, bs.DirtyRules.Upgrades.Cancun,
+		"Cancun must be restaged if an async sealing block write cleared DirtyRules")
+}
+
 // TestRuntimeActivationIdempotentAcrossRestart pins the multi-restart
 // idempotency of the staging logic. The first newService call stages
 // SfcV2/Podgorica/Elemont into bs.DirtyRules. A second newService call on
