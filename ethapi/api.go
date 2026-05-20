@@ -1903,11 +1903,15 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
-	} // Print a log with full tx details for manual investigations and interventions
-	signer := gsignercache.Wrap(types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number))
+	}
+	// Print a log with full tx details for manual investigations and interventions.
+	// The tx has already been accepted by the backend, so sender recovery must not
+	// turn a successful submission into an RPC error at fork activation boundaries.
+	signer := gsignercache.Wrap(types.LatestSigner(b.ChainConfig()))
 	from, err := types.Sender(signer, tx)
 	if err != nil {
-		return common.Hash{}, err
+		log.Warn("Submitted transaction sender unavailable", "hash", tx.Hash().Hex(), "err", err)
+		return tx.Hash(), nil
 	}
 
 	if tx.To() == nil {
