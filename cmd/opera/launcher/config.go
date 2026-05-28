@@ -121,7 +121,7 @@ var (
 	RPCAllowUnprotectedTxsFlag = cli.BoolFlag{
 		Name: "rpc.allow-unprotected-txs",
 		Usage: "Allow pre-EIP-155 (replay-vulnerable) transactions over RPC. " +
-			"Refused on mainnet by gossip-layer guard. Testnet only.",
+			"Refused on mainnet (NetworkID 207) by the gossip-layer guard; for non-mainnet networks only.",
 	}
 
 	SyncModeFlag = cli.StringFlag{

@@ -9,8 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
+	"github.com/Fantom-foundation/go-opera/opera"
 )
 
 type submitTxBoundaryBackend struct {
@@ -88,6 +90,67 @@ func TestSubmitTransactionDoesNotReturnPostSubmitSenderRecoveryError(t *testing.
 	if backend.sent != tx {
 		t.Fatal("SubmitTransaction did not submit transaction to backend")
 	}
+}
+
+// rawArachnidDeployerTx is the canonical Arachnid deterministic-deployment-proxy
+// transaction (Nick's method). Duplicated from the opera package's allowlist test
+// so the ethapi call-site is pinned independently of the opera-level unit test.
+const rawArachnidDeployerTx = "f8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"
+
+func decodeArachnidDeployerTx(t *testing.T) *types.Transaction {
+	t.Helper()
+	tx := new(types.Transaction)
+	if err := rlp.DecodeBytes(common.FromHex(rawArachnidDeployerTx), tx); err != nil {
+		t.Fatalf("decode Arachnid deployer tx: %v", err)
+	}
+	if tx.Hash() != opera.ArachnidDeployerTxHash() {
+		t.Fatalf("decoded tx hash %s != pinned allowlist hash %s", tx.Hash(), opera.ArachnidDeployerTxHash())
+	}
+	return tx
+}
+
+// TestSubmitTransactionAdmitsArachnidDeployerOnlyOnMainnet pins the call-site
+// scoping of the unprotected-tx carve-out: the canonical Arachnid deployer is
+// admitted only when the chain is mainnet (NetworkID 207). On any other network
+// the carve-out is inert and an unprotected tx is refused unless the operator
+// has separately enabled AllowUnprotectedTxs (the stub backend keeps it off).
+// This guards against a refactor silently widening or inverting the
+// `mainnet && allowlisted` gate, which the pure opera-level test cannot catch.
+func TestSubmitTransactionAdmitsArachnidDeployerOnlyOnMainnet(t *testing.T) {
+	tx := decodeArachnidDeployerTx(t)
+	if tx.Protected() {
+		t.Fatal("Arachnid deployer tx must be unprotected (pre-EIP-155)")
+	}
+
+	t.Run("mainnet admits the canonical deployer", func(t *testing.T) {
+		cfg := submitTxChainConfig(big.NewInt(int64(opera.VinuChainMainNetworkID)))
+		backend := &submitTxBoundaryBackend{config: &cfg, block: submitTxBlock(common.Big0)}
+		got, err := SubmitTransaction(context.Background(), backend, tx)
+		if err != nil {
+			t.Fatalf("mainnet must admit the canonical Arachnid deployer: %v", err)
+		}
+		if got != tx.Hash() {
+			t.Fatalf("returned hash = %s, want %s", got, tx.Hash())
+		}
+		if backend.sent != tx {
+			t.Fatal("admitted tx was not forwarded to the backend")
+		}
+	})
+
+	t.Run("testnet refuses the same tx", func(t *testing.T) {
+		cfg := submitTxChainConfig(big.NewInt(206))
+		backend := &submitTxBoundaryBackend{config: &cfg, block: submitTxBlock(common.Big0)}
+		got, err := SubmitTransaction(context.Background(), backend, tx)
+		if err == nil {
+			t.Fatal("testnet must refuse the unprotected tx (carve-out is mainnet-only; the flag is off)")
+		}
+		if got != (common.Hash{}) {
+			t.Fatalf("refused tx must return zero hash, got %s", got)
+		}
+		if backend.sent != nil {
+			t.Fatal("refused tx must not be forwarded to the backend")
+		}
+	})
 }
 
 func submitTxChainConfig(chainID *big.Int) params.ChainConfig {

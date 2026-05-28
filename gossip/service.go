@@ -169,8 +169,8 @@ func NewService(stack *node.Node, config Config, store *Store, blockProc BlockPr
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	if config.AllowUnprotectedTxs && store.GetRules().NetworkID == opera.VinuChainMainNetworkID {
-		return nil, errors.New("AllowUnprotectedTxs cannot be enabled on mainnet (NetworkID 207)")
+	if err := checkUnprotectedTxsPolicy(config.AllowUnprotectedTxs, store.GetRules().NetworkID); err != nil {
+		return nil, err
 	}
 
 	svc, err := newService(config, store, blockProc, engine, dagIndexer, newTxPool)
