@@ -110,6 +110,20 @@ var (
 		Value: gossip.DefaultConfig(cachescale.Identity).RPCTimeout,
 	}
 
+	// RPCAllowUnprotectedTxsFlag exposes the gossip.Config AllowUnprotectedTxs
+	// knob via the CLI. Required to land Arachnid's deterministic deployer
+	// (Nick's method) which signs with v=27/28 and no chain ID — needed
+	// to deploy ERC-4337 EntryPoint at the canonical cross-chain address
+	// 0x0000000071727De22E5E9d8BAf0edAc6f37da032. The gossip-layer guard
+	// in service.go refuses to honour this on mainnet (NetworkID 207)
+	// regardless of how the flag is set — replay-vulnerable txs stay
+	// blocked on mainnet.
+	RPCAllowUnprotectedTxsFlag = cli.BoolFlag{
+		Name: "rpc.allow-unprotected-txs",
+		Usage: "Allow pre-EIP-155 (replay-vulnerable) transactions over RPC. " +
+			"Refused on mainnet by gossip-layer guard. Testnet only.",
+	}
+
 	SyncModeFlag = cli.StringFlag{
 		Name:  "syncmode",
 		Usage: `Blockchain sync mode ("full" or "snap")`,
@@ -354,6 +368,9 @@ func gossipConfigWithFlags(ctx *cli.Context, src gossip.Config) (gossip.Config, 
 	}
 	if ctx.GlobalIsSet(RPCGlobalTimeoutFlag.Name) {
 		cfg.RPCTimeout = ctx.GlobalDuration(RPCGlobalTimeoutFlag.Name)
+	}
+	if ctx.GlobalIsSet(RPCAllowUnprotectedTxsFlag.Name) {
+		cfg.AllowUnprotectedTxs = ctx.GlobalBool(RPCAllowUnprotectedTxsFlag.Name)
 	}
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		if syncmode := ctx.GlobalString(SyncModeFlag.Name); syncmode != "full" && syncmode != "snap" {
