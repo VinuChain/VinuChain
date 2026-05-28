@@ -1898,8 +1898,22 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, err
 	}
 	if !b.UnprotectedAllowed() && !tx.Protected() {
-		// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
-		return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+		// Reject replay-vulnerable (pre-EIP-155) transactions, with one
+		// narrow, always-on carve-out: VinuChain mainnet admits exactly the
+		// canonical Arachnid deterministic-deployer transaction so the
+		// cross-chain ERC-4337 EntryPoint can be placed at its canonical
+		// address. The carve-out is pinned by exact tx hash and is
+		// replay-benign (deploys a stateless, fund-less factory). It does
+		// NOT enable AllowUnprotectedTxs — that flag stays refused on
+		// mainnet by the gossip/service.go startup guard.
+		mainnet := b.ChainConfig() != nil &&
+			b.ChainConfig().ChainID != nil &&
+			b.ChainConfig().ChainID.Uint64() == opera.VinuChainMainNetworkID
+		if !(mainnet && opera.UnprotectedTxAllowlistedOnMainnet(tx)) {
+			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
+		}
+		log.Warn("Admitting allowlisted unprotected transaction on mainnet",
+			"hash", tx.Hash().Hex(), "reason", "canonical Arachnid deterministic deployer")
 	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
