@@ -511,7 +511,7 @@ func VinuChainTestNetRules() Rules {
 // adding them would obscure the invariant that mainnet's first SfcV2 activation
 // already picks up every subsequent correctness fix to the V2 bytecode.
 func VinuChainMainNetRules() Rules {
-	return Rules{
+	rules := Rules{
 		Name:      "VinuChain Mainnet",
 		NetworkID: VinuChainMainNetworkID,
 		Dag:       DefaultDagRules(),
@@ -522,14 +522,24 @@ func VinuChainMainNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(10 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:    true,
-			London:    true,
-			Llr:       true,
-			Podgorica: true,
-			SfcV2:     true,
-			Elemont:   true,
+			Berlin:                  true,
+			London:                  true,
+			Shanghai:                true,
+			Cancun:                  true,
+			Prague:                  true,
+			Llr:                     true,
+			Podgorica:               true,
+			SfcV2:                   true,
+			Elemont:                 true,
+			ElemontPubkeyValidation: true,
 		},
 	}
+	// Point at the live mainnet Quota TransparentUpgradeableProxy, not the
+	// implementation that DefaultEconomyRules() carries. QuotaCacheAddress is
+	// governance-protected (marshal.go), so this only governs fresh-install
+	// replay from genesis; the live chain already holds the proxy in chaindata.
+	rules.Economy.QuotaCacheAddress = common.HexToAddress("0x1c4269fbbd4a8254f69383eef6af720bcd0acda6")
+	return rules
 }
 
 // MainNetRulesForNetwork returns the hardcoded rules for a given network ID,

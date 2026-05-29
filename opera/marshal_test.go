@@ -240,7 +240,7 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 	}{
 		{MainNetRules, false, false, false, "MainNetRules"},
 		{TestNetRules, false, false, false, "TestNetRules"},
-		{VinuChainMainNetRules, false, false, false, "VinuChainMainNetRules"},
+		{VinuChainMainNetRules, true, true, true, "VinuChainMainNetRules"},
 		{VinuChainTestNetRules, true, true, true, "VinuChainTestNetRules"},
 		{FakeNetRules, true, true, true, "FakeNetRules"},
 		{LegacyFakeNetRules, true, true, true, "LegacyFakeNetRules"},
@@ -323,16 +323,35 @@ func TestEvmChainConfigPragueCanActivateAfterCancun(t *testing.T) {
 	require.Equal(t, big.NewInt(789), cfg.PragueBlock)
 }
 
-func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
+func TestEvmChainConfigVinuChainMainNetForksActive(t *testing.T) {
+	// VinuChainMainNetRules() stages Shanghai/Cancun/Prague active for the
+	// full-parity mainnet upgrade (2026-05-29). With a single UpgradeHeight at
+	// block 0 carrying those flags, EvmChainConfig must resolve all three fork
+	// blocks to 0 (active from genesis-of-this-rules-window) rather than nil.
 	rules := VinuChainMainNetRules()
 	cfg := rules.EvmChainConfig([]UpgradeHeight{{Upgrades: rules.Upgrades, Height: 0}})
 
+	require.Equal(t, big.NewInt(0), cfg.ShanghaiBlock,
+		"mainnet rules now stage Shanghai active")
+	require.Equal(t, big.NewInt(0), cfg.CancunBlock,
+		"mainnet rules now stage Cancun active")
+	require.Equal(t, big.NewInt(0), cfg.PragueBlock,
+		"mainnet rules now stage Prague/EIP-7702 active")
+}
+
+func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
+	// Guard the disabled-fork -> nil mapping with an explicit forks-off rules
+	// value (MainNetRules is the legacy Fantom constructor that keeps the
+	// Ethereum forks off), independent of VinuChain mainnet's staged state.
+	rules := MainNetRules()
+	cfg := rules.EvmChainConfig([]UpgradeHeight{{Upgrades: rules.Upgrades, Height: 0}})
+
 	require.Nil(t, cfg.ShanghaiBlock,
-		"mainnet rules prepare Shanghai support but must not activate it by default")
+		"forks-off rules must leave Shanghai inactive (nil block)")
 	require.Nil(t, cfg.CancunBlock,
-		"mainnet rules prepare Cancun support but must not activate it by default")
+		"forks-off rules must leave Cancun inactive (nil block)")
 	require.Nil(t, cfg.PragueBlock,
-		"mainnet rules prepare Prague/EIP-7702 support but must not activate it by default")
+		"forks-off rules must leave Prague inactive (nil block)")
 }
 
 func TestRulesSfcV2Patch2RLP(t *testing.T) {
@@ -351,6 +370,59 @@ func TestRulesSfcV2Patch2RLP(t *testing.T) {
 
 func TestVinuChainTestNetRulesQuotaCacheAddress(t *testing.T) {
 	require.Equal(t, "0x824B93dE7221cf8a35FBd29d5202f6eFa3A29C5D", VinuChainTestNetRules().Economy.QuotaCacheAddress.Hex())
+}
+
+func TestVinuChainMainNetRulesQuotaCacheAddress(t *testing.T) {
+	// Mainnet QuotaCacheAddress must point at the live TransparentUpgradeableProxy
+	// 0x1c4269fb...cd0acda6 (the address sealed in live mainnet chaindata and
+	// confirmed via vc_getRules), NOT the implementation 0x9D6Aa03a... that
+	// DefaultEconomyRules() carries. The constructor value only governs
+	// fresh-install replay from genesis (QuotaCacheAddress is governance-protected
+	// on the live chain via marshal.go), so pinning the proxy here is the
+	// fresh-install-safety correction. See deployment-log.md "Mainnet rules.go
+	// stale-impl fix".
+	require := require.New(t)
+	require.Equal("0x1c4269fBBD4a8254F69383eeF6aF720bCD0aCda6", VinuChainMainNetRules().Economy.QuotaCacheAddress.Hex(),
+		"mainnet QuotaCacheAddress must be the proxy, not the implementation")
+	require.NotEqual("0x9D6Aa03a8D4AcF7b43c562f349Ee45b3214c3bbF", VinuChainMainNetRules().Economy.QuotaCacheAddress.Hex(),
+		"mainnet QuotaCacheAddress must not be the stale implementation address")
+}
+
+// TestVinuChainMainNetRulesUpgradeFlags pins the staged mainnet full-parity
+// upgrade set (decided 2026-05-29). It is the single guardrail that documents
+// exactly which flags the next mainnet binary will carry. Update it
+// deliberately when the mainnet upgrade scope changes — never to make a build
+// pass by accident.
+func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
+	require := require.New(t)
+	up := VinuChainMainNetRules().Upgrades
+
+	// Active for the full-parity upgrade.
+	require.True(up.Berlin, "Berlin")
+	require.True(up.London, "London")
+	require.True(up.Shanghai, "Shanghai")
+	require.True(up.Cancun, "Cancun")
+	require.True(up.Prague, "Prague")
+	require.True(up.Llr, "Llr")
+	require.True(up.Podgorica, "Podgorica")
+	require.True(up.SfcV2, "SfcV2")
+	require.True(up.Elemont, "Elemont")
+	require.True(up.ElemontPubkeyValidation, "ElemontPubkeyValidation")
+
+	// Intentionally NOT set on mainnet: SfcV2Patch* are testnet-only re-flash
+	// flags (mainnet's first SfcV2 activation installs GetLatestContractBin,
+	// which already contains every later bytecode fix). PaybackV2/Patch are a
+	// separate, later mainnet release blocked on deploying QuotaContractV2 and
+	// baking paybackV2MainnetAddress (EnforcePaybackV2StartupCheck panics if the
+	// flag is set while the address is the zero sentinel).
+	require.False(up.SfcV2Patch, "SfcV2Patch must stay false on mainnet")
+	require.False(up.SfcV2Patch2, "SfcV2Patch2 must stay false on mainnet")
+	require.False(up.SfcV2Patch3, "SfcV2Patch3 must stay false on mainnet")
+	require.False(up.SfcV2Patch4, "SfcV2Patch4 must stay false on mainnet")
+	require.False(up.SfcV2Patch5, "SfcV2Patch5 must stay false on mainnet")
+	require.False(up.SfcV2Patch6, "SfcV2Patch6 must stay false on mainnet")
+	require.False(up.PaybackV2, "PaybackV2 must stay false on mainnet until its separate release")
+	require.False(up.PaybackV2Patch, "PaybackV2Patch must stay false on mainnet until its separate release")
 }
 
 func TestRulesSfcV2Patch3RLP(t *testing.T) {
@@ -415,9 +487,10 @@ func TestRulesElemontPubkeyValidationTrueRLP(t *testing.T) {
 }
 
 func TestRulesElemontPubkeyValidationDefaultsRLP(t *testing.T) {
-	// Mainnet and legacy constructors leave ElemontPubkeyValidation false
-	// until mainnet's first SfcV2 activation; testnet activated the flag in
-	// v2.0.14-elemont alongside SfcV2Patch5. Both defaults must round-trip
+	// The legacy Fantom MainNetRules constructor leaves ElemontPubkeyValidation
+	// false; VinuChainMainNetRules() stages it true for the full-parity mainnet
+	// upgrade (2026-05-29), matching testnet (which activated it in
+	// v2.0.14-elemont alongside SfcV2Patch5). All defaults must round-trip
 	// bit-for-bit through RLP.
 	cases := []struct {
 		mk      func() Rules
@@ -425,7 +498,7 @@ func TestRulesElemontPubkeyValidationDefaultsRLP(t *testing.T) {
 		network string
 	}{
 		{MainNetRules, false, "MainNetRules"},
-		{VinuChainMainNetRules, false, "VinuChainMainNetRules"},
+		{VinuChainMainNetRules, true, "VinuChainMainNetRules"},
 		{VinuChainTestNetRules, true, "VinuChainTestNetRules"},
 	}
 	for _, c := range cases {
