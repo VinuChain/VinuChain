@@ -372,6 +372,26 @@ func TestInvalidTransactions(t *testing.T) {
 	}
 }
 
+func TestTransactionAboveCurrentMaxGasLimitRejected(t *testing.T) {
+	t.Parallel()
+
+	pool, key := setupTxPool()
+	defer pool.Stop()
+
+	tx := transaction(0, pool.currentMaxGas+1, key)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, new(big.Int).SetUint64(params.Ether))
+
+	if err := pool.addRemoteSync(tx); !errors.Is(err, ErrGasLimit) {
+		t.Fatalf("expected %v, got %v", ErrGasLimit, err)
+	}
+
+	tx = transaction(0, pool.currentMaxGas, key)
+	if err := pool.addRemoteSync(tx); err != nil {
+		t.Fatalf("expected tx at currentMaxGas to be accepted, got %v", err)
+	}
+}
+
 func TestTransactionQueue(t *testing.T) {
 	t.Parallel()
 

@@ -54,7 +54,10 @@ func (r *EvmStateReader) EffectiveMinTip() *big.Int {
 }
 
 func (r *EvmStateReader) MaxGasLimit() uint64 {
-	rules := r.store.GetRules()
+	return maxGasLimitForRules(r.store.GetRules())
+}
+
+func maxGasLimitForRules(rules opera.Rules) uint64 {
 	maxEmptyEventGas := rules.Economy.Gas.EventGas +
 		uint64(rules.Dag.MaxParents-rules.Dag.MaxFreeParents)*rules.Economy.Gas.ParentGas +
 		uint64(rules.Dag.MaxExtraData)*rules.Economy.Gas.ExtraDataGas
