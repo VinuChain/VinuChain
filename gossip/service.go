@@ -237,6 +237,11 @@ func stageHardcodedUpgrades(store *Store) bool {
 		changed = true
 		log.Warn("Cleared prematurely staged Prague upgrade; will restage after Cancun is active")
 	}
+	if pending.Upgrades.VinuBLS12381 && !es.Rules.Upgrades.Prague {
+		pending.Upgrades.VinuBLS12381 = false
+		changed = true
+		log.Warn("Cleared prematurely staged VinuBLS12381 upgrade; will restage after Prague is active")
+	}
 	if hardcoded.Upgrades.SfcV2 && !pending.Upgrades.SfcV2 {
 		pending.Upgrades.SfcV2 = true
 		changed = true
@@ -273,6 +278,15 @@ func stageHardcodedUpgrades(store *Store) bool {
 			log.Info("Staged Prague upgrade from binary rules; will activate at next epoch seal")
 		} else {
 			log.Info("Deferring Prague upgrade from binary rules until Cancun is active")
+		}
+	}
+	if hardcoded.Upgrades.VinuBLS12381 && !pending.Upgrades.VinuBLS12381 {
+		if es.Rules.Upgrades.Prague {
+			pending.Upgrades.VinuBLS12381 = true
+			changed = true
+			log.Info("Staged VinuBLS12381 upgrade from binary rules; will activate at next epoch seal")
+		} else {
+			log.Info("Deferring VinuBLS12381 upgrade from binary rules until Prague is active")
 		}
 	}
 	if hardcoded.Upgrades.SfcV2Patch && !pending.Upgrades.SfcV2Patch {

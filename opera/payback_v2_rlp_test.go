@@ -32,6 +32,7 @@ func TestPaybackV2_RLPRoundtrip(t *testing.T) {
 	require.False(t, decoded.Shanghai, "no other flag must spuriously appear after decode")
 	require.False(t, decoded.Cancun, "no other flag must spuriously appear after decode")
 	require.False(t, decoded.Prague, "no other flag must spuriously appear after decode")
+	require.False(t, decoded.VinuBLS12381, "no other flag must spuriously appear after decode")
 }
 
 // TestPaybackV2_BitfieldDoesNotClashWithOtherFlags confirms the new bit
@@ -58,6 +59,7 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 		"Shanghai":                shanghaiBit,
 		"Cancun":                  cancunBit,
 		"Prague":                  pragueBit,
+		"VinuBLS12381":            vinuBLS12381Bit,
 	}
 	seen := map[uint64]string{}
 	for name, bit := range flags {
@@ -72,6 +74,7 @@ func TestPaybackV2_BitfieldDoesNotClashWithOtherFlags(t *testing.T) {
 	require.Equal(t, uint64(1<<15), uint64(shanghaiBit), "shanghaiBit must be 1<<15 (next free bit after sfcV2Patch6Bit)")
 	require.Equal(t, uint64(1<<16), uint64(cancunBit), "cancunBit must be 1<<16 (next free bit after shanghaiBit)")
 	require.Equal(t, uint64(1<<17), uint64(pragueBit), "pragueBit must be 1<<17 (next free bit after cancunBit)")
+	require.Equal(t, uint64(1<<18), uint64(vinuBLS12381Bit), "vinuBLS12381Bit must be 1<<18 (next free bit after pragueBit)")
 }
 
 func TestEthereumForkBitsKnownRLP(t *testing.T) {
@@ -87,6 +90,7 @@ func TestEthereumForkBitsKnownRLP(t *testing.T) {
 	require.True(t, decoded.Shanghai, "Shanghai must decode from bit 1<<15")
 	require.True(t, decoded.Cancun, "Cancun must decode from bit 1<<16")
 	require.False(t, decoded.Prague, "Prague must not decode from Shanghai/Cancun bits")
+	require.False(t, decoded.VinuBLS12381, "VinuBLS12381 must not decode from Shanghai/Cancun bits")
 	require.False(t, decoded.PaybackV2, "PaybackV2 must not decode from Shanghai/Cancun bits")
 }
 
@@ -102,6 +106,21 @@ func TestPragueBitKnownRLP(t *testing.T) {
 		"decode must succeed against the fixture bytes")
 	require.True(t, decoded.Prague, "Prague must decode from bit 1<<17")
 	require.False(t, decoded.Cancun, "Cancun must not decode from the Prague bit")
+	require.False(t, decoded.VinuBLS12381, "VinuBLS12381 must not decode from the Prague bit")
+}
+
+func TestVinuBLSBitKnownRLP(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, rlp.Encode(&buf, &Upgrades{VinuBLS12381: true}),
+		"encode must succeed")
+	require.Equal(t, "c483040000", hex.EncodeToString(buf.Bytes()),
+		"VinuBLS12381 bitmap wire shape must stay stable")
+
+	var decoded Upgrades
+	require.NoError(t, rlp.DecodeBytes(buf.Bytes(), &decoded),
+		"decode must succeed against the fixture bytes")
+	require.True(t, decoded.VinuBLS12381, "VinuBLS12381 must decode from bit 1<<18")
+	require.False(t, decoded.Prague, "Prague must not decode from the VinuBLS12381 bit")
 }
 
 // TestPaybackV2_MainnetAndLegacyConstructorsStayFalse defends against an

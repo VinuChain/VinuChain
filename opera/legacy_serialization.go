@@ -132,6 +132,9 @@ func (u Upgrades) EncodeRLP(w io.Writer) error {
 	if u.Prague {
 		bitmap.V |= pragueBit
 	}
+	if u.VinuBLS12381 {
+		bitmap.V |= vinuBLS12381Bit
+	}
 	if u.PaybackV2 {
 		bitmap.V |= paybackV2Bit
 	}
@@ -166,6 +169,7 @@ func (u *Upgrades) DecodeRLP(s *rlp.Stream) error {
 	u.Shanghai = (bitmap.V & shanghaiBit) != 0
 	u.Cancun = (bitmap.V & cancunBit) != 0
 	u.Prague = (bitmap.V & pragueBit) != 0
+	u.VinuBLS12381 = (bitmap.V & vinuBLS12381Bit) != 0
 	u.PaybackV2 = (bitmap.V & paybackV2Bit) != 0
 	u.PaybackV2Patch = (bitmap.V & paybackV2PatchBit) != 0
 	return nil

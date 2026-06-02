@@ -55,6 +55,7 @@ func newPreShanghaiCancunTestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validat
 	rules.Upgrades.Shanghai = false
 	rules.Upgrades.Cancun = false
 	rules.Upgrades.Prague = false
+	rules.Upgrades.VinuBLS12381 = false
 
 	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
 }
@@ -266,12 +267,12 @@ func TestRuntimeActivationSurvivesGovernanceUpdate(t *testing.T) {
 		"stored epoch state SfcV2 must be true after the seal")
 }
 
-// TestRuntimeActivationSequencesShanghaiCancunPrague pins the skipped-binary
-// path for EVM fork activation. A node that boots a post-Prague binary from
-// pre-Shanghai stored rules must not activate Shanghai, Cancun, and Prague at
-// the same epoch seal; each fork is staged for the following seal after its
-// predecessor is active.
-func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
+// TestRuntimeActivationSequencesShanghaiCancunPragueVinuBLS pins the
+// skipped-binary path for EVM fork activation. A node that boots a post-BLS
+// binary from pre-Shanghai stored rules must not activate Shanghai, Cancun,
+// Prague, and VinuBLS12381 at the same epoch seal; each fork is staged for the
+// following seal after its predecessor is active.
+func TestRuntimeActivationSequencesShanghaiCancunPragueVinuBLS(t *testing.T) {
 	logger.SetTestMode(t)
 
 	env := newPreShanghaiCancunTestEnv(2, 3)
@@ -286,6 +287,8 @@ func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 		"Cancun must not stage until Shanghai is active")
 	require.False(t, bs.DirtyRules.Upgrades.Prague,
 		"Prague must not stage until Cancun is active")
+	require.False(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must not stage until Prague is active")
 
 	env.t = env.t.Add(nextEpoch)
 	require.NoError(t, env.EmitUntil(func() bool {
@@ -298,6 +301,8 @@ func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 		"Cancun must remain inactive at the Shanghai activation seal")
 	require.False(t, postShanghai.Rules.Upgrades.Prague,
 		"Prague must remain inactive at the Shanghai activation seal")
+	require.False(t, postShanghai.Rules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must remain inactive at the Shanghai activation seal")
 
 	bs = env.store.GetBlockState()
 	require.NotNil(t, bs.DirtyRules,
@@ -306,6 +311,8 @@ func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 		"Cancun must stage once Shanghai is active")
 	require.False(t, bs.DirtyRules.Upgrades.Prague,
 		"Prague must not stage until Cancun is active")
+	require.False(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must not stage until Prague is active")
 
 	env.t = env.t.Add(nextEpoch)
 	require.NoError(t, env.EmitUntil(func() bool {
@@ -317,12 +324,16 @@ func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 		"Cancun must be active after the second seal")
 	require.False(t, postCancun.Rules.Upgrades.Prague,
 		"Prague must remain inactive at the Cancun activation seal")
+	require.False(t, postCancun.Rules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must remain inactive at the Cancun activation seal")
 
 	bs = env.store.GetBlockState()
 	require.NotNil(t, bs.DirtyRules,
 		"continuous node must stage Prague after the Cancun seal")
 	require.True(t, bs.DirtyRules.Upgrades.Prague,
 		"Prague must stage once Cancun is active")
+	require.False(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must not stage until Prague is active")
 
 	env.t = env.t.Add(nextEpoch)
 	require.NoError(t, env.EmitUntil(func() bool {
@@ -333,15 +344,37 @@ func TestRuntimeActivationSequencesShanghaiCancunPrague(t *testing.T) {
 	require.True(t, postPrague.Rules.Upgrades.Cancun)
 	require.True(t, postPrague.Rules.Upgrades.Prague,
 		"Prague must be active after the third seal")
+	require.False(t, postPrague.Rules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must remain inactive at the Prague activation seal")
 
-	cfg := postPrague.Rules.EvmChainConfig(env.store.GetUpgradeHeights())
+	bs = env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"continuous node must stage VinuBLS12381 after the Prague seal")
+	require.True(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must stage once Prague is active")
+
+	env.t = env.t.Add(nextEpoch)
+	require.NoError(t, env.EmitUntil(func() bool {
+		return env.store.GetEpochState().Rules.Upgrades.VinuBLS12381
+	}))
+	postBLS := env.store.GetEpochState()
+	require.True(t, postBLS.Rules.Upgrades.Shanghai)
+	require.True(t, postBLS.Rules.Upgrades.Cancun)
+	require.True(t, postBLS.Rules.Upgrades.Prague)
+	require.True(t, postBLS.Rules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must be active after the fourth seal")
+
+	cfg := postBLS.Rules.EvmChainConfig(env.store.GetUpgradeHeights())
 	require.NotNil(t, cfg.ShanghaiBlock)
 	require.NotNil(t, cfg.CancunBlock)
 	require.NotNil(t, cfg.PragueBlock)
+	require.NotNil(t, cfg.VinuBLSBlock)
 	require.Less(t, cfg.ShanghaiBlock.Uint64(), cfg.CancunBlock.Uint64(),
 		"Shanghai and Cancun activation heights must remain ordered")
 	require.Less(t, cfg.CancunBlock.Uint64(), cfg.PragueBlock.Uint64(),
 		"Cancun and Prague activation heights must remain ordered")
+	require.Less(t, cfg.PragueBlock.Uint64(), cfg.VinuBLSBlock.Uint64(),
+		"Prague and VinuBLS12381 activation heights must remain ordered")
 }
 
 func TestRuntimeActivationClearsPrematurePragueDirtyRule(t *testing.T) {
@@ -353,6 +386,7 @@ func TestRuntimeActivationClearsPrematurePragueDirtyRule(t *testing.T) {
 	rules.Upgrades.Shanghai = false
 	rules.Upgrades.Cancun = false
 	rules.Upgrades.Prague = false
+	rules.Upgrades.VinuBLS12381 = false
 
 	genStore := makefakegenesis.FakeGenesisStoreWithRulesAndStart(
 		3,
@@ -372,6 +406,7 @@ func TestRuntimeActivationClearsPrematurePragueDirtyRule(t *testing.T) {
 	dirty.Upgrades.Shanghai = true
 	dirty.Upgrades.Cancun = true
 	dirty.Upgrades.Prague = true
+	dirty.Upgrades.VinuBLS12381 = true
 	bs.DirtyRules = &dirty
 	store.SetBlockEpochState(bs, es)
 
@@ -391,6 +426,8 @@ func TestRuntimeActivationClearsPrematurePragueDirtyRule(t *testing.T) {
 		"Cancun must be cleared if it was staged before Shanghai became active")
 	require.False(t, bs.DirtyRules.Upgrades.Prague,
 		"Prague must be cleared if it was staged before Cancun became active")
+	require.False(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must be cleared if it was staged before Prague became active")
 }
 
 func TestCommitRestagesCancunAfterSealingBlockStateOverwrite(t *testing.T) {
@@ -416,6 +453,8 @@ func TestCommitRestagesCancunAfterSealingBlockStateOverwrite(t *testing.T) {
 		"Cancun must be restaged if an async sealing block write cleared DirtyRules")
 	require.False(t, bs.DirtyRules.Upgrades.Prague,
 		"Prague must not stage until Cancun is active")
+	require.False(t, bs.DirtyRules.Upgrades.VinuBLS12381,
+		"VinuBLS12381 must not stage until Prague is active")
 }
 
 // TestRuntimeActivationIdempotentAcrossRestart pins the multi-restart
