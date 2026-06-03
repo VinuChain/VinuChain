@@ -108,6 +108,9 @@ func forkTestRules(shanghai, cancun bool) opera.Rules {
 	rules := opera.VinuChainTestNetRules()
 	rules.Upgrades.Shanghai = shanghai
 	rules.Upgrades.Cancun = cancun
+	rules.Upgrades.Prague = cancun
+	rules.Upgrades.VinuBLS12381 = false
+	rules.Upgrades.VinuLatestEVM = false
 	rules.Economy.MinGasPrice = big.NewInt(1)
 	return rules
 }

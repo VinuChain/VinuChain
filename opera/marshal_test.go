@@ -239,14 +239,15 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 		expectCancun   bool
 		expectPrague   bool
 		expectVinuBLS  bool
+		expectLatest   bool
 		network        string
 	}{
-		{MainNetRules, false, false, false, false, "MainNetRules"},
-		{TestNetRules, false, false, false, false, "TestNetRules"},
-		{VinuChainMainNetRules, true, true, true, false, "VinuChainMainNetRules"},
-		{VinuChainTestNetRules, true, true, true, true, "VinuChainTestNetRules"},
-		{FakeNetRules, true, true, true, true, "FakeNetRules"},
-		{LegacyFakeNetRules, true, true, true, true, "LegacyFakeNetRules"},
+		{MainNetRules, false, false, false, false, false, "MainNetRules"},
+		{TestNetRules, false, false, false, false, false, "TestNetRules"},
+		{VinuChainMainNetRules, true, true, true, false, false, "VinuChainMainNetRules"},
+		{VinuChainTestNetRules, true, true, true, true, true, "VinuChainTestNetRules"},
+		{FakeNetRules, true, true, true, true, true, "FakeNetRules"},
+		{LegacyFakeNetRules, true, true, true, true, true, "LegacyFakeNetRules"},
 	}
 	for _, c := range cases {
 		rules := c.mk()
@@ -259,6 +260,8 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 			"%s Prague default mismatch", c.network)
 		require.Equal(c.expectVinuBLS, rules.Upgrades.VinuBLS12381,
 			"%s VinuBLS12381 default mismatch", c.network)
+		require.Equal(c.expectLatest, rules.Upgrades.VinuLatestEVM,
+			"%s VinuLatestEVM default mismatch", c.network)
 
 		b, err := rlp.EncodeToBytes(rules)
 		require.NoError(err)
@@ -275,6 +278,8 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 			"%s Upgrades.Prague must round-trip through RLP", c.network)
 		require.Equal(c.expectVinuBLS, decodedRules.Upgrades.VinuBLS12381,
 			"%s Upgrades.VinuBLS12381 must round-trip through RLP", c.network)
+		require.Equal(c.expectLatest, decodedRules.Upgrades.VinuLatestEVM,
+			"%s Upgrades.VinuLatestEVM must round-trip through RLP", c.network)
 	}
 }
 
@@ -313,6 +318,7 @@ func TestEvmChainConfigCancunCanActivateAfterShanghai(t *testing.T) {
 	require.Equal(t, big.NewInt(456), cfg.CancunBlock)
 	require.Nil(t, cfg.PragueBlock)
 	require.Nil(t, cfg.VinuBLSBlock)
+	require.Nil(t, cfg.VinuLatestEVMBlock)
 }
 
 func TestEvmChainConfigPragueCanActivateAfterCancun(t *testing.T) {
@@ -330,6 +336,7 @@ func TestEvmChainConfigPragueCanActivateAfterCancun(t *testing.T) {
 	require.Equal(t, big.NewInt(0), cfg.CancunBlock)
 	require.Equal(t, big.NewInt(789), cfg.PragueBlock)
 	require.Nil(t, cfg.VinuBLSBlock)
+	require.Nil(t, cfg.VinuLatestEVMBlock)
 }
 
 func TestEvmChainConfigVinuBLSCanActivateAfterPrague(t *testing.T) {
@@ -347,6 +354,25 @@ func TestEvmChainConfigVinuBLSCanActivateAfterPrague(t *testing.T) {
 	require.Equal(t, big.NewInt(0), cfg.CancunBlock)
 	require.Equal(t, big.NewInt(0), cfg.PragueBlock)
 	require.Equal(t, big.NewInt(987), cfg.VinuBLSBlock)
+	require.Nil(t, cfg.VinuLatestEVMBlock)
+}
+
+func TestEvmChainConfigVinuLatestEVMCanActivateAfterBLS(t *testing.T) {
+	before := Upgrades{Berlin: true, London: true, Shanghai: true, Cancun: true, Prague: true, VinuBLS12381: true}
+	after := before
+	after.VinuLatestEVM = true
+	rules := VinuChainTestNetRules()
+
+	cfg := rules.EvmChainConfig([]UpgradeHeight{
+		{Upgrades: before, Height: 0},
+		{Upgrades: after, Height: 1111},
+	})
+
+	require.Equal(t, big.NewInt(0), cfg.ShanghaiBlock)
+	require.Equal(t, big.NewInt(0), cfg.CancunBlock)
+	require.Equal(t, big.NewInt(0), cfg.PragueBlock)
+	require.Equal(t, big.NewInt(0), cfg.VinuBLSBlock)
+	require.Equal(t, big.NewInt(1111), cfg.VinuLatestEVMBlock)
 }
 
 func TestEvmChainConfigVinuChainMainNetForksActive(t *testing.T) {
@@ -365,6 +391,8 @@ func TestEvmChainConfigVinuChainMainNetForksActive(t *testing.T) {
 		"mainnet rules now stage Prague/EIP-7702 active")
 	require.Nil(t, cfg.VinuBLSBlock,
 		"mainnet must not stage VinuBLS12381 until a separate activation")
+	require.Nil(t, cfg.VinuLatestEVMBlock,
+		"mainnet must not stage VinuLatestEVM until a separate activation")
 }
 
 func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
@@ -382,6 +410,8 @@ func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
 		"forks-off rules must leave Prague inactive (nil block)")
 	require.Nil(t, cfg.VinuBLSBlock,
 		"forks-off rules must leave VinuBLS12381 inactive (nil block)")
+	require.Nil(t, cfg.VinuLatestEVMBlock,
+		"forks-off rules must leave VinuLatestEVM inactive (nil block)")
 }
 
 func TestRulesSfcV2Patch2RLP(t *testing.T) {
@@ -452,6 +482,7 @@ func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	require.False(up.SfcV2Patch5, "SfcV2Patch5 must stay false on mainnet")
 	require.False(up.SfcV2Patch6, "SfcV2Patch6 must stay false on mainnet")
 	require.False(up.VinuBLS12381, "VinuBLS12381 must stay false on mainnet until its separate testnet-first rollout")
+	require.False(up.VinuLatestEVM, "VinuLatestEVM must stay false on mainnet until its separate testnet-first rollout")
 	require.False(up.PaybackV2, "PaybackV2 must stay false on mainnet until its separate release")
 	require.False(up.PaybackV2Patch, "PaybackV2Patch must stay false on mainnet until its separate release")
 }

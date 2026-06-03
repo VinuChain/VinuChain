@@ -41,6 +41,7 @@ const (
 	cancunBit                         = 1 << 16
 	pragueBit                         = 1 << 17
 	vinuBLS12381Bit                   = 1 << 18
+	vinuLatestEVMBit                  = 1 << 19
 )
 
 var DefaultVMConfig = vm.Config{
@@ -160,8 +161,12 @@ type Upgrades struct {
 	// VinuBLS12381 enables VinuChain's standalone EIP-2537/BLS12-381
 	// precompile fork without implying upstream Prague/KZG behavior.
 	VinuBLS12381 bool
-	Llr          bool
-	Podgorica    bool
+	// VinuLatestEVM enables VinuChain's explicitly selected latest-EVM
+	// compatibility fork: P256VERIFY, CLZ, MODEXP bounds/repricing, and the
+	// EIP-7825 per-transaction gas cap.
+	VinuLatestEVM bool
+	Llr           bool
+	Podgorica     bool
 	// SfcV2 enables the V2 SFC bytecode upgrade and the 30% fee burn mechanism.
 	// Activation requires a new binary release with SfcV2 set to true in the
 	// network's hardcoded rule constructor; governance cannot toggle it.
@@ -330,6 +335,7 @@ func (r Rules) EvmChainConfig(hh []UpgradeHeight) *ethparams.ChainConfig {
 	cfg.CancunBlock = nil
 	cfg.PragueBlock = nil
 	cfg.VinuBLSBlock = nil
+	cfg.VinuLatestEVMBlock = nil
 	for i, h := range hh {
 		height := new(big.Int)
 		if i > 0 {
@@ -376,6 +382,13 @@ func (r Rules) EvmChainConfig(hh []UpgradeHeight) *ethparams.ChainConfig {
 		if !h.Upgrades.VinuBLS12381 {
 			cfg.VinuBLSBlock = nil
 		}
+
+		if cfg.VinuLatestEVMBlock == nil && h.Upgrades.VinuLatestEVM {
+			cfg.VinuLatestEVMBlock = height
+		}
+		if !h.Upgrades.VinuLatestEVM {
+			cfg.VinuLatestEVMBlock = nil
+		}
 	}
 	return &cfg
 }
@@ -420,20 +433,21 @@ func FakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:       true,
-			London:       true,
-			Shanghai:     true,
-			Cancun:       true,
-			Prague:       true,
-			VinuBLS12381: true,
-			Llr:          true,
-			Podgorica:    true,
-			SfcV2:        true,
-			Elemont:      true,
-			SfcV2Patch:   true,
-			SfcV2Patch2:  true,
-			SfcV2Patch3:  true,
-			SfcV2Patch4:  true,
+			Berlin:        true,
+			London:        true,
+			Shanghai:      true,
+			Cancun:        true,
+			Prague:        true,
+			VinuBLS12381:  true,
+			VinuLatestEVM: true,
+			Llr:           true,
+			Podgorica:     true,
+			SfcV2:         true,
+			Elemont:       true,
+			SfcV2Patch:    true,
+			SfcV2Patch2:   true,
+			SfcV2Patch3:   true,
+			SfcV2Patch4:   true,
 		},
 	}
 }
@@ -450,20 +464,21 @@ func LegacyFakeNetRules() Rules {
 			MaxEmptyBlockSkipPeriod: inter.Timestamp(3 * time.Second),
 		},
 		Upgrades: Upgrades{
-			Berlin:       true,
-			London:       true,
-			Shanghai:     true,
-			Cancun:       true,
-			Prague:       true,
-			VinuBLS12381: true,
-			Llr:          true,
-			Podgorica:    true,
-			SfcV2:        true,
-			Elemont:      true,
-			SfcV2Patch:   true,
-			SfcV2Patch2:  true,
-			SfcV2Patch3:  true,
-			SfcV2Patch4:  true,
+			Berlin:        true,
+			London:        true,
+			Shanghai:      true,
+			Cancun:        true,
+			Prague:        true,
+			VinuBLS12381:  true,
+			VinuLatestEVM: true,
+			Llr:           true,
+			Podgorica:     true,
+			SfcV2:         true,
+			Elemont:       true,
+			SfcV2Patch:    true,
+			SfcV2Patch2:   true,
+			SfcV2Patch3:   true,
+			SfcV2Patch4:   true,
 		},
 	}
 }
@@ -487,6 +502,7 @@ func VinuChainTestNetRules() Rules {
 			Cancun:                  true,
 			Prague:                  true,
 			VinuBLS12381:            true,
+			VinuLatestEVM:           true,
 			Llr:                     true,
 			Podgorica:               true,
 			SfcV2:                   true,
