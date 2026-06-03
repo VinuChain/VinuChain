@@ -20,6 +20,7 @@ aws/
 x-ray/
 .omc/
 .codex/
+.agents/
 AGENTS.md
 agents.md
 CODEX.md

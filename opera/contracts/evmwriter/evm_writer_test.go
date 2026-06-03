@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Fantom-foundation/go-opera/opera/contracts/driver"
+	"github.com/Fantom-foundation/go-opera/opera/contracts/sfc"
 )
 
 func TestSign(t *testing.T) {
@@ -185,6 +186,29 @@ func TestSetBalance_AllowsNonOriginAccount(t *testing.T) {
 	_, _, err := runPrecompile(sdb, origin, input)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(100), sdb.GetBalance(otherAddr))
+}
+
+func TestSetBalance_AllowsLargeSFCBalance(t *testing.T) {
+	sdb := newStubStateDB()
+	value := new(big.Int).Add(balanceWarningThreshold, big.NewInt(1))
+	input := buildInput(setBalanceMethodID, padAddress(sfc.ContractAddress), padUint256(value))
+	_, _, err := runPrecompile(sdb, origin, input)
+	require.NoError(t, err)
+	require.Equal(t, value, sdb.GetBalance(sfc.ContractAddress))
+}
+
+func TestShouldWarnLargeBalance_ThresholdAndSFCExemption(t *testing.T) {
+	expectedThreshold := new(big.Int).Exp(big.NewInt(10), big.NewInt(25), nil)
+	require.Equal(t, expectedThreshold, balanceWarningThreshold)
+
+	below := new(big.Int).Sub(new(big.Int).Set(balanceWarningThreshold), big.NewInt(1))
+	at := new(big.Int).Set(balanceWarningThreshold)
+	above := new(big.Int).Add(new(big.Int).Set(balanceWarningThreshold), big.NewInt(1))
+
+	require.False(t, shouldWarnLargeBalance(otherAddr, below))
+	require.False(t, shouldWarnLargeBalance(otherAddr, at))
+	require.True(t, shouldWarnLargeBalance(otherAddr, above))
+	require.False(t, shouldWarnLargeBalance(sfc.ContractAddress, above))
 }
 
 // --- copyCode Origin check tests ---

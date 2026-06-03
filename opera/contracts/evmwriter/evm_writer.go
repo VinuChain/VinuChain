@@ -27,12 +27,12 @@ var (
 )
 
 var (
-	setBalanceMethodID     []byte
-	copyCodeMethodID       []byte
-	swapCodeMethodID       []byte
-	setStorageMethodID     []byte
-	incNonceMethodID       []byte
-	balanceWarningThreshold = new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil)
+	setBalanceMethodID      []byte
+	copyCodeMethodID        []byte
+	swapCodeMethodID        []byte
+	setStorageMethodID      []byte
+	incNonceMethodID        []byte
+	balanceWarningThreshold = new(big.Int).Exp(big.NewInt(10), big.NewInt(25), nil) // 10,000,000 VC
 )
 
 func init() {
@@ -116,7 +116,7 @@ func (c *PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx v
 		input = input[32:]
 		value := new(big.Int).SetBytes(input[:32])
 
-		if value.Cmp(balanceWarningThreshold) > 0 {
+		if shouldWarnLargeBalance(acc, value) {
 			log.Warn("EvmWriter setBalance: unusually large balance", "addr", acc, "value", value)
 		}
 
@@ -276,6 +276,13 @@ func (c *PreCompiledContract) Run(stateDB vm.StateDB, _ vm.BlockContext, txCtx v
 		return nil, 0, vm.ErrExecutionReverted
 	}
 	return nil, suppliedGas, nil
+}
+
+func shouldWarnLargeBalance(acc common.Address, value *big.Int) bool {
+	if acc == sfc.ContractAddress {
+		return false
+	}
+	return value.Cmp(balanceWarningThreshold) > 0
 }
 
 func (c *PreCompiledContract) isSystemContract(addr common.Address) bool {
