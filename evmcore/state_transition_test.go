@@ -4,7 +4,11 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/Fantom-foundation/go-opera/opera"
+	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -34,6 +38,17 @@ func pragueTestChainConfig() *params.ChainConfig {
 	cfg := *shanghaiTestChainConfig()
 	cfg.CancunBlock = common.Big0
 	cfg.PragueBlock = common.Big0
+	return &cfg
+}
+
+func vinuLatestEVMTestChainConfig(active bool) *params.ChainConfig {
+	cfg := *pragueTestChainConfig()
+	cfg.VinuBLSBlock = common.Big0
+	if active {
+		cfg.VinuLatestEVMBlock = common.Big0
+	} else {
+		cfg.VinuLatestEVMBlock = nil
+	}
 	return &cfg
 }
 
@@ -223,6 +238,95 @@ func TestTransitionDbGatesDelegatedSenderByPrague(t *testing.T) {
 				t.Fatalf("ApplyMessage error = %v, want %v", err, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestTransitionDbRejectsTransactionAboveVinuLatestEVMGasCap(t *testing.T) {
+	const gasPrice = uint64(1)
+	gasLimit := params.MaxTxGasLimit + 1
+	sender := common.HexToAddress("0x1111")
+	receiver := common.HexToAddress("0x2222")
+
+	for _, tt := range []struct {
+		name      string
+		cfg       *params.ChainConfig
+		wantError error
+	}{
+		{name: "pre-vinu-latest-evm", cfg: vinuLatestEVMTestChainConfig(false)},
+		{name: "vinu-latest-evm", cfg: vinuLatestEVMTestChainConfig(true), wantError: ErrTxGasLimitExceeded},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			statedb.SetBalance(sender, new(big.Int).SetUint64(gasLimit*gasPrice))
+
+			header := &EvmHeader{Number: big.NewInt(1), GasLimit: gasLimit, BaseFee: big.NewInt(0)}
+			evm := vm.NewEVM(NewEVMBlockContext(header, minimalDummyChain{}, nil), vm.TxContext{}, statedb, tt.cfg, vm.Config{})
+			msg := types.NewMessage(
+				sender,
+				&receiver,
+				0,
+				big.NewInt(0),
+				gasLimit,
+				new(big.Int).SetUint64(gasPrice),
+				big.NewInt(1),
+				big.NewInt(1),
+				nil,
+				nil,
+				false,
+			)
+
+			_, err = ApplyMessage(evm, msg, new(GasPool).AddGas(gasLimit), nil)
+			if !errors.Is(err, tt.wantError) {
+				t.Fatalf("ApplyMessage error = %v, want %v", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestStateProcessorSkipsOverCapTransactionInBlock(t *testing.T) {
+	gasLimit := params.MaxTxGasLimit + 1
+	cfg := vinuLatestEVMTestChainConfig(true)
+	testKey, err := crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender := crypto.PubkeyToAddress(testKey.PublicKey)
+	tx, err := types.SignTx(
+		types.NewTransaction(0, common.Address{}, big.NewInt(0), gasLimit, big.NewInt(1), nil),
+		types.LatestSigner(cfg),
+		testKey,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statedb.SetBalance(sender, new(big.Int).SetUint64(gasLimit))
+
+	block := NewEvmBlock(&EvmHeader{Number: big.NewInt(1), GasLimit: gasLimit, BaseFee: big.NewInt(0)}, types.Transactions{tx})
+	processor := NewStateProcessor(cfg, minimalDummyChain{})
+	paybackCache := &payback.PaybackCache{
+		PaybackUsedMap: make(map[common.Address]*big.Int),
+		StakesMap:      make(map[idx.Epoch]*payback.EpochStakes),
+	}
+	paybackCache.PrepareForBlock(0, opera.Rules{}, time.Unix(0, 0))
+	defer paybackCache.FinishBlock()
+	var usedGas uint64
+	receipts, _, skipped, err := processor.Process(block, statedb, vm.Config{}, &usedGas, func(*types.Log, *state.StateDB) {}, paybackCache)
+	if err != nil {
+		t.Fatalf("Process error = %v, want nil with skipped tx", err)
+	}
+	if len(receipts) != 0 {
+		t.Fatalf("receipts len = %d, want 0 for skipped over-cap tx", len(receipts))
+	}
+	if len(skipped) != 1 || skipped[0] != 0 {
+		t.Fatalf("skipped = %v, want [0]", skipped)
 	}
 }
 

@@ -244,11 +244,12 @@ type TxPool struct {
 	signer      types.Signer
 	mu          sync.RWMutex
 
-	istanbul bool // Fork indicator whether we are in the istanbul stage.
-	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
-	eip1559  bool // Fork indicator whether we are using EIP-1559 type transactions.
-	shanghai bool // Fork indicator whether Shanghai transaction validation is active.
-	prague   bool // Fork indicator whether Prague/EIP-7702 transaction validation is active.
+	istanbul      bool // Fork indicator whether we are in the istanbul stage.
+	eip2718       bool // Fork indicator whether we are using EIP-2718 type transactions.
+	eip1559       bool // Fork indicator whether we are using EIP-1559 type transactions.
+	shanghai      bool // Fork indicator whether Shanghai transaction validation is active.
+	prague        bool // Fork indicator whether Prague/EIP-7702 transaction validation is active.
+	vinuLatestEVM bool // Fork indicator whether VinuLatestEVM transaction caps are active.
 
 	currentState  *state.StateDB // Current state in the blockchain head
 	pendingNonces *txNoncer      // Pending state tracking virtual nonces
@@ -639,6 +640,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrNegativeValue
 	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
+	if pool.vinuLatestEVM && tx.Gas() > params.MaxTxGasLimit {
+		return ErrTxGasLimitExceeded
+	}
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
 	}
@@ -1426,6 +1430,10 @@ func (pool *TxPool) reset(oldHead, newHead *EvmHeader) {
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
 	pool.shanghai = pool.chainconfig.IsShanghai(next)
 	pool.prague = pool.chainconfig.IsPrague(next)
+	pool.vinuLatestEVM = pool.chainconfig.IsVinuLatestEVM(next)
+	if pool.vinuLatestEVM && pool.currentMaxGas > params.MaxTxGasLimit {
+		pool.currentMaxGas = params.MaxTxGasLimit
+	}
 	pool.dropShanghaiInvalidTxs()
 }
 

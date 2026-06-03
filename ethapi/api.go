@@ -1171,6 +1171,17 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 	} else {
 		hi = b.MaxGasLimit()
 	}
+	chainConfig := b.ChainConfig()
+	if vinuLatestEVMEstimateGasMayNeedCap(chainConfig, hi) {
+		blockNumber, err := vinuLatestEVMEstimateGasBlockNumber(ctx, b, blockNrOrHash)
+		if err != nil {
+			return 0, err
+		}
+		if capped := vinuLatestEVMEstimateGasCap(chainConfig, blockNumber, hi); capped < hi {
+			log.Warn("Gas estimation capped by VinuLatestEVM transaction limit", "requested", hi, "cap", capped)
+			hi = capped
+		}
+	}
 	// Normalize the max fee per gas the call is willing to spend.
 	var feeCap *big.Int
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
@@ -1264,6 +1275,29 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		}
 	}
 	return hexutil.Uint64(hi), nil
+}
+
+func vinuLatestEVMEstimateGasCap(config *params.ChainConfig, blockNumber *big.Int, hi uint64) uint64 {
+	if config != nil && config.IsVinuLatestEVM(blockNumber) && hi > params.MaxTxGasLimit {
+		return params.MaxTxGasLimit
+	}
+	return hi
+}
+
+func vinuLatestEVMEstimateGasMayNeedCap(config *params.ChainConfig, hi uint64) bool {
+	return config != nil && config.VinuLatestEVMBlock != nil && hi > params.MaxTxGasLimit
+}
+
+func vinuLatestEVMEstimateGasBlockNumber(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrHash) (*big.Int, error) {
+	resolved, err := b.ResolveRpcBlockNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	blockNumber := new(big.Int).SetUint64(uint64(resolved))
+	if blockNr, ok := blockNrOrHash.Number(); ok && (blockNr == rpc.LatestBlockNumber || blockNr == rpc.PendingBlockNumber) {
+		blockNumber.Add(blockNumber, common.Big1)
+	}
+	return blockNumber, nil
 }
 
 // EstimateGas returns an estimate of the amount of gas needed to execute the

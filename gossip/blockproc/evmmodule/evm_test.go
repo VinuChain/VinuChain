@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
@@ -112,6 +113,13 @@ func forkTestRules(shanghai, cancun bool) opera.Rules {
 	rules.Upgrades.VinuBLS12381 = false
 	rules.Upgrades.VinuLatestEVM = false
 	rules.Economy.MinGasPrice = big.NewInt(1)
+	return rules
+}
+
+func vinuLatestForkTestRules() opera.Rules {
+	rules := forkTestRules(true, true)
+	rules.Upgrades.VinuBLS12381 = true
+	rules.Upgrades.VinuLatestEVM = true
 	return rules
 }
 
@@ -265,6 +273,22 @@ func TestExecute_EmptyTxList_DoesNotPanic(t *testing.T) {
 		receipts := p.Execute(nil)
 		require.Empty(t, receipts)
 	})
+}
+
+func TestExecuteSkipsTransactionAboveVinuLatestEVMGasCap(t *testing.T) {
+	p, sdb := newStartedProcessor(t, idx.Block(0), vinuLatestForkTestRules(), newStubChain())
+	key, _ := fundedSender(t, sdb)
+	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), params.MaxTxGasLimit+1, p.net.Economy.MinGasPrice, nil)
+	signed, err := types.SignTx(tx, types.MakeSigner(p.evmCfg, p.blockIdx), key)
+	require.NoError(t, err)
+
+	receipts := p.Execute(types.Transactions{signed})
+	block, skipped, finalReceipts := p.Finalize()
+
+	require.Empty(t, receipts)
+	require.Equal(t, []uint32{0}, skipped)
+	require.Empty(t, finalReceipts)
+	require.Empty(t, block.Transactions)
 }
 
 func TestExecuteShanghaiPush0ThroughProcessor(t *testing.T) {

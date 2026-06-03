@@ -102,6 +102,53 @@ func TestEthConfigReportsCurrentNextAndLastForks(t *testing.T) {
 	require.Equal(t, resp.Next, resp.Last)
 }
 
+func TestEthConfigReportsDistinctNextAndLastFutureForks(t *testing.T) {
+	cfg := *params.TestChainConfig
+	cfg.ChainID = big.NewInt(206)
+	cfg.HomesteadBlock = common.Big0
+	cfg.EIP150Block = common.Big0
+	cfg.EIP155Block = common.Big0
+	cfg.EIP158Block = common.Big0
+	cfg.ByzantiumBlock = common.Big0
+	cfg.ConstantinopleBlock = common.Big0
+	cfg.PetersburgBlock = common.Big0
+	cfg.IstanbulBlock = common.Big0
+	cfg.BerlinBlock = common.Big0
+	cfg.LondonBlock = common.Big0
+	cfg.ShanghaiBlock = common.Big0
+	cfg.CancunBlock = common.Big0
+	cfg.PragueBlock = common.Big0
+	cfg.VinuBLSBlock = big.NewInt(10)
+	cfg.VinuLatestEVMBlock = big.NewInt(20)
+
+	backend := &configStubBackend{
+		config: &cfg,
+		current: evmcore.NewEvmBlock(&evmcore.EvmHeader{
+			Number: big.NewInt(5),
+			Hash:   common.HexToHash("0x05"),
+			Time:   inter.FromUnix(50),
+		}, nil),
+		headers: map[uint64]*evmcore.EvmHeader{
+			0: {Number: big.NewInt(0), Hash: common.HexToHash("0x01"), Time: inter.FromUnix(1)},
+			5: {Number: big.NewInt(5), Hash: common.HexToHash("0x05"), Time: inter.FromUnix(50)},
+		},
+	}
+	api := NewPublicBlockChainAPI(backend)
+
+	resp, err := api.Config(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, resp.Current)
+	require.NotNil(t, resp.Next)
+	require.NotNil(t, resp.Last)
+	require.Equal(t, uint64(0), resp.Current.ActivationBlock)
+	require.Equal(t, uint64(10), resp.Next.ActivationBlock)
+	require.Equal(t, uint64(20), resp.Last.ActivationBlock)
+	require.Contains(t, resp.Next.Precompiles, "BLS12_G1ADD")
+	require.NotContains(t, resp.Next.Precompiles, "P256VERIFY")
+	require.Equal(t, common.BytesToAddress([]byte{0x01, 0x00}), resp.Last.Precompiles["P256VERIFY"])
+	require.NotEqual(t, resp.Next.ForkID, resp.Last.ForkID)
+}
+
 func TestEthConfigHasNoNextAfterLastConfiguredFork(t *testing.T) {
 	cfg := *params.TestChainConfig
 	cfg.ChainID = big.NewInt(206)

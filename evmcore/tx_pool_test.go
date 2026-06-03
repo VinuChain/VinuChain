@@ -392,6 +392,35 @@ func TestTransactionAboveCurrentMaxGasLimitRejected(t *testing.T) {
 	}
 }
 
+func TestTxPoolRejectsTransactionAboveVinuLatestEVMGasCap(t *testing.T) {
+	t.Parallel()
+
+	cfg := *pragueTxPoolConfig()
+	cfg.VinuBLSBlock = common.Big0
+	cfg.VinuLatestEVMBlock = common.Big0
+
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	blockchain := &testBlockChain{
+		statedb:       statedb,
+		gasLimit:      params.MaxTxGasLimit + 1,
+		chainHeadFeed: new(event.Feed),
+	}
+	key, _ := crypto.GenerateKey()
+	pool := NewTxPool(testTxPoolConfig, &cfg, blockchain)
+	defer pool.Stop()
+
+	if pool.currentMaxGas != params.MaxTxGasLimit {
+		t.Fatalf("currentMaxGas = %d, want VinuLatestEVM cap %d", pool.currentMaxGas, params.MaxTxGasLimit)
+	}
+	tx := transaction(0, params.MaxTxGasLimit+1, key)
+	from, _ := deriveSender(tx)
+	testAddBalance(pool, from, new(big.Int).SetUint64(params.MaxTxGasLimit+params.TxGas))
+
+	if err := pool.addRemoteSync(tx); !errors.Is(err, ErrTxGasLimitExceeded) {
+		t.Fatalf("expected %v, got %v", ErrTxGasLimitExceeded, err)
+	}
+}
+
 func TestTransactionQueue(t *testing.T) {
 	t.Parallel()
 

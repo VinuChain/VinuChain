@@ -47,6 +47,10 @@ var (
 	// by a transaction is higher than what's left in the block.
 	ErrGasLimitReached = errors.New("gas limit reached")
 
+	// ErrTxGasLimitExceeded is returned when a transaction exceeds the active
+	// protocol per-transaction gas cap.
+	ErrTxGasLimitExceeded = errors.New("transaction gas limit exceeds protocol cap")
+
 	// ErrInsufficientFundsForTransfer is returned if the transaction sender doesn't
 	// have enough funds for transfer(topmost call only).
 	ErrInsufficientFundsForTransfer = errors.New("insufficient funds for transfer")
