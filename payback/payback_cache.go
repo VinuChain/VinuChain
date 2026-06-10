@@ -300,6 +300,48 @@ func (pc *PaybackCache) SetContractABI(a *abi.ABI) {
 	pc.contractABI = a
 }
 
+// SnapshotUsedMap returns a deep copy of the accumulated per-address quotaUsed
+// (PaybackUsedMap) under the read lock. Callers own the returned map and big.Int
+// values and may mutate them freely. Intended for diagnostics and for verifying
+// that a warmed cache matches a never-restarted node's accumulation.
+func (pc *PaybackCache) SnapshotUsedMap() map[common.Address]*big.Int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	out := make(map[common.Address]*big.Int, len(pc.PaybackUsedMap))
+	for addr, v := range pc.PaybackUsedMap {
+		if v == nil {
+			continue
+		}
+		out[addr] = new(big.Int).Set(v)
+	}
+	return out
+}
+
+// SnapshotStakesByEpoch returns a deep copy of the recorded stake amounts for
+// the given epoch, keyed by stake address with the per-address sum as a decimal
+// string. Returns an empty map when the epoch holds no stakes. Intended for
+// verifying that a warmed cache reconstructs StakesMap[E-1]/StakesMap[E]
+// (the P1 consensus property) identically to a never-restarted node.
+func (pc *PaybackCache) SnapshotStakesByEpoch(epoch idx.Epoch) map[common.Address]string {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	out := make(map[common.Address]string)
+	epochStakes, ok := pc.StakesMap[epoch]
+	if !ok {
+		return out
+	}
+	for addr, stakes := range epochStakes.StakesByAddress {
+		sum := big.NewInt(0)
+		for _, st := range stakes {
+			if st.Amount != nil {
+				sum.Add(sum, st.Amount)
+			}
+		}
+		out[addr] = sum.String()
+	}
+	return out
+}
+
 // String returns a summary without per-address data to avoid leaking
 // financial state in logs.
 func (pc *PaybackCache) String() string {
