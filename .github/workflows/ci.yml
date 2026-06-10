@@ -1,0 +1,66 @@
+name: CI
+
+# Consensus node quality gate: build, vet, and the full test suite (including
+# the ~40 payback / PaybackV2 tests) must pass on every push and pull request.
+# Deliberately no actions/cache: GitHub cache API is billing-blocked on this
+# account's self-hosted infra, and the warm local Go module store on a persistent
+# runner already covers it. Runs on ubuntu-latest per the audit's Task 1.
+
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref to avoid wasting runner time.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build + vet + test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # Resolves the exact toolchain pinned in go.mod (go 1.25.8).
+          go-version-file: go.mod
+          cache: false
+
+      - name: go build ./...
+        run: go build ./...
+
+      - name: go vet ./...
+        run: go vet ./...
+
+      - name: build opera binary
+        run: make opera
+
+      - name: go test ./...
+        run: go test ./...
+
+  race:
+    name: test -race
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The race detector is slow; it runs in a separate job so it parallelizes
+      # with build-test. Scoped to the VinuChain fork-delta packages so the
+      # consensus-critical paths are always race-checked even if the full
+      # -race run is ever trimmed for time.
+      - name: go test -race (fork delta)
+        run: go test -race ./payback/... ./opera/... ./evmcore/... ./gossip/...
