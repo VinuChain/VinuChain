@@ -1,12 +1,18 @@
-## UNRELEASED
+# Changelog
 
-SECURITY:
+> **Note on this file.** VinuChain is a fork of Fantom go-opera (which itself
+> forked Lachesis). The entries from `v0.4.0` downward are **upstream-inherited**
+> and predate VinuChain — they do not describe this fork's release history and
+> are retained only for provenance.
+>
+> VinuChain's own release versioning is the `Elemont` series (see the `version`
+> package and Git tags). Per-release notes are tracked operationally outside this
+> repository; until they are mirrored here, treat the Git tag history and commit
+> log as the source of truth for VinuChain releases, not the legacy entries below.
 
-FEATURES:
+---
 
-IMPROVEMENTS:
-
-BUG FIXES:
+## Upstream-inherited history (Fantom go-opera / Lachesis)
 
 ## v0.4.0 (October 14, 2018)
 

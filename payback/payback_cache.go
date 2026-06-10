@@ -524,7 +524,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 		return payback
 	}
 
-	minStake, err := pc.getMinStake(address, evm, contractAddr)
+	minStake, err := pc.getMinStake(evm, contractAddr)
 	if err != nil {
 		log.Warn("GetAvailablePaybackByAddress:", "error", err)
 		return payback
@@ -651,7 +651,7 @@ func (pc *PaybackCache) calculateStakeDetails(address common.Address, evm *vm.EV
 	}
 	pc.mu.RUnlock()
 
-	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(address, evm)
+	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(evm)
 	if err != nil {
 		log.Warn("calculateStakeDetails:", "error", err)
 		return nil, nil, err
@@ -751,7 +751,7 @@ func (pc *PaybackCache) getAddressTotalStake(address common.Address, evm *vm.EVM
 	return decodeUint256(result)
 }
 
-func (pc *PaybackCache) getMinStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
+func (pc *PaybackCache) getMinStake(evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
 	sender := vm.AccountRef(common.Address{})
 	packedData, err := pc.contractABI.Pack("minStake")
 	if err != nil {
@@ -770,7 +770,7 @@ func (pc *PaybackCache) GetStore() Store {
 	return pc.store
 }
 
-func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address, evm *vm.EVM) (*big.Int, error) {
+func (pc *PaybackCache) getBaseRewardPerSecond(evm *vm.EVM) (*big.Int, error) {
 	sender := vm.AccountRef(common.Address{})
 	packedData, err := pc.sfcABI.Pack("baseRewardPerSecond")
 	if err != nil {
