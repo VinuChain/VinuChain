@@ -1,97 +1,190 @@
-# PaybackCache Restart Determinism — Invariant Note
+# PaybackCache Restart Determinism — Analysis & Confirmed Bug
 
 **Audit refs:** A1 (HIGH), T2 (HIGH) — `reports/vinuchain-audit-2026-06-10/01-VinuChain.md`
-**Status:** hypothesis "a mid-epoch restart can change consensus output" — **falsified** at the consensus layer; pinned by tests.
+**Status:** hypothesis "a mid-epoch restart can change consensus output" — **CONFIRMED as a real consensus bug.**
 
-## The concern
+> **Revision note.** An earlier version of this document (commit 92abc8a) incorrectly
+> concluded the hypothesis was falsified. It proved correctly that already-sealed
+> receipts are never recomputed post-restart. It missed that the confirmed bug lies
+> in **forward sealing of new blocks** after restart, not in re-sealing old ones.
+> This document supersedes that analysis.
 
-`receipt.FeeRefund` is consensus-sealed state (it feeds the receipts root; a
-mismatch is a full chain split). It is derived from the per-address available
-payback quota, which is reduced by the accumulated `quotaUsed` held in the
+---
+
+## The concern (from audit A1)
+
+`receipt.FeeRefund` is consensus-sealed state. It is derived from the per-address
+available payback quota, which subtracts the accumulated `quotaUsed` held in the
 **volatile, in-memory** `PaybackCache.PaybackUsedMap`
-(`payback/payback_cache.go`). That map:
+(`payback/payback_cache.go`). That map is never persisted to disk and is reset to
+empty at every epoch boundary (`cleanupOldEpochsLocked`).
 
-- is never persisted to disk,
-- is reset to empty at every epoch boundary (`cleanupOldEpochsLocked`),
-- is reconstructed **empty** on every service start (`gossip/service.go`).
+The question: does a mid-epoch restart cause a validator to compute different
+`FeeRefund` values than its non-restarted peers?
 
-So a node that restarts mid-epoch loses its accumulated `quotaUsed` and, in
-isolation, would compute a **larger** available payback (`quotaUsed = 0`) for an
-address than a peer that never restarted. If that re-derivation were allowed to
-**replace** an already-sealed `FeeRefund`, validators would diverge within an
-epoch. This volatility is real and is proven by
-`TestPaybackCacheIsVolatileWithinEpoch`.
+---
 
-## Why it is nevertheless deterministic across restart
+## Confirmed bug — exact causal chain
 
-The cache's volatility does not reach sealed consensus output, because of how
-the node recovers in-memory EVM state on startup:
+All file:line citations are to the `audit-impl` worktree.
 
-1. **Receipts are sealed once, forward-only.** During live block processing the
-   block processor computes `FeeRefund`, builds the block, and persists receipts
-   exactly once (`gossip/block_processor.go`: `Finalize()` →
-   `evm.SetReceipts(...)`). A sealed receipt is never recomputed for that block
-   during normal forward operation.
+### Step 1 — Live cache is constructed empty on startup
 
-2. **On restart the live cache is empty — but the node recovers, it does not
-   re-seal.** `RecoverEVM` (`gossip/c_block_callbacks.go`, called from
-   `Service` start) walks back to the most recent block whose EVM **state root
-   is already persisted** (`HasStateDB(block.Root)`) and re-executes **only the
-   trailing, not-yet-persisted blocks** via `ReexecuteBlocks`.
+`gossip/service.go:488`:
+```go
+svc.paybackCache, err = payback.NewPaybackCache(paybackStore, ...)
+```
+`NewPaybackCache` returns a cache with empty `PaybackUsedMap` and `StakesMap`.
+There is no replay of the current epoch's already-sealed blocks into this cache.
 
-3. **Re-execution uses a dedicated fresh cache and does not re-seal receipts.**
-   `ReexecuteBlocks` builds a separate `reexecCache` (so live warm state cannot
-   leak in), re-derives forward, commits the trailing state under each block's
-   **already-sealed `block.Root`** (it discards the recomputed root), and
-   **never calls `SetReceipts`.** Its sole product is a warm in-memory state
-   trie so the node can resume forward sealing. The already-sealed `FeeRefund`s
-   of the current epoch are therefore never overwritten by an empty-cache
-   re-derivation.
+### Step 2 — RecoverEVM uses a LOCAL cache that is never installed back
 
-4. **The fresh cache only affects NEW consensus output.** After recovery
-   completes, every validator — restarted or not — seals the same
-   not-yet-sealed blocks from a cache whose state derives deterministically from
-   the same persisted chain prefix. At an epoch boundary all caches converge
-   exactly (`TestPaybackUsedMapResetsAtEpochBoundary`).
+`gossip/service.go:651` calls `s.RecoverEVM()`, which calls
+`s.ReexecuteBlocks(b, start)` (`c_block_callbacks.go:133`).
 
-## The load-bearing invariant
+`ReexecuteBlocks` (`c_block_callbacks.go:68-121`) builds:
+```go
+reexecCache, err := payback.NewPaybackCache(s.paybackCache.GetStore(), ...)
+```
+This `reexecCache` is a local variable. It accumulates `quotaUsed` across the
+re-derived trailing blocks — but it is **never assigned to `s.paybackCache`** and
+goes out of scope when `ReexecuteBlocks` returns. `s.paybackCache` remains empty.
 
-> **Re-derivation with a fresh `PaybackCache` may never replace an
-> already-sealed receipt.** Only the live, forward-only block processor seals
-> `FeeRefund` (via `SetReceipts`); the restart/recovery path re-derives state
-> for warm-up only and must never call `SetReceipts`.
+### Step 3 — GetConsensusCallbacks passes the still-empty live cache to every block processor
 
-If a future change violates this — e.g. `ReexecuteBlocks` gains a `SetReceipts`
-call, or the live block path re-derives already-sealed receipts from a fresh
-cache — the volatile cache would become consensus-divergent on restart. **At
-that point the correct fix is to persist/rebuild `PaybackUsedMap` across
-restart, not to silence the tests.**
+`gossip/c_block_callbacks.go:61`:
+```go
+s.paybackCache,   // ← this is the empty live cache
+```
+is passed to `newBlockProcessor`. This is called once from
+`engine.Bootstrap(svc.GetConsensusCallbacks())` (`cmd/opera/launcher/launcher.go:398`),
+which happens **after** `RecoverEVM` completes in `Start()` — so by the time the
+engine begins delivering new blocks for sealing, the live cache is still empty.
 
-## Tests pinning this invariant
+### Step 4 — Empty cache produces excess FeeRefund in forward sealing
 
-- `payback/payback_restart_determinism_test.go`
-  - `TestPaybackCacheIsVolatileWithinEpoch` — proves the cache IS volatile
-    mid-epoch (the premise is real, not hand-waved away).
-  - `TestPaybackUsedMapResetsAtEpochBoundary` — proves warm/fresh caches
-    converge across an epoch boundary.
-- `gossip/payback_restart_recovery_test.go`
-  - `TestReexecutionUsesFreshCacheAndDoesNotReseal` — pins that re-execution
-    uses a fresh cache, commits under the sealed root, and does **not** call
-    `SetReceipts`.
-  - `TestRecoverEVMOnlyReexecutesTrailingUnpersistedBlocks` — pins that recovery
-    is bounded to trailing not-yet-persisted blocks.
-  - `TestLiveBlockPathSealsReceiptsExactlyOnce` — pins the live path as the sole
-    receipt sealer.
-  - `TestServiceConstructsEmptyPaybackCacheOnStart` — documents that the live
-    cache is intentionally empty on start (no warm-up assumed).
+For the first new (not-yet-sealed) block delivered after recovery:
 
-## Residual risk / owner action
+`evmcore/state_processor.go:155`:
+```go
+availablePayback := paybackCache.GetAvailablePaybackByAddress(msg.From(), evm)
+```
 
-The argument above is a **structural proof**, validated by source-pin tests, not
-a full end-to-end fork test that boots two nodes, restarts one mid-epoch, and
-byte-compares receipts roots. That end-to-end test (in `integration/` or a
-fakenet harness) remains the strongest possible confirmation and is recommended
-as a follow-up (audit Task 4 / Milestone M0 fakenet smoke). It was deferred here
-because it requires a fully-wired multi-node harness beyond the scope of the
-unit-test deliverable. Maintainers who can run that harness should treat it as
-the final sign-off on A1.
+`GetAvailablePaybackByAddress` returns `paybackSum - quotaUsed`
+(`payback/payback_cache.go:561`).
+
+With a **warm** cache (non-restarted node): `quotaUsed = X` (accumulated over
+intra-epoch blocks) → `availablePayback = paybackSum - X`.
+
+With an **empty** cache (restarted node): `quotaUsed = 0` →
+`availablePayback = paybackSum` (full epoch quota, unreduced).
+
+### Step 5 — The excess availablePayback mutates the EVM state trie
+
+`evmcore/state_transition.go:488-493`:
+```go
+if feeRefund.Sign() > 0 {
+    st.feeRefund = feeRefund
+    remaining = remaining.Add(remaining, feeRefund)
+}
+st.state.AddBalance(st.msg.From(), remaining)   // ← state trie mutation
+```
+
+A larger `availablePayback` → larger `feeRefund` → larger `remaining` →
+`AddBalance` credits **more wei** to the sender's account.
+
+### Step 6 — The state trie difference is consensus-sealed
+
+`gossip/blockproc/evmmodule/evm.go:190`:
+```go
+newStateHash, err := p.statedb.Commit(true)
+```
+All `AddBalance` mutations are hashed into `newStateHash` → `evmBlock.Root` →
+`block.Root` (`gossip/block_processor.go:610`).
+
+`block.Root` is consensus-sealed. A different `AddBalance` → different
+`block.Root` → **receipts-root mismatch → full consensus split** (per CLAUDE.md).
+
+### Secondary effect — validator fee accounting also diverges
+
+`gossip/blockproc/drivermodule/driver_txs.go:184-190`:
+```go
+feeRefund := r.FeeRefund
+validatorFee := new(big.Int).Sub(txFee, feeRefund)
+```
+A larger `FeeRefund` → smaller `validatorFee` → different
+`ValidatorStates[originatorIdx].Originated` → different epoch-end SFC staking
+reward distribution. This is also consensus state.
+
+---
+
+## What is NOT broken (still correct from earlier analysis)
+
+The recovery path (`ReexecuteBlocks`) never re-seals already-committed receipts.
+It does not call `SetReceipts` and commits trailing state under the already-sealed
+`block.Root`. Already-sealed `FeeRefund` values from the current epoch are
+therefore never overwritten. The bug is exclusively in **forward sealing** of
+new blocks after restart.
+
+At epoch boundaries all caches (warm or fresh) converge to zero
+(`cleanupOldEpochsLocked`), so a restart that lands on or immediately after an
+epoch boundary does not diverge.
+
+---
+
+## Blast radius
+
+| Dimension | Assessment |
+|---|---|
+| **Scope** | State-root-affecting (not RPC-only) |
+| **Mechanism** | `AddBalance` before `statedb.Commit` → enters Merkle trie → `block.Root` |
+| **Consequence** | Chain split: restarted validator seals a different `block.Root` than peers |
+| **Preconditions** | (a) `Upgrades.Podgorica` active (FeeRefund enabled); (b) validator restarts mid-epoch; (c) an address that accumulated FeeRefund earlier in the epoch submits another tx post-restart |
+| **Epoch boundary** | No divergence if restart lands at or after an epoch boundary (PaybackUsedMap resets to zero for all nodes) |
+| **Practical frequency** | Mid-epoch restarts occur on every upgrade, crash recovery, or routine maintenance; condition (c) is met whenever any staking address transacts |
+
+---
+
+## Required fix (owner action — NOT implemented here)
+
+Before the first new block is sealed after startup, `s.paybackCache` must reflect
+the accumulated `quotaUsed` of the current epoch. Two viable approaches:
+
+**Option A — Replay on startup (no schema change):**
+After `RecoverEVM` returns, iterate the already-sealed blocks of the current
+epoch (from epoch-start block to `s.store.GetLatestBlockIndex()`), retrieve each
+block's transactions and receipts, and call `s.paybackCache.AddTransaction(tx,
+receipt)` for each. This warm-up must complete before `engine.Bootstrap` delivers
+the first new block for sealing.
+
+**Option B — Persist/reload PaybackUsedMap (schema change):**
+Persist `PaybackUsedMap` to the gossip store at the end of each block (or epoch)
+and reload it on startup. More robust, higher storage overhead.
+
+Either fix closes A1. **Do not implement unilaterally on a live mainnet without
+a coordinated upgrade and thorough testing** — both options touch the consensus
+path.
+
+---
+
+## Tests pinning this finding
+
+**`payback/payback_restart_determinism_test.go`**
+- `TestForwardSealingDivergesAfterMidEpochRestart` — characterisation test for
+  the confirmed bug. Asserts that a fresh cache and a warm cache return different
+  `quotaUsed` for the same mid-epoch block, pinning the current broken behaviour.
+  This test **must be deleted or rewritten once the fix is applied.**
+- `TestPaybackCacheIsVolatileWithinEpoch` — proves the cache IS volatile
+  mid-epoch (the premise is real).
+- `TestPaybackUsedMapResetsAtEpochBoundary` — proves convergence at epoch
+  boundaries (bounds the blast radius to within one epoch).
+
+**`gossip/payback_restart_recovery_test.go`**
+- Group A pins: `TestServiceCacheIsEmptyAtStartAndHasNoWarmUpPath`,
+  `TestReexecCacheIsLocalAndNotInstalledIntoLiveCache`,
+  `TestGetConsensusCallbacksPassesLiveCache` — the three structural facts that
+  together constitute the bug path.
+- Group B pins: `TestReexecutionDoesNotReseal`,
+  `TestRecoverEVMOnlyReexecutesTrailingUnpersistedBlocks`,
+  `TestLiveBlockPathSealsReceiptsExactlyOnce` — facts that remain correct;
+  a refactor that makes `ReexecuteBlocks` call `SetReceipts` would compound the bug.
