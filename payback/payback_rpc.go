@@ -66,7 +66,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddressRPC(
 		log.Debug("GetAvailablePaybackByAddressRPC: getAddressTotalStake", "err", err)
 		return big.NewInt(0), err
 	}
-	minStake, err := pc.getMinStake(address, evm, contractAddr)
+	minStake, err := pc.getMinStake(evm, contractAddr)
 	if err != nil {
 		log.Debug("GetAvailablePaybackByAddressRPC: getMinStake", "err", err)
 		return big.NewInt(0), err
@@ -99,7 +99,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddressRPC(
 
 	fullDuration := computeFullDurationRPC(stakesCurrent, stakesPrev, currentEpochStakes, prevEpochState, blockTime)
 
-	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(address, evm)
+	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(evm)
 	if err != nil {
 		log.Debug("GetAvailablePaybackByAddressRPC: getBaseRewardPerSecond", "err", err)
 		return big.NewInt(0), err

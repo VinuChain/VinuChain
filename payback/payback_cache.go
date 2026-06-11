@@ -300,6 +300,48 @@ func (pc *PaybackCache) SetContractABI(a *abi.ABI) {
 	pc.contractABI = a
 }
 
+// SnapshotUsedMap returns a deep copy of the accumulated per-address quotaUsed
+// (PaybackUsedMap) under the read lock. Callers own the returned map and big.Int
+// values and may mutate them freely. Intended for diagnostics and for verifying
+// that a warmed cache matches a never-restarted node's accumulation.
+func (pc *PaybackCache) SnapshotUsedMap() map[common.Address]*big.Int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	out := make(map[common.Address]*big.Int, len(pc.PaybackUsedMap))
+	for addr, v := range pc.PaybackUsedMap {
+		if v == nil {
+			continue
+		}
+		out[addr] = new(big.Int).Set(v)
+	}
+	return out
+}
+
+// SnapshotStakesByEpoch returns a deep copy of the recorded stake amounts for
+// the given epoch, keyed by stake address with the per-address sum as a decimal
+// string. Returns an empty map when the epoch holds no stakes. Intended for
+// verifying that a warmed cache reconstructs StakesMap[E-1]/StakesMap[E]
+// (the P1 consensus property) identically to a never-restarted node.
+func (pc *PaybackCache) SnapshotStakesByEpoch(epoch idx.Epoch) map[common.Address]string {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	out := make(map[common.Address]string)
+	epochStakes, ok := pc.StakesMap[epoch]
+	if !ok {
+		return out
+	}
+	for addr, stakes := range epochStakes.StakesByAddress {
+		sum := big.NewInt(0)
+		for _, st := range stakes {
+			if st.Amount != nil {
+				sum.Add(sum, st.Amount)
+			}
+		}
+		out[addr] = sum.String()
+	}
+	return out
+}
+
 // String returns a summary without per-address data to avoid leaking
 // financial state in logs.
 func (pc *PaybackCache) String() string {
@@ -524,7 +566,7 @@ func (pc *PaybackCache) GetAvailablePaybackByAddress(address common.Address, evm
 		return payback
 	}
 
-	minStake, err := pc.getMinStake(address, evm, contractAddr)
+	minStake, err := pc.getMinStake(evm, contractAddr)
 	if err != nil {
 		log.Warn("GetAvailablePaybackByAddress:", "error", err)
 		return payback
@@ -651,7 +693,7 @@ func (pc *PaybackCache) calculateStakeDetails(address common.Address, evm *vm.EV
 	}
 	pc.mu.RUnlock()
 
-	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(address, evm)
+	baseRewardPerSecond, err := pc.getBaseRewardPerSecond(evm)
 	if err != nil {
 		log.Warn("calculateStakeDetails:", "error", err)
 		return nil, nil, err
@@ -751,7 +793,7 @@ func (pc *PaybackCache) getAddressTotalStake(address common.Address, evm *vm.EVM
 	return decodeUint256(result)
 }
 
-func (pc *PaybackCache) getMinStake(address common.Address, evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
+func (pc *PaybackCache) getMinStake(evm *vm.EVM, contractAddr common.Address) (*big.Int, error) {
 	sender := vm.AccountRef(common.Address{})
 	packedData, err := pc.contractABI.Pack("minStake")
 	if err != nil {
@@ -770,7 +812,7 @@ func (pc *PaybackCache) GetStore() Store {
 	return pc.store
 }
 
-func (pc *PaybackCache) getBaseRewardPerSecond(address common.Address, evm *vm.EVM) (*big.Int, error) {
+func (pc *PaybackCache) getBaseRewardPerSecond(evm *vm.EVM) (*big.Int, error) {
 	sender := vm.AccountRef(common.Address{})
 	packedData, err := pc.sfcABI.Pack("baseRewardPerSecond")
 	if err != nil {

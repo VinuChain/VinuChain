@@ -9,7 +9,9 @@ package-lock.json
 gitignore/
 .claude/
 CLAUDE.md
-docs/
+docs/*
+# Committed, sanitized design docs are tracked explicitly (audit Doc1/Theme 4).
+!docs/payback-cache-restart-determinism.md
 cover.prof
 claude-progress.txt
 feature-progress.json

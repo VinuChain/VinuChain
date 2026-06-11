@@ -649,6 +649,13 @@ func (s *Service) Start() error {
 		return errors.New("cannot halt snapsync and start fullsync")
 	}
 	s.RecoverEVM()
+	// CONSENSUS-CRITICAL (audit A1/T2): rebuild the volatile PaybackUsedMap for
+	// the current epoch before the engine (engine.Bootstrap → GetConsensusCallbacks)
+	// hands s.paybackCache to the live block processor. Without this, the first
+	// new block sealed after a mid-epoch restart would read quotaUsed=0 and seal a
+	// different block.Root than non-restarted peers. Must run after RecoverEVM
+	// (so the trailing EVM state exists) and before any forward sealing.
+	s.WarmUpPaybackCache()
 	root := s.store.GetBlockState().FinalizedStateRoot
 	if !s.store.evm.HasStateDB(root) {
 		if !s.config.AllowSnapsync {
