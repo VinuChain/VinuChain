@@ -84,3 +84,27 @@ jobs:
       # documented by the logrus replace directive in go.mod.
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # required for only-new-issues diff base
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # only-new-issues: report only issues the PR introduces, so the large
+      # inherited go-ethereum backlog does not block contributors. Ratchet
+      # toward full-tree by dropping this flag once the backlog is burned down.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          only-new-issues: true

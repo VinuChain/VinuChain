@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - unconvert
+    - misspell
+  exclusions:
+    # Generated abigen bindings — never hand-edited, will never be "clean".
+    # NOTE: `paths` entries are REGULAR EXPRESSIONS (not literal globs); the bare
+    # strings below match the intended directories as substrings of file paths.
+    generated: lax
+    paths:
+      - gossip/contract
+      - payback/contract
+
+issues:
+  # Cap so a single noisy file cannot hide everything else.
+  max-issues-per-linter: 0
+  max-same-issues: 0
