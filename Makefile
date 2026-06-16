@@ -40,6 +40,13 @@ fuzz:
 	go run github.com/dvyukov/go-fuzz/go-fuzz-build -o=./fuzzing/gossip-fuzz.zip ./gossip && \
 	go run github.com/dvyukov/go-fuzz/go-fuzz -workdir=./fuzzing -bin=./fuzzing/gossip-fuzz.zip
 
+# Native Go fuzzing (go test -fuzz) of the untrusted P2P message-decode path.
+# Supersedes the legacy go-fuzz `fuzz` target above (which uses the abandoned
+# dvyukov/go-fuzz toolchain); kept side-by-side until the legacy target is retired.
+.PHONY: fuzz-native
+fuzz-native:
+	go test -run=^$$ -fuzz=FuzzHandleMsg -fuzztime=60s ./gossip/
+
 
 .PHONY: clean
 clean:

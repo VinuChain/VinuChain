@@ -140,3 +140,22 @@ jobs:
           name: cover-prof
           path: cover.prof
           if-no-files-found: error
+
+  fuzz:
+    name: fuzz (time-boxed)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Native Go fuzzing of the untrusted P2P message-decode path, bounded so it
+      # fits a normal CI run. Any crash the fuzzer finds fails the job (fail-closed)
+      # and is saved under testdata/fuzz/ for reproduction.
+      - name: Fuzz P2P handleMsg
+        run: go test -run=^$ -fuzz=FuzzHandleMsg -fuzztime=120s ./gossip/
