@@ -58,12 +58,12 @@ the live repo, then tightened: real defects fixed include 004's wrong tag range
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Add a `govulncheck` supply-chain gate to CI | P1 | S | — | TODO |
-| 002 | Add a `golangci-lint` static-analysis job to CI | P1 | M | 001 (same file) | TODO |
-| 003 | Add a non-blocking coverage report to CI | P2 | S | 001, 002 (same file) | TODO |
-| 004 | Backfill CHANGELOG + fix CONTRIBUTING/Sonar staleness | P2 | S | — | TODO |
-| 005 | Wire continuous fuzzing into CI (native Go fuzzing) | P2 | L | — | TODO |
-| 006 | Write the mainnet hard-fork release runbook | P3 | M | — | TODO |
+| 001 | Add a `govulncheck` supply-chain gate to CI | P1 | S | — | DONE — APPROVED · `exec-ci` f7280d2 (0 called vulns) |
+| 002 | Add a `golangci-lint` static-analysis job to CI | P1 | M | 001 (same file) | DONE — APPROVED · `exec-ci` f7f7f20 (v2.12.2, only-new-issues) |
+| 003 | Add a non-blocking coverage report to CI | P2 | S | 001, 002 (same file) | DONE — APPROVED · `exec-ci` e215543 (job correct; local baseline deferred to first CI run — covdata absent from this box's GOTOOLDIR, present in setup-go@v5) |
+| 004 | Backfill CHANGELOG + fix CONTRIBUTING/Sonar staleness | P2 | S | — | DONE — APPROVED · `exec-docs` 103ae60 (39 headings, provenance kept) |
+| 005 | Wire continuous fuzzing into CI (native Go fuzzing) | P2 | L | — | DONE — APPROVED · `exec-fuzz` 2caa97e (30s fuzz: 400k execs, 0 crashers; no prod code touched) |
+| 006 | Write the mainnet hard-fork release runbook | P3 | M | — | DONE — APPROVED · `exec-runbook` 780194b2 (secret-scan clean) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) |
 REJECTED (one-line rationale).
