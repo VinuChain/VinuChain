@@ -64,3 +64,23 @@ jobs:
       # -race run is ever trimmed for time.
       - name: go test -race (fork delta)
         run: go test -race ./payback/... ./opera/... ./evmcore/... ./gossip/...
+
+  vulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Call-path-aware vulnerability scan. Fails ONLY when a known-vulnerable
+      # symbol is actually reachable from this module's code — not merely
+      # present in the dependency graph. This automates the manual CVE triage
+      # documented by the logrus replace directive in go.mod.
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

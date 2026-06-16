@@ -24,6 +24,10 @@ opera-image:
 test:
 	go test ./...
 
+.PHONY: vulncheck
+vulncheck:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
 .PHONY: coverage
 coverage:
 	go test -coverprofile=cover.prof $$(go list ./... | grep -v '/gossip/contract/' | grep -v '/gossip/emitter/mock')
