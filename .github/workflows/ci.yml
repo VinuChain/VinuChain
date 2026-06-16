@@ -108,3 +108,35 @@ jobs:
         with:
           version: v2.12.2
           only-new-issues: true
+
+  coverage:
+    name: coverage (non-blocking)
+    runs-on: ubuntu-latest
+    # Informational only — never blocks merges.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Compute coverage
+        run: make coverage
+
+      - name: Publish total to job summary
+        run: |
+          echo "### Test coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=cover.prof | tail -n 1 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: cover-prof
+          path: cover.prof
+          if-no-files-found: error
