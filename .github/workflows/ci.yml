@@ -83,11 +83,14 @@ jobs:
       # present in the dependency graph. This automates the manual CVE triage
       # documented by the logrus replace directive in go.mod.
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
 
   lint:
     name: golangci-lint
     runs-on: ubuntu-latest
+    # only-new-issues needs a PR diff base; on a bare push it falls back to
+    # full-tree and goes red against the inherited go-ethereum backlog.
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

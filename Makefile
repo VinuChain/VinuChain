@@ -26,7 +26,7 @@ test:
 
 .PHONY: vulncheck
 vulncheck:
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
 
 .PHONY: coverage
 coverage:
