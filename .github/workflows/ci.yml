@@ -160,7 +160,7 @@ jobs:
       # fits a normal CI run. Any crash the fuzzer finds fails the job (fail-closed)
       # and is saved under testdata/fuzz/ for reproduction.
       - name: Fuzz P2P handleMsg
-        run: go test -run=^$ -fuzz=FuzzHandleMsg -fuzztime=120s ./gossip/
+        run: go test -run=^$ -fuzz='^FuzzHandleMsg$' -fuzztime=120s ./gossip/
 
       # On a crash, the failing seed written under testdata/fuzz/ is the
       # reproducer. CI is ephemeral, so upload it (the job has already failed).

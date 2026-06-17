@@ -49,9 +49,15 @@ jobs:
             echo "no prior successful run; starting from the committed seed corpus"
           fi
 
-      # Fail-closed: any crash fails the job. fuzztime is the deep budget.
-      - name: Deep fuzz (10m)
+      # Fail-closed: any crash fails the job. fuzztime is the per-target budget.
+      # Two complementary targets: FuzzHandleMsgDeep runs in the ssEvents stage
+      # (event/tx + stream-request decoders); FuzzHandleMsgDeepLLR runs in the
+      # block-records stage so the BV/BR/EP stream-response decoders are reached.
+      - name: Deep fuzz - events (10m)
         run: go test -run='^$' -fuzz='^FuzzHandleMsgDeep$' -fuzztime=10m ./gossip/
+
+      - name: Deep fuzz - block records (10m)
+        run: go test -run='^$' -fuzz='^FuzzHandleMsgDeepLLR$' -fuzztime=10m ./gossip/
 
       - name: Stage corpus for upload
         if: always()

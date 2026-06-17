@@ -313,6 +313,147 @@ func decodeFuzzMsgAll(data []byte) (*p2p.Msg, error) {
 	}, nil
 }
 
+// FuzzHandleMsgDeepLLR is the block-record-stage counterpart to FuzzHandleMsgDeep.
+// The two targets are mutually exclusive by design: the sync stage gates the
+// untrusted decoders into two non-overlapping phases (sync.go), and a single run
+// can only sit in one phase.
+//
+//   - FuzzHandleMsgDeep fixes the stage at ssEvents, so AcceptEvents()==true /
+//     AcceptBlockRecords()==(!Is(ssEvents))==false. That reaches the event/tx
+//     decoders but the three block-record response branches BVsStreamResponse(11),
+//     BRsStreamResponse(13), EPsStreamResponse(15) early-`break` at their
+//     `if !AcceptBlockRecords()` guard (handler_sync.go:671, 733, 792) BEFORE
+//     msg.Decode.
+//   - FuzzHandleMsgDeepLLR leaves the stage at its newTestEnv default (ssUnknown),
+//     so AcceptBlockRecords()==(!Is(ssEvents))==true and those three branches now
+//     PROCEED to msg.Decode (handler_sync.go:675, 739, 797), exercising the
+//     bvsChunk/brsChunk/epsChunk decoders on attacker bytes. They then break at the
+//     leecher IsValidSession check (leechers unstarted) -- but the decode has run,
+//     which is the whole point. RequestLLR()==(!Is(ssEvents) || MaybeSynced())==true
+//     in this stage as well. AcceptEvents()/AcceptTxs() are false here (both require
+//     Is(ssEvents)); the event/tx codes are deliberately left to FuzzHandleMsgDeep.
+//
+// As in the other targets, an error on malformed input is EXPECTED; a panic or hang
+// is what the fuzzer hunts. Reserved for the nightly (longer-runtime) workflow.
+func FuzzHandleMsgDeepLLR(f *testing.F) {
+	// Same global-log detachment rationale as the other targets (see FuzzHandleMsg).
+	prevHandler := log.Root().GetHandler()
+	log.Root().SetHandler(log.DiscardHandler())
+	defer log.Root().SetHandler(prevHandler)
+
+	// firstEpoch=1, validatorsNum=3 -- identical wired construction to FuzzHandleMsgDeep.
+	env := newTestEnv(1, 3)
+	defer env.Close()
+	h := env.handler
+
+	// CRITICAL: do NOT call h.syncStatus.Set(ssEvents). The stage stays at the
+	// newTestEnv default (ssUnknown), so AcceptBlockRecords() == !Is(ssEvents) == true
+	// and the BVs/BRs/EPs StreamResponse decoders become reachable. MarkMaybeSynced()
+	// is set so RequestLLR() == (!Is(ssEvents) || MaybeSynced()) == true (it is already
+	// true via the first disjunct in this stage; this makes the LLR-request intent
+	// explicit and robust if the stage ever changes). AcceptEvents()/AcceptTxs() are
+	// (correctly) false in this stage -- the event/tx decoders are FuzzHandleMsgDeep's
+	// responsibility.
+	h.syncStatus.MarkMaybeSynced()
+
+	// Start the SAME components as FuzzHandleMsgDeep, in handler.Start() order minus
+	// the leechers, with deferred Stop in LIFO order. The seeders drain the four
+	// Request*Stream codes' notifyReceivedRequest channels (so 10/12/14 cannot
+	// deadlock); the leechers stay unstarted so the *StreamResponse branches break at
+	// IsValidSession AFTER decode. None of these components panics on the seed corpus
+	// in this stage.
+	h.dagFetcher.Start()
+	defer h.dagFetcher.Stop()
+	h.txFetcher.Start()
+	defer h.txFetcher.Stop()
+	h.checkers.Heavycheck.Start()
+	defer h.checkers.Heavycheck.Stop()
+
+	h.epProcessor.Start()
+	defer h.epProcessor.Stop()
+	h.epSeeder.Start()
+	defer h.epSeeder.Stop()
+
+	h.dagProcessor.Start()
+	defer h.dagProcessor.Stop()
+	h.dagSeeder.Start()
+	defer h.dagSeeder.Stop()
+
+	h.bvProcessor.Start()
+	defer h.bvProcessor.Stop()
+	h.bvSeeder.Start()
+	defer h.bvSeeder.Stop()
+
+	h.brProcessor.Start()
+	defer h.brProcessor.Stop()
+	h.brSeeder.Start()
+	defer h.brSeeder.Stop()
+
+	// Seed corpus: byte[0] selects a code (mod len). Include seeds landing on the
+	// three block-record response codes whose decoders this stage newly reaches.
+	f.Add([]byte{0x00})             // HandshakeMsg
+	f.Add([]byte{0x03, 0x01})       // BVsStreamResponse (index 3 in decodeFuzzMsgLLR)
+	f.Add([]byte{0x05, 0x02})       // BRsStreamResponse (index 5)
+	f.Add([]byte{0x07, 0x03})       // EPsStreamResponse (index 7)
+	f.Add([]byte{0x02, 0x04, 0x05}) // RequestBVsStream (index 2)
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		msg, err := decodeFuzzMsgLLR(data)
+		if err != nil {
+			return // not interesting
+		}
+		// Same synthetic-peer construction + cleanup as the other Deep target.
+		peer := newPeer(
+			ProtocolVersion,
+			p2p.NewPeer(randFuzzID(), "fuzz-peer", []p2p.Cap{}),
+			&fuzzRW{msg},
+			DefaultPeerCacheConfig(cachescale.Identity),
+		)
+		defer peer.Close()
+		defer func() {
+			h.peerRateLimit.RemovePeer(peer.id)
+			h.peerEventQuota.RemovePeer(peer.id)
+			h.peerStreamQuota.RemovePeer(peer.id)
+		}()
+		_ = h.handleMsg(peer)
+	})
+}
+
+// decodeFuzzMsgLLR maps data[0] to one of the block-record / LLR-stage message
+// codes whose decoders FuzzHandleMsgDeepLLR's ssUnknown stage actually reaches.
+// The three *StreamResponse codes 11/13/15 only get past their
+// `if !AcceptBlockRecords()` guard in this stage; the three Request*Stream codes
+// 10/12/14 decode unconditionally and drain through the started seeders. The two
+// stage-agnostic codes Handshake(0)/Progress(1) are included as cheap filler.
+// EventsStreamResponse(9) is deliberately omitted -- it gates on AcceptEvents()
+// (handler_sync.go:607), which is false here, so it belongs to FuzzHandleMsgDeep.
+func decodeFuzzMsgLLR(data []byte) (*p2p.Msg, error) {
+	if len(data) < 1 {
+		return nil, errors.New("empty data")
+	}
+
+	var (
+		codes = []uint64{
+			HandshakeMsg,      // 0  (stage-agnostic filler)
+			ProgressMsg,       // 1  (stage-agnostic filler)
+			RequestBVsStream,  // 10 (decodes unconditionally; drains via bvSeeder)
+			BVsStreamResponse, // 11 (reaches msg.Decode only when AcceptBlockRecords())
+			RequestBRsStream,  // 12 (decodes unconditionally; drains via brSeeder)
+			BRsStreamResponse, // 13 (reaches msg.Decode only when AcceptBlockRecords())
+			RequestEPsStream,  // 14 (decodes unconditionally; drains via epSeeder)
+			EPsStreamResponse, // 15 (reaches msg.Decode only when AcceptBlockRecords())
+		}
+		code = codes[int(data[0])%len(codes)]
+	)
+	data = data[1:]
+
+	return &p2p.Msg{
+		Code:    code,
+		Size:    uint32(len(data)),
+		Payload: bytes.NewReader(data),
+	}, nil
+}
+
 // decodeFuzzMsg maps data[0] to one of the protocol message codes and wraps the
 // remaining bytes as the payload. (The distinct name dates from coexisting
 // with the now-removed legacy gofuzz harness.)

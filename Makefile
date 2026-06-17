@@ -36,7 +36,7 @@ coverage:
 # Native Go fuzzing (go test -fuzz) of the untrusted P2P message-decode path.
 .PHONY: fuzz-native
 fuzz-native:
-	go test -run=^$$ -fuzz=FuzzHandleMsg -fuzztime=60s ./gossip/
+	go test -run=^$$ -fuzz='^FuzzHandleMsg$$' -fuzztime=60s ./gossip/
 
 
 .PHONY: clean
