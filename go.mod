@@ -1,6 +1,6 @@
 module github.com/Fantom-foundation/go-opera
 
-go 1.25.8
+go 1.25.11
 
 require (
 	github.com/Fantom-foundation/lachesis-base v0.1.6-elemont
