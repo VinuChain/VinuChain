@@ -171,3 +171,22 @@ jobs:
           name: fuzz-crashers
           path: gossip/testdata/fuzz/
           if-no-files-found: ignore
+
+  changelog:
+    name: changelog entry (release tags)
+    runs-on: ubuntu-latest
+    # Runs only on vX.Y.Z release-tag pushes: a release must carry its CHANGELOG
+    # entry. Generate it locally with scripts/gen-changelog.sh before tagging.
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Require a CHANGELOG entry for the release tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if ! grep -q "^### ${tag} " CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '### ${tag}' entry. Run scripts/gen-changelog.sh and commit it before tagging ${tag}." >&2
+            exit 1
+          fi
+          echo "OK: CHANGELOG.md contains an entry for ${tag}"
