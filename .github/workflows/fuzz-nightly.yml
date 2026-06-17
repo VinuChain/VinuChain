@@ -1,0 +1,79 @@
+name: fuzz-nightly
+
+# Nightly DEEP fuzzing of the untrusted P2P message-decode path with the seeders
+# started, so it also exercises the Request*Stream codes the per-PR `fuzz` job in
+# ci.yml deliberately excludes. The generated corpus is persisted across runs as
+# a workflow artifact (the GitHub Actions cache API is billing-blocked on this
+# account, so artifacts are used instead of actions/cache).
+
+on:
+  schedule:
+    - cron: '0 7 * * *'        # daily, 07:00 UTC
+  workflow_dispatch: {}         # allow manual runs
+
+permissions:
+  contents: read
+  actions: read                 # to pull the previous run's corpus artifact
+
+concurrency:
+  group: fuzz-nightly
+  cancel-in-progress: false
+
+jobs:
+  deep-fuzz:
+    name: deep fuzz (seeders started, all 16 codes)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore prior fuzz corpus
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dest="$(go env GOCACHE)/fuzz"
+          mkdir -p "$dest"
+          run_id="$(gh run list --workflow=fuzz-nightly.yml --status=success \
+            --limit=1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+          if [ -n "${run_id:-}" ]; then
+            gh run download "$run_id" -n fuzz-corpus -D "$dest" 2>/dev/null \
+              && echo "restored corpus from run $run_id" \
+              || echo "no corpus artifact on run $run_id; starting fresh"
+          else
+            echo "no prior successful run; starting from the committed seed corpus"
+          fi
+
+      # Fail-closed: any crash fails the job. fuzztime is the deep budget.
+      - name: Deep fuzz (10m)
+        run: go test -run='^$' -fuzz='^FuzzHandleMsgDeep$' -fuzztime=10m ./gossip/
+
+      - name: Stage corpus for upload
+        if: always()
+        run: |
+          src="$(go env GOCACHE)/fuzz"
+          mkdir -p "${{ github.workspace }}/fuzz-corpus"
+          if [ -d "$src" ]; then cp -r "$src/." "${{ github.workspace }}/fuzz-corpus/"; fi
+
+      - name: Save fuzz corpus
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-corpus
+          path: ${{ github.workspace }}/fuzz-corpus
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashers
+          path: gossip/testdata/fuzz/
+          if-no-files-found: ignore
+          retention-days: 30

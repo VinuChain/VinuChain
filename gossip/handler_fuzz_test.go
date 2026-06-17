@@ -142,6 +142,177 @@ func FuzzHandleMsg(f *testing.F) {
 	})
 }
 
+// FuzzHandleMsgDeep is the nightly counterpart to FuzzHandleMsg: it fuzzes ALL
+// 16 protocol message codes (0..15), INCLUDING the four Request*Stream codes
+// (RequestEventsStream=8, RequestBVsStream=10, RequestBRsStream=12,
+// RequestEPsStream=14) that FuzzHandleMsg deliberately excludes.
+//
+// FuzzHandleMsg omits 8/10/12/14 because each dispatches to
+// seeder.NotifyRequestReceived, which blocks on a 16-buffered notifyReceivedRequest
+// channel (lachesis-base basestreamseeder/seeder.go) drained ONLY by the seeder's
+// readerLoop -- and FuzzHandleMsg never starts the seeders, so >16 synthesized
+// same-type stream requests would deadlock the harness. FuzzHandleMsgDeep closes
+// that gap by additionally starting the four stream seeders (and the matching
+// processors), so the reader loops drain those channels and the codes become
+// fuzzable without hanging. This wider component set has a longer startup/teardown
+// cost per run, so it is reserved for the nightly (longer-runtime) workflow while
+// FuzzHandleMsg stays lean for the per-PR job.
+//
+// As in FuzzHandleMsg, handleMsg returning an error on malformed input is EXPECTED
+// and not a finding; a panic or hang is what the fuzzer hunts.
+func FuzzHandleMsgDeep(f *testing.F) {
+	// Same global-log detachment rationale as FuzzHandleMsg: other gossip tests
+	// bind log.Root() to their own *testing.T at debug level and never restore it,
+	// so newTestEnv's debug logging would route into a completed test's t.Log and
+	// panic. Install a discard handler for the duration and restore on exit.
+	prevHandler := log.Root().GetHandler()
+	log.Root().SetHandler(log.DiscardHandler())
+	defer log.Root().SetHandler(prevHandler)
+
+	// firstEpoch=1, validatorsNum=3 -- identical wired construction to FuzzHandleMsg.
+	env := newTestEnv(1, 3)
+	defer env.Close()
+	h := env.handler
+
+	// Open the AcceptTxs()/AcceptEvents() gates so the fuzzed payloads reach the
+	// real tx/event decoders (see FuzzHandleMsg for the full sync-state rationale).
+	h.syncStatus.MarkMaybeSynced()
+	h.syncStatus.Set(ssEvents)
+
+	// Start the worker components in the SAME order handler.Start() uses
+	// (handler.go ~:488-506), MINUS the four leechers. FuzzHandleMsg starts only
+	// the first four (dagFetcher/txFetcher/Heavycheck/dagProcessor); Deep adds the
+	// remaining processor+seeder pairs so the Request*Stream codes can drain:
+	//   RequestEventsStream(8)  -> h.dagSeeder.NotifyRequestReceived (handler_sync.go:595)
+	//   RequestBVsStream(10)    -> h.bvSeeder.NotifyRequestReceived  (handler_sync.go:659)
+	//   RequestBRsStream(12)    -> h.brSeeder.NotifyRequestReceived  (handler_sync.go:721)
+	//   RequestEPsStream(14)    -> h.epSeeder.NotifyRequestReceived  (handler_sync.go:780)
+	// Each seeder's started readerLoop drains its 16-buffered notifyReceivedRequest
+	// channel (basestreamseeder/seeder.go), so synthesized stream requests no longer
+	// deadlock. The matching processors (ep/dag/bv/br) are started too, mirroring
+	// Start()'s processor-before-seeder pairing and keeping the response-decode paths
+	// reachable. The seeders are self-contained -- their reader loops call only the
+	// store-backed iterate/forEach callbacks wired in newHandler, so they do not need
+	// a fully-started Service.
+	//
+	// We do NOT start the four leechers (dagLeecher/bvLeecher/brLeecher/epLeecher):
+	// their loops initiate OUTBOUND stream requests to peers and would spin/hang
+	// against the no-op fuzzRW. Leaving them unstarted ALSO keeps the four
+	// *StreamResponse codes (9/11/13/15) breaking early at leecher.IsValidSession
+	// (mutex-only check, returns false while session.agent is nil) before any channel
+	// op -- exactly as in FuzzHandleMsg.
+	//
+	// Stops run in defer/LIFO (reverse of start order) so no goroutine leaks across
+	// the run.
+	h.dagFetcher.Start()
+	defer h.dagFetcher.Stop()
+	h.txFetcher.Start()
+	defer h.txFetcher.Stop()
+	h.checkers.Heavycheck.Start()
+	defer h.checkers.Heavycheck.Stop()
+
+	h.epProcessor.Start()
+	defer h.epProcessor.Stop()
+	h.epSeeder.Start()
+	defer h.epSeeder.Stop()
+
+	h.dagProcessor.Start()
+	defer h.dagProcessor.Stop()
+	h.dagSeeder.Start()
+	defer h.dagSeeder.Stop()
+
+	h.bvProcessor.Start()
+	defer h.bvProcessor.Stop()
+	h.bvSeeder.Start()
+	defer h.bvSeeder.Stop()
+
+	h.brProcessor.Start()
+	defer h.brProcessor.Stop()
+	h.brSeeder.Start()
+	defer h.brSeeder.Stop()
+
+	// Seed corpus: byte[0] selects a message code (mod 16), the rest is the payload.
+	// Include seeds that land on the four Request*Stream codes now under test.
+	f.Add([]byte{0x00})
+	f.Add([]byte{0x04, 0x01, 0x02, 0x03})
+	f.Add([]byte{0x02})
+	f.Add([]byte{0x08})             // RequestEventsStream
+	f.Add([]byte{0x0a, 0x01, 0x02}) // RequestBVsStream
+	f.Add([]byte{0x0c, 0x03, 0x04}) // RequestBRsStream
+	f.Add([]byte{0x0e, 0x05, 0x06}) // RequestEPsStream
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		msg, err := decodeFuzzMsgAll(data)
+		if err != nil {
+			return // not interesting
+		}
+		// Same synthetic-peer construction as FuzzHandleMsg: newPeer initializes the
+		// mapset/queue/datasemaphore/term state that the reachable handleMsg paths
+		// touch (a bare literal would panic/hang), starts the broadcaster against the
+		// no-op fuzzRW, and a fresh random id per iteration keeps the rate limiter and
+		// quota maps from collapsing or tripping across the corpus.
+		peer := newPeer(
+			ProtocolVersion,
+			p2p.NewPeer(randFuzzID(), "fuzz-peer", []p2p.Cap{}),
+			&fuzzRW{msg},
+			DefaultPeerCacheConfig(cachescale.Identity),
+		)
+		defer peer.Close()
+		// Mirror unregisterPeer's per-peer RemovePeer calls (the harness never
+		// registers the peer in h.peers, so production cleanup short-circuits).
+		defer func() {
+			h.peerRateLimit.RemovePeer(peer.id)
+			h.peerEventQuota.RemovePeer(peer.id)
+			h.peerStreamQuota.RemovePeer(peer.id)
+		}()
+		// An error on malformed input is EXPECTED; a panic/hang is the bug.
+		_ = h.handleMsg(peer)
+	})
+}
+
+// decodeFuzzMsgAll is the FuzzHandleMsgDeep counterpart to decodeFuzzMsg: it maps
+// data[0] to one of ALL 16 protocol message codes (HandshakeMsg=0 ..
+// EPsStreamResponse=15, protocol.go) and wraps the remaining bytes as the payload.
+// Unlike decodeFuzzMsg it INCLUDES the four Request*Stream codes (8/10/12/14),
+// which are safe to fuzz here only because FuzzHandleMsgDeep starts the seeders
+// that drain their request channels (see that target's doc comment).
+func decodeFuzzMsgAll(data []byte) (*p2p.Msg, error) {
+	if len(data) < 1 {
+		return nil, errors.New("empty data")
+	}
+
+	var (
+		// The full handleMsg-dispatched range 0..15, including the four
+		// Request*Stream codes excluded by decodeFuzzMsg.
+		codes = []uint64{
+			HandshakeMsg,         // 0
+			ProgressMsg,          // 1
+			EvmTxsMsg,            // 2
+			NewEvmTxHashesMsg,    // 3
+			GetEvmTxsMsg,         // 4
+			NewEventIDsMsg,       // 5
+			GetEventsMsg,         // 6
+			EventsMsg,            // 7
+			RequestEventsStream,  // 8
+			EventsStreamResponse, // 9
+			RequestBVsStream,     // 10
+			BVsStreamResponse,    // 11
+			RequestBRsStream,     // 12
+			BRsStreamResponse,    // 13
+			RequestEPsStream,     // 14
+			EPsStreamResponse,    // 15
+		}
+		code = codes[int(data[0])%len(codes)]
+	)
+	data = data[1:]
+
+	return &p2p.Msg{
+		Code:    code,
+		Size:    uint32(len(data)),
+		Payload: bytes.NewReader(data),
+	}, nil
+}
+
 // decodeFuzzMsg maps data[0] to one of the protocol message codes and wraps the
 // remaining bytes as the payload. (The distinct name dates from coexisting
 // with the now-removed legacy gofuzz harness.)
