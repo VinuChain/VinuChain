@@ -83,7 +83,6 @@ func (p *peer) SetUseless() {
 	atomic.StoreUint32(&p.useless, 1)
 }
 
-
 func (p *peer) SetProgress(x PeerProgress) {
 	p.Lock()
 	defer p.Unlock()
@@ -590,7 +589,7 @@ func (p *snapPeer) info() *snapPeerInfo {
 	}
 }
 
-// eligibleForSnap checks eligibility of a peer for a snap protocol. A peer is eligible for a snap if it advertises `snap` sattelite protocol along with `opera` protocol.
+// eligibleForSnap checks eligibility of a peer for a snap protocol. A peer is eligible for a snap if it advertises `snap` satellite protocol along with `opera` protocol.
 func eligibleForSnap(p *p2p.Peer) bool {
 	return p.RunningCap(ProtocolName, []uint{FTM63}) && p.RunningCap(snap.ProtocolName, snap.ProtocolVersions)
 }

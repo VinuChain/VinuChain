@@ -69,7 +69,7 @@ func (ew *emitterWorldProc) PeersNum() int {
 }
 
 func (ew *emitterWorldRead) GetHeads(epoch idx.Epoch) hash.Events {
-	return ew.Store.GetHeadsSlice(epoch)
+	return ew.GetHeadsSlice(epoch)
 }
 
 func (ew *emitterWorldRead) GetLastEvent(epoch idx.Epoch, from idx.ValidatorID) *hash.Event {
@@ -81,7 +81,7 @@ func (ew *emitterWorldRead) GetLowestBlockToDecide() idx.Block {
 }
 
 func (ew *emitterWorldRead) GetBlockRecordHash(n idx.Block) *hash.Hash {
-	record := ew.Store.GetFullBlockRecord(n)
+	record := ew.GetFullBlockRecord(n)
 	if record == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (ew *emitterWorldRead) GetBlockRecordHash(n idx.Block) *hash.Hash {
 }
 
 func (ew *emitterWorldRead) GetBlockEpoch(block idx.Block) idx.Epoch {
-	return ew.Store.FindBlockEpoch(block)
+	return ew.FindBlockEpoch(block)
 }
 
 func (ew *emitterWorldRead) GetLowestEpochToDecide() idx.Epoch {
@@ -98,7 +98,7 @@ func (ew *emitterWorldRead) GetLowestEpochToDecide() idx.Epoch {
 }
 
 func (ew *emitterWorldRead) GetEpochRecordHash(epoch idx.Epoch) *hash.Hash {
-	record := ew.Store.GetFullEpochRecord(epoch)
+	record := ew.GetFullEpochRecord(epoch)
 	if record == nil {
 		return nil
 	}

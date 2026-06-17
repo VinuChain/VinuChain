@@ -73,9 +73,9 @@ func copyPrivateKey(src *encryption.PrivateKey) *encryption.PrivateKey {
 	}
 	if ecKey, ok := src.Decoded.(*ecdsa.PrivateKey); ok && ecKey != nil {
 		cpKey := new(ecdsa.PrivateKey)
-		cpKey.PublicKey.Curve = ecKey.PublicKey.Curve
-		cpKey.PublicKey.X = new(big.Int).Set(ecKey.PublicKey.X)
-		cpKey.PublicKey.Y = new(big.Int).Set(ecKey.PublicKey.Y)
+		cpKey.Curve = ecKey.Curve
+		cpKey.X = new(big.Int).Set(ecKey.X)
+		cpKey.Y = new(big.Int).Set(ecKey.Y)
 		cpKey.D = new(big.Int).Set(ecKey.D)
 		dst.Decoded = cpKey
 	}

@@ -548,9 +548,7 @@ func mergeCheaters(a, b lachesis.Cheaters) lachesis.Cheaters {
 	}
 	aSet := a.Set()
 	merged := make(lachesis.Cheaters, 0, len(b)+len(a))
-	for _, v := range a {
-		merged = append(merged, v)
-	}
+	merged = append(merged, a...)
 	for _, v := range b {
 		if _, ok := aSet[v]; !ok {
 			merged = append(merged, v)

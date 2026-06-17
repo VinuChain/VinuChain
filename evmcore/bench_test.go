@@ -18,7 +18,7 @@ package evmcore
 
 import (
 	"crypto/ecdsa"
-	"io/ioutil"
+
 	"math/big"
 	"os"
 	"testing"
@@ -133,7 +133,7 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 	if !disk {
 		db = rawdb.NewMemoryDatabase()
 	} else {
-		dir, err := ioutil.TempDir("", "eth-core-bench")
+		dir, err := os.MkdirTemp("", "eth-core-bench")
 		if err != nil {
 			b.Fatalf("cannot create temporary directory: %v", err)
 		}

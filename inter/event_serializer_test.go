@@ -95,7 +95,7 @@ func TestEventPayloadSerialization(t *testing.T) {
 
 			require.EqualValues(header0.extEventData, header1.extEventData, name)
 			require.EqualValues(header0.sigData, header1.sigData, name)
-			for i := range header0.payloadData.txs {
+			for i := range header0.txs {
 				require.EqualValues(header0.payloadData.txs[i].Hash(), header1.payloadData.txs[i].Hash(), name)
 			}
 			require.EqualValues(header0.baseEvent, header1.baseEvent, name)
@@ -255,7 +255,7 @@ func TestEventRPCMarshaling(t *testing.T) {
 			err = json.Unmarshal(bb, &mapping)
 
 			event1 := RPCUnmarshalEvent(mapping)
-			require.Equal(&event0.SignedEvent.Event, event1, i)
+			require.Equal(&event0.Event, event1, i)
 		}
 	})
 }
@@ -321,7 +321,8 @@ func FakeEvent(txsNum, mpsNum, bvsNum int, ersNum bool) *EventPayload {
 	for i := 0; i < txsNum; i++ {
 		h := hash.Hash{}
 		r.Read(h[:])
-		if i%3 == 0 {
+		switch i % 3 {
+		case 0:
 			tx := types.NewTx(&types.LegacyTx{
 				Nonce:    r.Uint64(),
 				GasPrice: randBig(r),
@@ -334,7 +335,7 @@ func FakeEvent(txsNum, mpsNum, bvsNum int, ersNum bool) *EventPayload {
 				S:        h.Big(),
 			})
 			txs = append(txs, tx)
-		} else if i%3 == 1 {
+		case 1:
 			tx := types.NewTx(&types.AccessListTx{
 				ChainID:    randBig(r),
 				Nonce:      r.Uint64(),
@@ -349,7 +350,7 @@ func FakeEvent(txsNum, mpsNum, bvsNum int, ersNum bool) *EventPayload {
 				S:          h.Big(),
 			})
 			txs = append(txs, tx)
-		} else {
+		default:
 			tx := types.NewTx(&types.DynamicFeeTx{
 				ChainID:    randBig(r),
 				Nonce:      r.Uint64(),

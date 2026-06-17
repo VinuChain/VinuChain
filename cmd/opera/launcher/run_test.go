@@ -3,7 +3,7 @@ package launcher
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+
 	"os"
 	"strings"
 	"testing"
@@ -17,7 +17,7 @@ import (
 )
 
 func tmpdir(t *testing.T) string {
-	dir, err := ioutil.TempDir("", "opera-test")
+	dir, err := os.MkdirTemp("", "opera-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,8 +67,8 @@ func exec(t *testing.T, args ...string) *testcli {
 	if len(args) < 1 || args[0] != "attach" {
 		// make datadir
 		for i, arg := range args {
-			switch {
-			case arg == "-datadir" || arg == "--datadir":
+			switch arg {
+			case "-datadir", "--datadir":
 				if i < len(args)-1 {
 					tt.Datadir = args[i+1]
 				}

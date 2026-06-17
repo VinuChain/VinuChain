@@ -377,10 +377,11 @@ func exportGenesis(ctx *cli.Context) error {
 			return err
 		}
 		it := gdb.EvmStore().EvmDb.NewIterator(nil, nil)
-		if mode == "mpt" {
+		switch mode {
+		case "mpt":
 			// iterate only over MPT data
 			it = mptIterator{it}
-		} else if mode == "ext-mpt" {
+		case "ext-mpt":
 			// iterate only over MPT data and preimages
 			it = mptAndPreimageIterator{it}
 		}

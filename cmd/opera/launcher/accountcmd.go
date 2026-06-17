@@ -19,7 +19,7 @@ package launcher
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+
 	"os"
 	"path/filepath"
 	"strings"
@@ -348,7 +348,7 @@ func importWallet(ctx *cli.Context) error {
 	if len(keyfile) == 0 {
 		utils.Fatalf("keyfile must be given as argument")
 	}
-	keyJSON, err := ioutil.ReadFile(keyfile)
+	keyJSON, err := os.ReadFile(keyfile)
 	if err != nil {
 		utils.Fatalf("Could not read wallet file: %v", err)
 	}

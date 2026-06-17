@@ -118,7 +118,7 @@ func buildForkIndex(t *testing.T, elemont bool) (*Index, *tdag.TestEvent, *tdag.
 		addToIndex(t, vi, events, e)
 	}
 
-	if !vi.Engine.AtLeastOneFork() {
+	if !vi.AtLeastOneFork() {
 		t.Fatal("expected fork to be detected after adding conflicting events from same creator")
 	}
 	return vi, a0, a0fork, b1.ID()
@@ -177,7 +177,7 @@ func buildForkIndexNodeBForks(t *testing.T, elemont bool) (*Index, map[hash.Even
 		addToIndex(t, vi, events, e)
 	}
 
-	if !vi.Engine.AtLeastOneFork() {
+	if !vi.AtLeastOneFork() {
 		t.Fatal("expected fork to be detected after conflicting nodeB events")
 	}
 	return vi, events, a1.ID()

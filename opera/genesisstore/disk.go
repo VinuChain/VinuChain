@@ -49,13 +49,13 @@ func checkFileHeader(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if bytes.Compare(headerAndVersion[:len(FileHeader)], FileHeader) != 0 {
+	if !bytes.Equal(headerAndVersion[:len(FileHeader)], FileHeader) {
 		return errors.New("expected a genesis file, mismatched file header")
 	}
-	if bytes.Compare(headerAndVersion[len(FileHeader):], FileVersion) != 0 {
+	if !bytes.Equal(headerAndVersion[len(FileHeader):], FileVersion) {
 		got := hexutils.BytesToHex(headerAndVersion[len(FileHeader):])
 		expected := hexutils.BytesToHex(FileVersion)
-		return errors.New(fmt.Sprintf("wrong version of genesis file, got=%s, expected=%s", got, expected))
+		return fmt.Errorf("wrong version of genesis file, got=%s, expected=%s", got, expected)
 	}
 	return nil
 }

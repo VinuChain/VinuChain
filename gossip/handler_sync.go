@@ -448,12 +448,12 @@ func (h *handler) handleMsg(p *peer) error {
 	defer h.msgSemaphore.Release(eventsSizeEst)
 
 	// Handle the message depending on its contents
-	switch {
-	case msg.Code == HandshakeMsg:
+	switch msg.Code {
+	case HandshakeMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
-	case msg.Code == ProgressMsg:
+	case ProgressMsg:
 		var progress PeerProgress
 		if err := msg.Decode(&progress); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -463,7 +463,7 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 		p.SetProgress(progress)
 
-	case msg.Code == EvmTxsMsg:
+	case EvmTxsMsg:
 		// Transactions arrived, make sure we have a valid and fresh graph to handle them
 		if !h.syncStatus.AcceptTxs() {
 			break
@@ -483,7 +483,7 @@ func (h *handler) handleMsg(p *peer) error {
 		_ = h.txFetcher.NotifyReceived(txids)
 		h.handleTxs(p, txs)
 
-	case msg.Code == NewEvmTxHashesMsg:
+	case NewEvmTxHashesMsg:
 		// Transactions arrived, make sure we have a valid and fresh graph to handle them
 		if !h.syncStatus.AcceptTxs() {
 			break
@@ -498,7 +498,7 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 		h.handleTxHashes(p, txHashes)
 
-	case msg.Code == GetEvmTxsMsg:
+	case GetEvmTxsMsg:
 		var requests []common.Hash
 		if err := msg.Decode(&requests); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -519,7 +519,7 @@ func (h *handler) handleMsg(p *peer) error {
 			p.EnqueueSendTransactions(batch, p.queue)
 		})
 
-	case msg.Code == EventsMsg:
+	case EventsMsg:
 		if !h.syncStatus.AcceptEvents() {
 			break
 		}
@@ -534,7 +534,7 @@ func (h *handler) handleMsg(p *peer) error {
 		_ = h.dagFetcher.NotifyReceived(eventIDsToInterfaces(events.IDs()))
 		h.handleEvents(p, events.Bases(), events.Len() > 1)
 
-	case msg.Code == NewEventIDsMsg:
+	case NewEventIDsMsg:
 		// Fresh events arrived, make sure we have a valid and fresh graph to handle them
 		if !h.syncStatus.AcceptEvents() {
 			break
@@ -548,7 +548,7 @@ func (h *handler) handleMsg(p *peer) error {
 		}
 		h.handleEventHashes(p, announces)
 
-	case msg.Code == GetEventsMsg:
+	case GetEventsMsg:
 		var requests hash.Events
 		if err := msg.Decode(&requests); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -576,7 +576,7 @@ func (h *handler) handleMsg(p *peer) error {
 			p.EnqueueSendEventsRLP(rawEvents, ids, p.queue)
 		}
 
-	case msg.Code == RequestEventsStream:
+	case RequestEventsStream:
 		var request dagstream.Request
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -603,7 +603,7 @@ func (h *handler) handleMsg(p *peer) error {
 			return peerErr
 		}
 
-	case msg.Code == EventsStreamResponse:
+	case EventsStreamResponse:
 		if !h.syncStatus.AcceptEvents() {
 			break
 		}
@@ -640,7 +640,7 @@ func (h *handler) handleMsg(p *peer) error {
 
 		_ = h.dagLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
 
-	case msg.Code == RequestBVsStream:
+	case RequestBVsStream:
 		var request bvstream.Request
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -667,7 +667,7 @@ func (h *handler) handleMsg(p *peer) error {
 			return peerErr
 		}
 
-	case msg.Code == BVsStreamResponse:
+	case BVsStreamResponse:
 		if !h.syncStatus.AcceptBlockRecords() {
 			break
 		}
@@ -702,7 +702,7 @@ func (h *handler) handleMsg(p *peer) error {
 
 		_ = h.bvLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
 
-	case msg.Code == RequestBRsStream:
+	case RequestBRsStream:
 		var request brstream.Request
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -729,7 +729,7 @@ func (h *handler) handleMsg(p *peer) error {
 			return peerErr
 		}
 
-	case msg.Code == BRsStreamResponse:
+	case BRsStreamResponse:
 		if !h.syncStatus.AcceptBlockRecords() {
 			break
 		}
@@ -761,7 +761,7 @@ func (h *handler) handleMsg(p *peer) error {
 
 		_ = h.brLeecher.NotifyChunkReceived(chunk.SessionID, last, chunk.Done)
 
-	case msg.Code == RequestEPsStream:
+	case RequestEPsStream:
 		var request epstream.Request
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -788,7 +788,7 @@ func (h *handler) handleMsg(p *peer) error {
 			return peerErr
 		}
 
-	case msg.Code == EPsStreamResponse:
+	case EPsStreamResponse:
 		if !h.syncStatus.AcceptBlockRecords() {
 			break
 		}

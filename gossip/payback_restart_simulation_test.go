@@ -122,7 +122,7 @@ func TestWarmUpPaybackCacheConvergesWithNeverRestartedNode(t *testing.T) {
 	freshStore := NewPaybackStore(env.store)
 	fresh, err := payback.NewPaybackCache(freshStore, env.store.GetRules().Economy.QuotaCacheMaxAddresses)
 	require.NoError(t, err)
-	env.Service.paybackCache = fresh
+	env.paybackCache = fresh
 
 	require.Empty(t, snapshotUsedMap(env.paybackCache),
 		"a freshly constructed payback cache must be empty before warm-up")
@@ -201,7 +201,7 @@ func TestWarmUpReconstructsStakesMapForPreviousEpochEndToEnd(t *testing.T) {
 	freshStore := NewPaybackStore(env.store)
 	fresh, err := payback.NewPaybackCache(freshStore, env.store.GetRules().Economy.QuotaCacheMaxAddresses)
 	require.NoError(t, err)
-	env.Service.paybackCache = fresh
+	env.paybackCache = fresh
 	require.Empty(t, fresh.SnapshotStakesByEpoch(prevEpoch),
 		"a freshly constructed cache must hold no stakes before warm-up")
 

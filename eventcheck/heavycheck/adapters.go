@@ -11,7 +11,7 @@ type EventsOnly struct {
 }
 
 func (c *EventsOnly) Enqueue(e dag.Event, onValidated func(error)) error {
-	return c.Checker.EnqueueEvent(e.(inter.EventPayloadI), onValidated)
+	return c.EnqueueEvent(e.(inter.EventPayloadI), onValidated)
 }
 
 type BVsOnly struct {
@@ -19,7 +19,7 @@ type BVsOnly struct {
 }
 
 func (c *BVsOnly) Enqueue(bvs inter.LlrSignedBlockVotes, onValidated func(error)) error {
-	return c.Checker.EnqueueBVs(bvs, onValidated)
+	return c.EnqueueBVs(bvs, onValidated)
 }
 
 type EVOnly struct {
@@ -27,5 +27,5 @@ type EVOnly struct {
 }
 
 func (c *EVOnly) Enqueue(ers inter.LlrSignedEpochVote, onValidated func(error)) error {
-	return c.Checker.EnqueueEV(ers, onValidated)
+	return c.EnqueueEV(ers, onValidated)
 }

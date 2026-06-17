@@ -770,9 +770,7 @@ func (bp *BlockProcessor) processBlock() {
 		bp.feed.newBlock.Send(evmcore.ChainHeadNotify{Block: evmBlock})
 		var logs []*types.Log
 		for _, r := range allReceipts {
-			for _, l := range r.Logs {
-				logs = append(logs, l)
-			}
+			logs = append(logs, r.Logs...)
 		}
 		bp.feed.newLogs.Send(logs)
 	}

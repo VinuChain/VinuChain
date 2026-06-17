@@ -231,9 +231,9 @@ func loadAllConfigs(file string, cfg *config) error {
 		err = errors.New(file + ", " + err.Error())
 	}
 	if err != nil {
-		return errors.New(fmt.Sprintf("TOML config file error: %v.\n"+
+		return fmt.Errorf("TOML config file error: %v.\n"+
 			"Use 'dumpconfig' command to get an example config file.\n"+
-			"If node was recently upgraded and a previous network config file is used, then check updates for the config file.", err))
+			"If node was recently upgraded and a previous network config file is used, then check updates for the config file.", err)
 	}
 	return nil
 }

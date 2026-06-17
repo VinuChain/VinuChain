@@ -126,13 +126,13 @@ func checkEventsFileHeader(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if bytes.Compare(headerAndVersion[:len(eventsFileHeader)], eventsFileHeader) != 0 {
+	if !bytes.Equal(headerAndVersion[:len(eventsFileHeader)], eventsFileHeader) {
 		return errors.New("expected an events file, mismatched file header")
 	}
-	if bytes.Compare(headerAndVersion[len(eventsFileHeader):], eventsFileVersion) != 0 {
+	if !bytes.Equal(headerAndVersion[len(eventsFileHeader):], eventsFileVersion) {
 		got := hexutils.BytesToHex(headerAndVersion[len(eventsFileHeader):])
 		expected := hexutils.BytesToHex(eventsFileVersion)
-		return errors.New(fmt.Sprintf("wrong version of events file, got=%s, expected=%s", got, expected))
+		return fmt.Errorf("wrong version of events file, got=%s, expected=%s", got, expected)
 	}
 	return nil
 }

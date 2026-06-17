@@ -41,7 +41,7 @@ func (b AdapterSeq) Size() int {
 
 // Get i's position in the byte-encoded vector clock
 func (b AdapterSeq) Get(i idx.Validator) dagidx.Seq {
-	seq := b.HighestBefore.VSeq.Get(i)
+	seq := b.VSeq.Get(i)
 	return &BranchSeq{seq}
 }
 

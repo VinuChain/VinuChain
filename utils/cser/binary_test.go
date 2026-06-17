@@ -304,7 +304,7 @@ func TestBadVals(t *testing.T) {
 		require := require.New(t)
 
 		err = UnmarshalBinaryAdapter(buf, func(r *Reader) error {
-			for _, _ = range expBigInt {
+			for range expBigInt {
 				// skip
 			}
 			for i, exp := range expFixedBytes {
@@ -318,7 +318,7 @@ func TestBadVals(t *testing.T) {
 				require.NotEqual(exp, got, i)
 				require.Equal(len(exp), len(got), i)
 			}
-			for _, _ = range expU56 {
+			for range expU56 {
 				// skip
 			}
 			return nil

@@ -56,7 +56,7 @@ func (f *Producer) OpenDB(name string) (kvdb.Store, error) {
 }
 
 func (f *Producer) Flush(id []byte) error {
-	f.stats.Mark(int64(f.FullDBProducer.NotFlushedSizeEst()))
+	f.stats.Mark(int64(f.NotFlushedSizeEst()))
 
 	err := f.FullDBProducer.Flush(id)
 	if err != nil {

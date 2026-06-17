@@ -3,7 +3,7 @@ package encryption
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -27,7 +27,7 @@ func MigrateAccountToValidatorKey(acckeypath string, valkeypath string, pubkey v
 			return ErrKeyAlreadyExists
 		}
 	}
-	acckeyjson, err := ioutil.ReadFile(acckeypath)
+	acckeyjson, err := os.ReadFile(acckeypath)
 	if err != nil {
 		return err
 	}

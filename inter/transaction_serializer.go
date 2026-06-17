@@ -127,7 +127,8 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 	r.FixedBytes(sig[:])
 	_r, s := decodeSig(sig)
 
-	if txType == types.LegacyTxType {
+	switch txType {
+	case types.LegacyTxType:
 		return types.NewTx(&types.LegacyTx{
 			Nonce:    nonce,
 			GasPrice: gasPrice,
@@ -139,7 +140,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 			R:        _r,
 			S:        s,
 		}), nil
-	} else if txType == types.AccessListTxType || txType == types.DynamicFeeTxType || txType == types.SetCodeTxType {
+	case types.AccessListTxType, types.DynamicFeeTxType, types.SetCodeTxType:
 		chainID := r.BigInt()
 		accessListLen := r.U32()
 		if accessListLen > ProtocolMaxMsgSize/accessListEntrySize {
@@ -157,7 +158,8 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 				r.FixedBytes(accessList[i].StorageKeys[j][:])
 			}
 		}
-		if txType == types.AccessListTxType {
+		switch txType {
+		case types.AccessListTxType:
 			return types.NewTx(&types.AccessListTx{
 				ChainID:    chainID,
 				Nonce:      nonce,
@@ -171,7 +173,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 				R:          _r,
 				S:          s,
 			}), nil
-		} else if txType == types.DynamicFeeTxType {
+		case types.DynamicFeeTxType:
 			return types.NewTx(&types.DynamicFeeTx{
 				ChainID:    chainID,
 				Nonce:      nonce,
@@ -186,7 +188,7 @@ func TransactionUnmarshalCSER(r *cser.Reader) (*types.Transaction, error) {
 				R:          _r,
 				S:          s,
 			}), nil
-		} else {
+		default:
 			if to == nil {
 				return nil, errors.New("cannot deserialize set-code tx without recipient")
 			}

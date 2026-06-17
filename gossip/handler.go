@@ -161,11 +161,11 @@ type handler struct {
 	store    *Store
 	engineMu sync.Locker
 
-	notifier             dagNotifier
-	emittedEventsCh      chan *inter.EventPayload
-	emittedEventsSub     notify.Subscription
-	newEpochsCh          chan idx.Epoch
-	newEpochsSub         notify.Subscription
+	notifier              dagNotifier
+	emittedEventsCh       chan *inter.EventPayload
+	emittedEventsSub      notify.Subscription
+	newEpochsCh           chan idx.Epoch
+	newEpochsSub          notify.Subscription
 	quitProgressBroadcast chan struct{}
 
 	// channels for syncer, txsyncLoop
@@ -197,21 +197,21 @@ func newHandler(
 ) {
 	// Create the protocol manager with the base fields
 	h := &handler{
-		NetworkID:            c.s.GetRules().NetworkID,
-		config:               c.config,
-		notifier:             c.notifier,
-		txpool:               c.txpool,
-		msgSemaphore:         datasemaphore.New(c.config.Protocol.MsgsSemaphoreLimit, getSemaphoreWarningFn("P2P messages")),
-		peerRateLimit:        newPeerRateLimiter(),
-		peerEventQuota:       newPeerEventQuota(),
-		peerStreamQuota:      newPeerStreamQuota(),
-		store:                c.s,
-		process:              c.process,
-		checkers:             c.checkers,
-		peers:                newPeerSet(),
-		engineMu:             c.engineMu,
-		txsyncCh:             make(chan *txsync),
-		quitSync:             make(chan struct{}),
+		NetworkID:             c.s.GetRules().NetworkID,
+		config:                c.config,
+		notifier:              c.notifier,
+		txpool:                c.txpool,
+		msgSemaphore:          datasemaphore.New(c.config.Protocol.MsgsSemaphoreLimit, getSemaphoreWarningFn("P2P messages")),
+		peerRateLimit:         newPeerRateLimiter(),
+		peerEventQuota:        newPeerEventQuota(),
+		peerStreamQuota:       newPeerStreamQuota(),
+		store:                 c.s,
+		process:               c.process,
+		checkers:              c.checkers,
+		peers:                 newPeerSet(),
+		engineMu:              c.engineMu,
+		txsyncCh:              make(chan *txsync),
+		quitSync:              make(chan struct{}),
 		quitProgressBroadcast: make(chan struct{}),
 
 		snapState: snapsyncState{
@@ -417,7 +417,7 @@ func (h *handler) peerMisbehaviour(peer string, err error) bool {
 func (h *handler) removePeer(id string) {
 	peer := h.peers.Peer(id)
 	if peer != nil {
-		peer.Peer.Disconnect(p2p.DiscUselessPeer)
+		peer.Disconnect(p2p.DiscUselessPeer)
 	}
 }
 

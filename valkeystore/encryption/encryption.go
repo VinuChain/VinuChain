@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -46,7 +46,7 @@ func New(scryptN int, scryptP int) *Keystore {
 
 func (ks Keystore) ReadKey(wantPubkey validatorpk.PubKey, filename, auth string) (*PrivateKey, error) {
 	// Load the key from the keystore and decrypt its contents
-	keyjson, err := ioutil.ReadFile(filename)
+	keyjson, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

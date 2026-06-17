@@ -1157,7 +1157,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, bl
 func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap uint64) (hexutil.Uint64, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
-		lo  uint64 = params.TxGas - 1
+		lo  = params.TxGas - 1
 		hi  uint64
 		cap uint64
 	)
@@ -1943,7 +1943,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		mainnet := b.ChainConfig() != nil &&
 			b.ChainConfig().ChainID != nil &&
 			b.ChainConfig().ChainID.Uint64() == opera.VinuChainMainNetworkID
-		if !(mainnet && opera.UnprotectedTxAllowlistedOnMainnet(tx)) {
+		if !mainnet || !opera.UnprotectedTxAllowlistedOnMainnet(tx) {
 			return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 		}
 		log.Warn("Admitting allowlisted unprotected transaction on mainnet",
