@@ -53,8 +53,10 @@ to replay the pre-fork history, and forbid fresh installs during the window.
 
 ## Prerequisites -- all three, same day as the binary (none optional)
 
-These three must be completed on the **same day** as the binary swap. Skipping
-any one re-opens the stale-genesis divergence described above.
+All three belong to the **same upgrade**, but their timing differs: the operator
+announcement (3) must be published **before** the window opens, while the snapshot
+(1) and the regenerated genesis (2) are produced **after** the final seal. Skipping
+or mis-ordering any one re-opens the stale-genesis divergence described above.
 
 1. **Post-upgrade chaindata snapshot.** Take the snapshot **only after the RPC
    node has sealed *every* staged flag** -- wait until the *last* EVM fork
@@ -72,7 +74,10 @@ any one re-opens the stale-genesis divergence described above.
    installs during, or within 24 h of, the upgrade window.** In-place binary
    swaps on existing datadirs are safe. A fresh install booted from the *stale*
    genesis during the window will diverge and require a chaindata wipe plus a
-   snapshot restore to recover.
+   snapshot restore to recover. **Publish this announcement BEFORE the swap
+   window opens** (see the Execution outline) -- not after the seal: a freeze
+   announced once the window has already begun cannot stop a fresh install that
+   has already started diverging.
 
 ## Release sequencing
 
@@ -100,19 +105,25 @@ Protocol-level steps. Box-specific steps -- instance access, snapshot upload/
 download paths, and operator key custody -- are in the internal deployment-log and
 are not reproduced here.
 
-1. **Pre-build off-box.** Build the new binary on a dedicated build host, never on
+1. **Publish the fresh-install freeze first (prerequisite 3).** BEFORE any binary
+   swap, announce and put into effect the **no fresh validator installs during, or
+   within 24 h of, the upgrade window** rule. This must lead the window: a fresh
+   install that boots from the stale 2024 genesis during the swap/sealing window
+   diverges *before* any later-published warning could reach operators, so a freeze
+   announced after the seal is too late to prevent the divergence it exists to stop.
+2. **Pre-build off-box.** Build the new binary on a dedicated build host, never on
    a production validator/RPC box during the window.
-2. **Cross-verify the binary.** Compute the `sha256` of the binary on **more than
+3. **Cross-verify the binary.** Compute the `sha256` of the binary on **more than
    one build host** and confirm the hashes match before trusting it. Distribute
    only a hash-verified binary.
-3. **Swap and restart in place.** On each box, replace the binary on the existing
+4. **Swap and restart in place.** On each box, replace the binary on the existing
    datadir and restart. In-place swaps on existing chaindata are the safe path.
-4. **Never SIGKILL a validator.** A hard kill risks LevelDB corruption. Stop nodes
+5. **Never SIGKILL a validator.** A hard kill risks LevelDB corruption. Stop nodes
    only with a clean `SIGINT` / `systemctl restart`.
-5. **Wait for the final seal, then snapshot.** Let the RPC node seal through to
+6. **Wait for the final seal, then snapshot.** Let the RPC node seal through to
    Prague (see prerequisite 1), then take the post-upgrade snapshot and regenerate
-   the distributed genesis (prerequisites 1 and 2). Publish the operator
-   announcement (prerequisite 3).
+   the distributed genesis (prerequisites 1 and 2). The fresh-install freeze from
+   step 1 stays in effect until at least 24 h after the final seal.
 
 ## Post-activation verification checklist
 
