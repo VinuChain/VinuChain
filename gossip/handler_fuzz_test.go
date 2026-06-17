@@ -18,8 +18,8 @@ import (
 //
 // The handler is built from a fully-wired testEnv (newTestEnv -> newService),
 // which initializes BOTH the heavy-check and gas-power-check readers
-// (service.go:412-414). This is deliberate: the legacy gofuzz harness
-// (handler_fuzz.go's makeFuzzedHandler) leaves those readers zero-valued, which
+// (service.go:412-414). This is deliberate: the now-removed legacy gofuzz
+// harness (its makeFuzzedHandler) left those readers zero-valued, which
 // panics in a background goroutine once the handler starts -- a setup bug, not
 // an attacker-input finding. By going through newService here, the deep
 // validation path is reachable and any panic/hang surfaced is rooted in fed
@@ -143,8 +143,8 @@ func FuzzHandleMsg(f *testing.F) {
 }
 
 // decodeFuzzMsg maps data[0] to one of the protocol message codes and wraps the
-// remaining bytes as the payload. Distinct name from the gofuzz-tagged
-// newFuzzMsg so the two files can coexist.
+// remaining bytes as the payload. (The distinct name dates from coexisting
+// with the now-removed legacy gofuzz harness.)
 //
 // The code set is the handleMsg-dispatched range (protocol.go: HandshakeMsg=0 ..
 // EPsStreamResponse=15) MINUS the four Request*Stream codes (8/10/12/14). Those
@@ -196,8 +196,8 @@ func decodeFuzzMsg(data []byte) (*p2p.Msg, error) {
 	}, nil
 }
 
-// fuzzRW is a p2p.MsgReadWriter that replays a single canned message. Distinct
-// name from the gofuzz-tagged fuzzMsgReadWriter.
+// fuzzRW is a p2p.MsgReadWriter that replays a single canned message. (Named
+// distinctly from the now-removed legacy gofuzz harness's fuzzMsgReadWriter.)
 type fuzzRW struct {
 	msg *p2p.Msg
 }
@@ -211,7 +211,7 @@ func (rw *fuzzRW) WriteMsg(p2p.Msg) error {
 }
 
 // randFuzzID returns a random enode ID for the synthetic peer. Distinct name
-// from the gofuzz-tagged randomID.
+// (replaces the now-removed legacy gofuzz harness's randomID).
 func randFuzzID() (id enode.ID) {
 	for i := range id {
 		id[i] = byte(rand.Intn(255))
