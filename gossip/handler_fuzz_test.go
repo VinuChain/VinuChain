@@ -123,6 +123,19 @@ func FuzzHandleMsg(f *testing.F) {
 			DefaultPeerCacheConfig(cachescale.Identity),
 		)
 		defer peer.Close()
+		// handleMsg lazily creates per-peer state keyed on peer.id -- a rate-limit
+		// bucket (peerRateLimit.Allow) and event/stream quota entries
+		// (peerEventQuota/peerStreamQuota.Acquire). Production reclaims these in
+		// unregisterPeer, but that short-circuits unless the peer is registered in
+		// h.peers (which this harness never does), so mirror its per-peer RemovePeer
+		// calls directly. Each iteration uses a fresh random id (so the 500-msg/10s
+		// rate limit never trips and the decoders stay reachable); without this
+		// cleanup those maps would grow one entry per iteration over the CI run.
+		defer func() {
+			h.peerRateLimit.RemovePeer(peer.id)
+			h.peerEventQuota.RemovePeer(peer.id)
+			h.peerStreamQuota.RemovePeer(peer.id)
+		}()
 		// handleMsg returning an error on malformed input is EXPECTED and fine;
 		// a panic/hang is the bug the fuzzer hunts.
 		_ = h.handleMsg(peer)
