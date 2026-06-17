@@ -55,7 +55,7 @@ func read(dir string) (bool, string, string, error) {
 	if err != nil {
 		return false, "", eLockPath, err
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	// read no more than N bytes
 	maxFileLen := 5000

@@ -358,7 +358,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		if authList != nil {
+		if authList != nil { //nolint:staticcheck // explicit nil guard kept for clarity in consensus path; ranging a nil slice is a no-op
 			for _, auth := range authList {
 				_ = st.applyAuthorization(&auth)
 			}
@@ -446,7 +446,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) {
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 
 	fee := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
-	feeRefund := big.NewInt(0)
+	feeRefund := big.NewInt(0) //nolint:staticcheck // zero init kept; var is unconditionally reassigned before read in the refund branch, early returns never read it
 
 	if st.availableQuota == nil {
 		st.state.AddBalance(st.msg.From(), remaining)

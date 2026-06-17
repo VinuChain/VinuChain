@@ -60,7 +60,7 @@ func TestIPCAttachWelcome(t *testing.T) {
 		ipc = `\\.\pipe\vinuchain.ipc`
 	} else {
 		ws := tmpdir(t)
-		defer os.RemoveAll(ws)
+		defer os.RemoveAll(ws) //nolint:errcheck
 		ipc = filepath.Join(ws, "opera.ipc")
 	}
 	cli := exec(t,
@@ -143,10 +143,10 @@ func freePort(t *testing.T) int {
 		t.Fatalf("failed to find free port: %v", err)
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
+	_ = l.Close()
 	return port
 }
 
 func genesisStart() string {
-	return time.Unix(int64(makefakegenesis.FakeGenesisTime.Unix()), 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")
+	return time.Unix(makefakegenesis.FakeGenesisTime.Unix(), 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")
 }

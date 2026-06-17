@@ -22,7 +22,7 @@ func BytesToTimestamp(b []byte) Timestamp {
 }
 
 func FromUnix(t int64) Timestamp {
-	return Timestamp(int64(t) * int64(time.Second))
+	return Timestamp(t * int64(time.Second))
 }
 
 // Unix returns t as a Unix time, the number of seconds elapsed

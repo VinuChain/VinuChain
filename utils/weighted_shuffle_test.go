@@ -82,7 +82,7 @@ func Test_Permutation_correctness(t *testing.T) {
 func hashOf(a hash.Hash, b uint32) hash.Hash {
 	hasher := sha256.New()
 	hasher.Write(a.Bytes())
-	hasher.Write(littleendian.Uint32ToBytes(uint32(b)))
+	hasher.Write(littleendian.Uint32ToBytes(b))
 	return hash.FromBytes(hasher.Sum(nil))
 }
 

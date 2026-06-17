@@ -16,7 +16,7 @@ func TestFileKeystoreAdd(t *testing.T) {
 	if err != nil {
 		return
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	require := require.New(t)
 	keystore := NewFileKeystore(dir, encryption.New(keystore.LightScryptN, keystore.LightScryptP))
@@ -51,7 +51,7 @@ func TestFileKeystoreRead(t *testing.T) {
 	if err != nil {
 		return
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	require := require.New(t)
 	keystore := NewFileKeystore(dir, encryption.New(keystore.LightScryptN, keystore.LightScryptP))
@@ -60,7 +60,7 @@ func TestFileKeystoreRead(t *testing.T) {
 	require.NoError(err)
 	_, err = fd.Write(file1)
 	require.NoError(err)
-	fd.Close()
+	_ = fd.Close()
 
 	testGet(t, keystore, pubkey1, key1, "auth1")
 
@@ -68,7 +68,7 @@ func TestFileKeystoreRead(t *testing.T) {
 	require.NoError(err)
 	_, err = fd.Write(file2)
 	require.NoError(err)
-	fd.Close()
+	_ = fd.Close()
 
 	testGet(t, keystore, pubkey1, key1, "auth1")
 	testGet(t, keystore, pubkey2, key2, "auth2")

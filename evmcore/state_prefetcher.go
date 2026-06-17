@@ -31,6 +31,8 @@ import (
 // statePrefetcher is a basic Prefetcher, which blindly executes a block on top
 // of an arbitrary state with the goal of prefetching potentially useful state
 // data from disk before the main block processor start executing.
+//
+//nolint:unused // vestigial go-ethereum prefetcher; never wired into VinuChain block processing
 type statePrefetcher struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     DummyChain          // Canonical block chain
@@ -39,6 +41,8 @@ type statePrefetcher struct {
 // Prefetch processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb, but any changes are discarded. The
 // only goal is to pre-cache transaction signatures and state trie nodes.
+//
+//nolint:unused // part of vestigial statePrefetcher scaffold
 func (p *statePrefetcher) Prefetch(block *EvmBlock, statedb *state.StateDB, cfg vm.Config, interrupt *uint32) {
 	var (
 		header       = block.Header()
@@ -77,6 +81,8 @@ func (p *statePrefetcher) Prefetch(block *EvmBlock, statedb *state.StateDB, cfg 
 // precacheTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. The goal is not to execute
 // the transaction successfully, rather to warm up touched data slots.
+//
+//nolint:unused // part of vestigial statePrefetcher scaffold
 func precacheTransaction(msg types.Message, _ *params.ChainConfig, gaspool *GasPool, statedb *state.StateDB, _ *EvmHeader, evm *vm.EVM) error {
 	// Update the evm with the new transaction context.
 	evm.Reset(NewEVMTxContext(msg), statedb)

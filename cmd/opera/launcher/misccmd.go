@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/params"
@@ -35,7 +37,7 @@ The output of this command is supposed to be machine-readable.
 )
 
 func version(ctx *cli.Context) error {
-	fmt.Println(strings.Title(clientIdentifier))
+	fmt.Println(cases.Title(language.Und).String(clientIdentifier))
 	fmt.Println("Version:", params.VersionWithMeta())
 	if gitCommit != "" {
 		fmt.Println("Git Commit:", gitCommit)
@@ -48,7 +50,7 @@ func version(ctx *cli.Context) error {
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))
-	fmt.Printf("GOROOT=%s\n", runtime.GOROOT())
+	fmt.Printf("GOROOT=%s\n", runtime.GOROOT()) //nolint:staticcheck // SA1019: informational output, GOROOT adequate for local dev display
 	return nil
 }
 

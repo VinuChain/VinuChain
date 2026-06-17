@@ -320,7 +320,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateEV() {
 				}
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -345,7 +345,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateEV() {
 				s.me.SetVersion(1)
 				s.me.SetNetForkID(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -370,7 +370,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateEV() {
 				s.me.SetVersion(1)
 				s.me.SetSeq(idx.Event(math.MaxInt32 - 1))
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -539,7 +539,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateEV() {
 				}
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -730,7 +730,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 						},
 					},
 				}
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -757,7 +757,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 						},
 					},
 				}
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -784,7 +784,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 						},
 					},
 				}
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -816,7 +816,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 					bv.Val.Votes = append(bv.Val.Votes, hash.HexToHash("0x01"))
 				}
 
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -841,7 +841,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 					},
 				}
 
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -866,7 +866,7 @@ func (s *LLRBasicCheckTestSuite) TestBasicCheckValidateBV() {
 					},
 				}
 
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 

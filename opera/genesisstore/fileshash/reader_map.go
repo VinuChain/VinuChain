@@ -7,7 +7,6 @@ import (
 )
 
 type Map struct {
-	backend func(string) (io.Reader, error)
 }
 
 func Wrap(backend func(string) (io.Reader, error), maxMemoryUsage uint64, roots map[string]hash.Hash) func(string) (io.Reader, error) {

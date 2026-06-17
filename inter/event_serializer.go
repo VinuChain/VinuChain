@@ -550,7 +550,7 @@ func RPCMarshalEventPayload(event EventPayloadI, inclTx bool, fullTx bool) (map[
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
 			return tx.Hash(), nil
 		}
-		if fullTx {
+		if fullTx { //nolint:staticcheck // SA9003: intentional documented placeholder; fullTx not yet implemented, see comment below
 			// fullTx=true is not yet implemented; fall back to returning
 			// transaction hashes so callers are not disrupted.
 		}

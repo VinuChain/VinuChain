@@ -115,7 +115,7 @@ func pricedTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ec
 
 func pricedDataTransaction(nonce uint64, gaslimit uint64, gasprice *big.Int, key *ecdsa.PrivateKey, bytes uint64) *types.Transaction {
 	data := make([]byte, bytes)
-	rand.Read(data)
+	rand.Read(data) //nolint:staticcheck // deterministic math/rand fill is intentional for test data
 
 	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(0), gaslimit, gasprice, data), types.HomesteadSigner{}, key)
 	return tx
@@ -432,7 +432,7 @@ func TestTransactionQueue(t *testing.T) {
 	testAddBalance(pool, from, big.NewInt(1000))
 	<-pool.requestReset(nil, nil)
 
-	pool.enqueueTx(tx.Hash(), tx, false, true)
+	_, _ = pool.enqueueTx(tx.Hash(), tx, false, true)
 	<-pool.requestPromoteExecutables(newAccountSet(pool.signer, from))
 	if len(pool.pending) != 1 {
 		t.Error("expected valid txs to be 1 is", len(pool.pending))
@@ -441,7 +441,7 @@ func TestTransactionQueue(t *testing.T) {
 	tx = transaction(1, 100, key)
 	from, _ = deriveSender(tx)
 	testSetNonce(pool, from, 2)
-	pool.enqueueTx(tx.Hash(), tx, false, true)
+	_, _ = pool.enqueueTx(tx.Hash(), tx, false, true)
 
 	<-pool.requestPromoteExecutables(newAccountSet(pool.signer, from))
 	if _, ok := pool.pending[from].txs.items[tx.Nonce()]; ok {
@@ -465,9 +465,9 @@ func TestTransactionQueue2(t *testing.T) {
 	testAddBalance(pool, from, big.NewInt(1000))
 	pool.reset(nil, nil)
 
-	pool.enqueueTx(tx1.Hash(), tx1, false, true)
-	pool.enqueueTx(tx2.Hash(), tx2, false, true)
-	pool.enqueueTx(tx3.Hash(), tx3, false, true)
+	_, _ = pool.enqueueTx(tx1.Hash(), tx1, false, true)
+	_, _ = pool.enqueueTx(tx2.Hash(), tx2, false, true)
+	_, _ = pool.enqueueTx(tx3.Hash(), tx3, false, true)
 
 	pool.promoteExecutables([]common.Address{from})
 	if len(pool.pending) != 1 {
@@ -854,7 +854,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 	}
 
 	// Add the third transaction and ensure it's not saved (smaller price)
-	pool.add(tx3, false)
+	_, _ = pool.add(tx3, false)
 	<-pool.requestPromoteExecutables(newAccountSet(signer, addr))
 	if pool.pending[addr].Len() != 1 {
 		t.Error("expected 1 pending transactions, got", pool.pending[addr].Len())
@@ -948,9 +948,9 @@ func TestTransactionDropping(t *testing.T) {
 	pool.priced.Put(tx2, false)
 	pool.promoteTx(account, tx2.Hash(), tx2)
 
-	pool.enqueueTx(tx10.Hash(), tx10, false, true)
-	pool.enqueueTx(tx11.Hash(), tx11, false, true)
-	pool.enqueueTx(tx12.Hash(), tx12, false, true)
+	_, _ = pool.enqueueTx(tx10.Hash(), tx10, false, true)
+	_, _ = pool.enqueueTx(tx11.Hash(), tx11, false, true)
+	_, _ = pool.enqueueTx(tx12.Hash(), tx12, false, true)
 
 	// Check that pre and post validations leave the pool as is
 	if pool.pending[account].Len() != 3 {
@@ -1735,7 +1735,7 @@ func TestTransactionPoolRepricing(t *testing.T) {
 
 	// Import the batch and that both pending and queued transactions match up
 	pool.AddRemotesSync(txs)
-	pool.AddLocal(ltx)
+	_ = pool.AddLocal(ltx)
 
 	pending, queued := pool.Stats()
 	if pending != 7 {
@@ -1856,7 +1856,7 @@ func TestTransactionPoolRepricingDynamicFee(t *testing.T) {
 
 	// Import the batch and that both pending and queued transactions match up
 	pool.AddRemotesSync(txs)
-	pool.AddLocal(ltx)
+	_ = pool.AddLocal(ltx)
 
 	pending, queued := pool.Stats()
 	if pending != 7 {
@@ -2053,7 +2053,7 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 
 	// Import the batch and that both pending and queued transactions match up
 	pool.AddRemotes(txs)
-	pool.AddLocal(ltx)
+	_ = pool.AddLocal(ltx)
 
 	pending, queued := pool.Stats()
 	if pending != 3 {
@@ -2222,8 +2222,8 @@ func TestTransactionPoolUnderpricingDynamicFee(t *testing.T) {
 	ltx := dynamicFeeTx(0, 100000, big.NewInt(2), big.NewInt(1), keys[2])
 
 	// Import the batch and that both pending and queued transactions match up
-	pool.AddRemotes(txs) // Pend K0:0, K0:1; Que K1:1
-	pool.AddLocal(ltx)   // +K2:0 => Pend K0:0, K0:1, K2:0; Que K1:1
+	pool.AddRemotes(txs)   // Pend K0:0, K0:1; Que K1:1
+	_ = pool.AddLocal(ltx) // +K2:0 => Pend K0:0, K0:1, K2:0; Que K1:1
 
 	pending, queued := pool.Stats()
 	if pending != 3 {
@@ -2622,11 +2622,11 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 		t.Fatalf("failed to create temporary journal: %v", err)
 	}
 	journal := file.Name()
-	defer os.Remove(journal)
+	defer func() { _ = os.Remove(journal) }()
 
 	// Clean up the temporary file, we only need the path for now
-	file.Close()
-	os.Remove(journal)
+	_ = file.Close()
+	_ = os.Remove(journal)
 
 	// Create the original pool to inject transaction into the journal
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
@@ -2836,7 +2836,7 @@ func benchmarkFuturePromotion(b *testing.B, size int) {
 
 	for i := 0; i < size; i++ {
 		tx := transaction(uint64(1+i), 100000, key)
-		pool.enqueueTx(tx.Hash(), tx, false, true)
+		_, _ = pool.enqueueTx(tx.Hash(), tx, false, true)
 	}
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
@@ -2903,7 +2903,7 @@ func BenchmarkInsertRemoteWithAllLocals(b *testing.B) {
 		pool, _ := setupTxPool()
 		testAddBalance(pool, account, big.NewInt(100000000))
 		for _, local := range locals {
-			pool.AddLocal(local)
+			_ = pool.AddLocal(local)
 		}
 		b.StartTimer()
 		// Assign a high enough balance for testing

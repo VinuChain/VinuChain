@@ -125,5 +125,5 @@ func (tt *Index) scanPatternVariant(pos uint8, variant common.Hash, start uint64
 	if it.Error() != nil {
 		syncing.SetError(it.Error())
 	}
-	onMatched(nil)
+	_, _ = onMatched(nil)
 }

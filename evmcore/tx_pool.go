@@ -421,7 +421,7 @@ func (pool *TxPool) Stop() {
 	pool.wg.Wait()
 
 	if pool.journal != nil {
-		pool.journal.close()
+		_ = pool.journal.close()
 	}
 	log.Info("Transaction pool stopped")
 }
@@ -1131,7 +1131,7 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 			// Postpone any invalidated transactions
 			for _, tx := range invalids {
 				// Internal shuffle shouldn't touch the lookup set.
-				pool.enqueueTx(tx.Hash(), tx, false, false)
+				_, _ = pool.enqueueTx(tx.Hash(), tx, false, false)
 			}
 			// Update the account nonce if needed
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
@@ -1713,7 +1713,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Demoting pending transaction", "hash", hash)
 
 			// Internal shuffle shouldn't touch the lookup set.
-			pool.enqueueTx(hash, tx, false, false)
+			_, _ = pool.enqueueTx(hash, tx, false, false)
 		}
 		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
 		if pool.locals.contains(addr) {
@@ -1727,7 +1727,7 @@ func (pool *TxPool) demoteUnexecutables() {
 				log.Error("Demoting invalidated transaction", "hash", hash)
 
 				// Internal shuffle shouldn't touch the lookup set.
-				pool.enqueueTx(hash, tx, false, false)
+				_, _ = pool.enqueueTx(hash, tx, false, false)
 			}
 			pendingGauge.Dec(int64(len(gapped)))
 		}

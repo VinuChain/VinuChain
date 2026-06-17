@@ -61,7 +61,7 @@ func posToBytes(pos uint8) []byte {
 }
 
 func bytesToPos(b []byte) uint8 {
-	return uint8(b[0])
+	return b[0]
 }
 
 func uintToBytes(n uint64) []byte {

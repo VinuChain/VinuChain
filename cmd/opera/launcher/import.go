@@ -60,14 +60,14 @@ func importEvmFile(fn string, gdb *gossip.Store) error {
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	var reader io.Reader = fh
 	if strings.HasSuffix(fn, ".gz") {
 		if reader, err = gzip.NewReader(reader); err != nil {
 			return err
 		}
-		defer reader.(*gzip.Reader).Close()
+		defer func() { _ = reader.(*gzip.Reader).Close() }()
 	}
 
 	return gdb.EvmStore().ImportEvm(reader)
@@ -159,14 +159,14 @@ func importEventsFile(srv *gossip.Service, fn string) error {
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	var reader io.Reader = fh
 	if strings.HasSuffix(fn, ".gz") {
 		if reader, err = gzip.NewReader(reader); err != nil {
 			return err
 		}
-		defer reader.(*gzip.Reader).Close()
+		defer func() { _ = reader.(*gzip.Reader).Close() }()
 	}
 
 	// Check file version and header

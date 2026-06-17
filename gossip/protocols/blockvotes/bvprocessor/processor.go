@@ -51,7 +51,7 @@ func New(itemsSemaphore *datasemaphore.DataSemaphore, cfg Config, callback Callb
 	}
 	released := callback.Item.Released
 	callback.Item.Released = func(bvs inter.LlrSignedBlockVotes, peer string, err error) {
-		f.itemsSemaphore.Release(dag.Metric{Num: 1, Size: uint64(bvs.Size())})
+		f.itemsSemaphore.Release(dag.Metric{Num: 1, Size: bvs.Size()})
 		if released != nil {
 			released(bvs, peer, err)
 		}

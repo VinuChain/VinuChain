@@ -215,7 +215,7 @@ func loadAllConfigs(file string, cfg *config) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
@@ -231,7 +231,7 @@ func loadAllConfigs(file string, cfg *config) error {
 		err = errors.New(file + ", " + err.Error())
 	}
 	if err != nil {
-		return fmt.Errorf("TOML config file error: %v.\n"+
+		return fmt.Errorf("TOML config file error: %v\n"+ //nolint:staticcheck // ST1005: legacy multi-line error format
 			"Use 'dumpconfig' command to get an example config file.\n"+
 			"If node was recently upgraded and a previous network config file is used, then check updates for the config file.", err)
 	}
@@ -579,10 +579,10 @@ func dumpConfig(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		defer dump.Close()
+		defer func() { _ = dump.Close() }()
 	}
-	dump.WriteString(comment)
-	dump.Write(out)
+	_, _ = dump.WriteString(comment)
+	_, _ = dump.Write(out)
 
 	return nil
 }

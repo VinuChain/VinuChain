@@ -211,7 +211,7 @@ func pruneState(ctx *cli.Context) error {
 
 	tmpDir := path.Join(cfg.Node.DataDir, "tmp")
 	_ = os.MkdirAll(tmpDir, 0700)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	genesisBlock := gdb.GetBlock(*gdb.GetGenesisBlockIndex())
 	genesisRoot := common.Hash{}
@@ -232,7 +232,7 @@ func pruneState(ctx *cli.Context) error {
 			return err
 		}
 		bloom = lset
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	} else {
 		size := ctx.Uint64(utils.BloomFilterSizeFlag.Name)
 		log.Info("Initializing bloom filter of in-use-keys", "size (MB)", size)

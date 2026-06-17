@@ -14,7 +14,7 @@ import (
 func TestRecoverPruning_NoBloomFile(t *testing.T) {
 	dir := t.TempDir()
 	db := rawdb.NewMemoryDatabase()
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	err := RecoverPruning(dir, db, common.Hash{})
 	if err != nil {
@@ -30,7 +30,7 @@ func TestRecoverPruning_NoBloomFile(t *testing.T) {
 func TestRecoverPruning_MissingSnapshotWithBloomFile(t *testing.T) {
 	dir := t.TempDir()
 	db := rawdb.NewMemoryDatabase()
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	root := common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 	bloomPath := bloomFilterName(dir, root)

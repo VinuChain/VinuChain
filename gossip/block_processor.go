@@ -696,7 +696,7 @@ func (bp *BlockProcessor) processBlock() {
 				traces[i].TransactionPosition = pos
 			}
 			if corrected, err := json.Marshal(traces); err == nil {
-				bp.store.TxTraceStore().SetTxTrace(tx.Hash(), corrected)
+				_ = bp.store.TxTraceStore().SetTxTrace(tx.Hash(), corrected)
 			}
 		}
 	}
@@ -790,7 +790,7 @@ func (bp *BlockProcessor) processBlock() {
 	log.Info("New block", "index", bp.blockCtx.Idx, "id", block.Atropos, "gas_used",
 		evmBlock.GasUsed, "txs", fmt.Sprintf("%d/%d", len(evmBlock.Transactions), len(block.SkippedTxs)),
 		"age", utils.PrettyDuration(blockAge), "t", utils.PrettyDuration(now.Sub(bp.start)))
-	blockAgeGauge.Update(int64(blockAge.Nanoseconds()))
+	blockAgeGauge.Update(blockAge.Nanoseconds())
 }
 
 // dispatchBlock runs processBlock either asynchronously (if there are confirmed

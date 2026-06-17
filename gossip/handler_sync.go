@@ -425,7 +425,7 @@ func (h *handler) handleMsg(p *peer) error {
 	if msg.Size > protocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
-	defer msg.Discard()
+	defer func() { _ = msg.Discard() }()
 	// Rate limit check before semaphore acquisition so that abusive peers are
 	// disconnected immediately, without consuming semaphore capacity. If the
 	// check were deferred until after the acquire, a semaphore timeout would

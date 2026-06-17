@@ -31,7 +31,7 @@ import (
 // It offers only methods that operates on data that can be available to anyone without security risks.
 type PublicDownloaderAPI struct {
 	l                         *snapleecher.Leecher
-	mux                       *event.TypeMux
+	mux                       *event.TypeMux //nolint:staticcheck // SA1019: TypeMux is the sync-status notification channel this API is built around; migrating to Feed is a behavioral refactor
 	installSyncSubscription   chan chan interface{}
 	uninstallSyncSubscription chan *uninstallSyncSubscriptionRequest
 }
@@ -40,7 +40,7 @@ type PublicDownloaderAPI struct {
 // listens for events from the downloader through the global event mux. In case it receives one of
 // these events it broadcasts it to all syncing subscriptions that are installed through the
 // installSyncSubscription channel.
-func NewPublicDownloaderAPI(l *snapleecher.Leecher, m *event.TypeMux) *PublicDownloaderAPI {
+func NewPublicDownloaderAPI(l *snapleecher.Leecher, m *event.TypeMux) *PublicDownloaderAPI { //nolint:staticcheck // SA1019: TypeMux required to match the snap sync-status notification API; Feed migration is a behavioral refactor
 	api := &PublicDownloaderAPI{
 		l:                         l,
 		mux:                       m,
@@ -107,7 +107,7 @@ func (api *PublicDownloaderAPI) Syncing(ctx context.Context) (*rpc.Subscription,
 		for {
 			select {
 			case status := <-statuses:
-				notifier.Notify(rpcSub.ID, status)
+				_ = notifier.Notify(rpcSub.ID, status)
 			case <-rpcSub.Err():
 				sub.Unsubscribe()
 				return

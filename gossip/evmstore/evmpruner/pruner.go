@@ -67,9 +67,9 @@ const (
 // Pruner is an offline tool to prune the stale state with the
 // help of the snapshot. The workflow of pruner is very simple:
 //
-// - iterate the snapshot, reconstruct the relevant state
-// - iterate the database, delete all other state entries which
-//   don't belong to the target state and the genesis state
+//   - iterate the snapshot, reconstruct the relevant state
+//   - iterate the database, delete all other state entries which
+//     don't belong to the target state and the genesis state
 //
 // It can take several hours(around 2 hours for mainnet) to finish
 // the whole pruning work. It's recommended to run this offline tool
@@ -155,7 +155,7 @@ func prune(snaptree *snapshot.Tree, root common.Hash, maindb ethdb.Database, sta
 			}
 			count += 1
 			size += common.StorageSize(len(key) + len(iter.Value()))
-			batch.Delete(key)
+			_ = batch.Delete(key)
 
 			var eta time.Duration // Realistically will never remain uninited
 			if done := binary.BigEndian.Uint64(key[:8]); done > 0 {
@@ -203,7 +203,7 @@ func prune(snaptree *snapshot.Tree, root common.Hash, maindb ethdb.Database, sta
 	// finished. If any crashes or manual exit happens before this,
 	// `RecoverPruning` will pick it up in the next restarts to redo all
 	// the things.
-	os.RemoveAll(bloomPath)
+	_ = os.RemoveAll(bloomPath)
 
 	// Start compactions, will remove the deleted data from the disk immediately.
 	// Note for small pruning, the compaction is skipped.
@@ -362,7 +362,7 @@ func extractGenesis(db ethdb.Database, root common.Hash, stateBloom ethdb.KeyVal
 
 		// Embedded nodes don't have hash.
 		if hash != (common.Hash{}) {
-			stateBloom.Put(hash.Bytes(), nil)
+			_ = stateBloom.Put(hash.Bytes(), nil)
 		}
 		// If it's a leaf node, yes we are touching an account,
 		// dig into the storage trie further.
@@ -380,7 +380,7 @@ func extractGenesis(db ethdb.Database, root common.Hash, stateBloom ethdb.KeyVal
 				for storageIter.Next(true) {
 					hash := storageIter.Hash()
 					if hash != (common.Hash{}) {
-						stateBloom.Put(hash.Bytes(), nil)
+						_ = stateBloom.Put(hash.Bytes(), nil)
 					}
 				}
 				if storageIter.Error() != nil {
@@ -388,7 +388,7 @@ func extractGenesis(db ethdb.Database, root common.Hash, stateBloom ethdb.KeyVal
 				}
 			}
 			if !bytes.Equal(acc.CodeHash, evmstore.EmptyCode) {
-				stateBloom.Put(acc.CodeHash, nil)
+				_ = stateBloom.Put(acc.CodeHash, nil)
 			}
 		}
 	}
@@ -430,6 +430,7 @@ func findBloomFilter(datadir string) (string, common.Hash, error) {
 	return stateBloomPath, stateBloomRoot, nil
 }
 
+//nolint:unused // upstream go-ethereum prune-state CLI warning text kept for parity
 const warningLog = `
 
 WARNING!
@@ -440,4 +441,3 @@ otherwise the entire database may be damaged!
 
 Check the command description "opera snapshot prune-state --help" for more details.
 `
-

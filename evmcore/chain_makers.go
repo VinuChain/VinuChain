@@ -252,18 +252,30 @@ func makeHeader(parent *EvmBlock, _ *state.StateDB) *EvmHeader {
 	return header
 }
 
+//nolint:unused // vestigial go-ethereum test scaffold; kept verbatim for upstream-merge parity
 type fakeChainReader struct {
 	config  *params.ChainConfig
 	genesis *EvmBlock
 }
 
 // Config returns the chain configuration.
+//
+//nolint:unused // part of vestigial fakeChainReader scaffold
 func (cr *fakeChainReader) Config() *params.ChainConfig {
 	return cr.config
 }
 
-func (cr *fakeChainReader) CurrentHeader() *EvmHeader                            { return nil }
-func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *EvmHeader           { return nil }
-func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *EvmHeader          { return nil }
+//nolint:unused // part of vestigial fakeChainReader scaffold
+func (cr *fakeChainReader) CurrentHeader() *EvmHeader { return nil }
+
+//nolint:unused // part of vestigial fakeChainReader scaffold
+func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *EvmHeader { return nil }
+
+//nolint:unused // part of vestigial fakeChainReader scaffold
+func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *EvmHeader { return nil }
+
+//nolint:unused // part of vestigial fakeChainReader scaffold
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *EvmHeader { return nil }
-func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *EvmBlock   { return nil }
+
+//nolint:unused // part of vestigial fakeChainReader scaffold
+func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *EvmBlock { return nil }

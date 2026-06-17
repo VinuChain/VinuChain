@@ -29,11 +29,12 @@ func TestTypedNilInterfaceWrapping(t *testing.T) {
 	// is required — a `var nilEvent *inter.Event` literal gets folded by the
 	// nilness analyzer, which would flag the comparisons below as tautological
 	// even though verifying that exact semantics is the test's contract.
-	nilEvent := missingEvent()
+	nilEvent := missingEvent() //nolint:staticcheck // SA4023: typed-nil source for the intentional interface-nil comparison below (test contract)
 
 	// WRONG pattern (pre-fix): direct return wraps typed nil.
 	// Go's interface comparison (==) detects this; reflect-based checks do not.
 	var wrong dag.Event = nilEvent
+	//nolint:staticcheck // SA4023: intentionally comparing a typed-nil interface; this exact semantics IS the test contract
 	if wrong == nil {
 		t.Fatal("typed nil *inter.Event wrapped in dag.Event must not pass == nil check (the bug)")
 	}

@@ -19,7 +19,7 @@ import (
 
 func BenchmarkFlushDBs(b *testing.B) {
 	dir := tmpDir("flush_bench")
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	genStore := makefakegenesis.FakeGenesisStore(1, utils.ToVC(1), utils.ToVC(1))
 	g := genStore.Genesis()
 	_, _, store, s2, _, closeDBs := MakeEngine(dir, &g, Configs{
@@ -30,9 +30,9 @@ func BenchmarkFlushDBs(b *testing.B) {
 		VectorClock:   vecmt.DefaultConfig(cachescale.Identity),
 		DBs:           DefaultDBsConfig(cachescale.Identity.U64, 512),
 	})
-	defer closeDBs()
+	defer func() { _ = closeDBs() }()
 	defer store.Close()
-	defer s2.Close()
+	defer func() { _ = s2.Close() }()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()

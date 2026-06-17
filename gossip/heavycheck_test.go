@@ -69,7 +69,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEV() {
 				}
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -93,7 +93,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEV() {
 				}
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -118,7 +118,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEV() {
 
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(100)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -143,7 +143,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEV() {
 
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(hash.Hash{})
 
@@ -169,7 +169,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEV() {
 
 				s.me.SetVersion(1)
 				s.me.SetEpochVote(ev.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(4)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -228,7 +228,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(2)
 
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
@@ -259,7 +259,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(2)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -289,7 +289,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(2)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -318,7 +318,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 				}
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -349,7 +349,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(invalidValidatorID)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -379,7 +379,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(emptyPayload)
 
@@ -408,7 +408,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateBVs() {
 
 				s.me.SetVersion(1)
 				s.me.SetBlockVotes(bv.Val)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(4)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -474,7 +474,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			nil,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
@@ -493,7 +493,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			epochcheck.ErrNotRelevant,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch + 1))
+				s.me.SetEpoch(s.startEpoch + 1)
 				s.me.SetCreator(3)
 				s.me.SetPayloadHash(inter.CalcPayloadHash(s.me))
 
@@ -509,7 +509,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			epochcheck.ErrAuth,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -529,7 +529,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			heavycheck.ErrWrongEventSig,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
@@ -548,7 +548,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			heavycheck.ErrMalformedTxSig,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetCreator(3)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
@@ -579,7 +579,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 			heavycheck.ErrWrongPayloadHash,
 			func() {
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -608,7 +608,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetEpochVote(ev.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -637,7 +637,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetEpochVote(ev.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -666,7 +666,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetEpochVote(ev.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -696,7 +696,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetEpochVote(ev.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -729,7 +729,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -760,7 +760,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))
@@ -791,7 +791,7 @@ func (s *LLRHeavyCheckTestSuite) TestHeavyCheckValidateEvent() {
 
 				s.me.SetBlockVotes(bv.Val)
 				s.me.SetVersion(1)
-				s.me.SetEpoch(idx.Epoch(s.startEpoch))
+				s.me.SetEpoch(s.startEpoch)
 				s.me.SetSeq(idx.Event(1))
 				s.me.SetFrame(idx.Frame(1))
 				s.me.SetLamport(idx.Lamport(1))

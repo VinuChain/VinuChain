@@ -35,7 +35,7 @@ import (
 type memsizeStub struct{}
 
 func (memsizeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "memsize profiling unavailable (removed for Go 1.24 compatibility)")
+	_, _ = fmt.Fprintln(w, "memsize profiling unavailable (removed for Go 1.24 compatibility)")
 }
 func (memsizeStub) Add(name string, v interface{}) {}
 
@@ -186,7 +186,7 @@ func Setup(ctx *cli.Context) error {
 	verbosity := ctx.GlobalInt(verbosityFlag.Name)
 	glogger.Verbosity(log.Lvl(verbosity))
 	vmodule := ctx.GlobalString(vmoduleFlag.Name)
-	glogger.Vmodule(vmodule)
+	if err := glogger.Vmodule(vmodule); err != nil { log.Warn("vmodule parse failed", "err", err) }
 
 	debug := ctx.GlobalBool(debugFlag.Name)
 	if ctx.GlobalIsSet(legacyDebugFlag.Name) {
@@ -206,7 +206,7 @@ func Setup(ctx *cli.Context) error {
 	if b := ctx.GlobalString(backtraceAtFlag.Name); b != "" {
 		backtrace = b
 	}
-	glogger.BacktraceAt(backtrace)
+	if err := glogger.BacktraceAt(backtrace); err != nil { log.Warn("backtrace parse failed", "err", err) }
 
 	log.Root().SetHandler(glogger)
 
@@ -274,6 +274,6 @@ func StartPProf(address string, withMetrics bool) {
 // Exit stops all running profiles, flushing their output to the
 // respective file.
 func Exit() {
-	Handler.StopCPUProfile()
-	Handler.StopGoTrace()
+	_ = Handler.StopCPUProfile()
+	_ = Handler.StopGoTrace()
 }

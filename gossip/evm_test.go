@@ -50,7 +50,7 @@ func BenchmarkBallotTxsProcessing(b *testing.B) {
 		txs := make([]*types.Transaction, 0, count-1)
 		flushTxs := func() {
 			if len(txs) != 0 {
-				env.ApplyTxs(nextEpoch, txs...)
+				_, _ = env.ApplyTxs(nextEpoch, txs...)
 			}
 			txs = txs[:0]
 		}

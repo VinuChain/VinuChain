@@ -32,9 +32,11 @@ func New(store *Store) *VerWarcher {
 
 func (w *VerWarcher) Pause() error {
 	if w.store.GetNetworkVersion() > version.AsU64() {
+		//nolint:staticcheck // ST1005: deliberate multi-sentence operator-facing upgrade message; rewording changes user-visible output
 		return fmt.Errorf("Network upgrade %s was activated. Current node version is %s. "+
 			"Please upgrade your node to continue syncing.", version.U64ToString(w.store.GetNetworkVersion()), version.AsString())
 	} else if w.store.GetMissedVersion() > 0 {
+		//nolint:staticcheck // ST1005: deliberate multi-sentence operator-facing dirty-state message; rewording changes user-visible output
 		return fmt.Errorf("Node's state is dirty because node was upgraded after the network upgrade %s was activated. "+
 			"Please re-sync the chain data to continue.", version.U64ToString(w.store.GetMissedVersion()))
 	}

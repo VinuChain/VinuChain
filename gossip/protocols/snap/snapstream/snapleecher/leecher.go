@@ -17,9 +17,9 @@ var (
 )
 
 var (
-	errTimeout          = errors.New("timeout")
+	errTimeout          = errors.New("timeout") //nolint:unused // upstream go-ethereum downloader error sentinel kept for parity
 	errCancelStateFetch = errors.New("state data download canceled (requested)")
-	errCanceled         = errors.New("syncing canceled (requested)")
+	errCanceled         = errors.New("syncing canceled (requested)") //nolint:unused // upstream go-ethereum downloader error sentinel kept for parity
 )
 
 type Leecher struct {
@@ -40,10 +40,14 @@ type Leecher struct {
 	syncStatsLock  sync.RWMutex // Lock protecting the sync stats fields
 
 	// Cancellation and termination
-	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
-	cancelCh   chan struct{}  // Channel to cancel mid-flight syncs
-	cancelLock sync.RWMutex   // Lock to protect the cancel channel and peer in delivers
-	cancelWg   sync.WaitGroup // Make sure all fetcher goroutines have exited.
+	//nolint:unused // upstream go-ethereum downloader cancellation field kept for struct parity
+	cancelPeer string // Identifier of the peer currently being used as the master (cancel on drop)
+	//nolint:unused // upstream go-ethereum downloader cancellation field kept for struct parity
+	cancelCh chan struct{} // Channel to cancel mid-flight syncs
+	//nolint:unused // upstream go-ethereum downloader cancellation field kept for struct parity
+	cancelLock sync.RWMutex // Lock to protect the cancel channel and peer in delivers
+	//nolint:unused // upstream go-ethereum downloader cancellation field kept for struct parity
+	cancelWg sync.WaitGroup // Make sure all fetcher goroutines have exited.
 
 	quitCh chan struct{} // Quit channel to signal termination
 }
@@ -71,7 +75,7 @@ func New(stateDb ethdb.Database, stateBloom *trie.SyncBloom, dropPeer peerDropFn
 // cancel aborts all of the operations and resets the queue. However, cancel does
 // not wait for the running download goroutines to finish. This method should be
 // used when cancelling the downloads from inside the downloader.
-func (d *Leecher) cancel() {
+func (d *Leecher) cancel() { //nolint:unused // upstream downloader cancellation helper kept for parity
 	// Close the current cancel channel
 	d.cancelLock.Lock()
 	defer d.cancelLock.Unlock()

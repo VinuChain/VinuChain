@@ -66,7 +66,7 @@ func Benchmark(b *testing.B) {
 
 	b.Run("Read", func(b *testing.B) {
 		src := make([]byte, 1000)
-		rand.Read(src)
+		rand.Read(src) //nolint:staticcheck // SA1019: math/rand.Read used for deterministic benchmark input; v2/crypto migration would change behavior
 
 		b.Run("Std", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {

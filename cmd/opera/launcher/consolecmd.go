@@ -98,7 +98,7 @@ func localConsole(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("Failed to start the JavaScript console: %v", err)
 	}
-	defer console.Stop(false)
+	defer func() { _ = console.Stop(false) }()
 
 	// If only a short execution was requested, evaluate and return
 	if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
@@ -139,7 +139,7 @@ func remoteConsole(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("Failed to start the JavaScript console: %v", err)
 	}
-	defer console.Stop(false)
+	defer func() { _ = console.Stop(false) }()
 
 	if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
 		console.Evaluate(script)
@@ -193,7 +193,7 @@ func ephemeralConsole(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("Failed to start the JavaScript console: %v", err)
 	}
-	defer console.Stop(false)
+	defer func() { _ = console.Stop(false) }()
 
 	// Evaluate each of the specified JavaScript files
 	for _, file := range ctx.Args() {
@@ -209,7 +209,7 @@ func ephemeralConsole(ctx *cli.Context) error {
 		<-abort
 		os.Exit(0)
 	}()
-	console.Stop(true)
+	_ = console.Stop(true)
 
 	return nil
 }

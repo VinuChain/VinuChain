@@ -351,11 +351,6 @@ func (pc *PaybackCache) String() string {
 	return fmt.Sprintf("PaybackCache{addresses=%d, stakeEpochs=%d}", len(pc.PaybackUsedMap), stakeEpochs)
 }
 
-func getTxType(tx *types.Transaction, abi abi.ABI) TxType {
-	txtype, _ := getTxTypeAndStakeAddress(tx, &abi, common.Address{})
-	return txtype
-}
-
 func getTxTypeAndStakeAddress(tx *types.Transaction, contractABI *abi.ABI, sender common.Address) (TxType, common.Address) {
 	data := tx.Data()
 	if len(data) < 4 {
@@ -502,7 +497,7 @@ func (pc *PaybackCache) getPaybackData(address common.Address) (currentEpoch idx
 				prevEpochState = ctx.prevEpochState
 			}
 			pc.mu.RUnlock()
-		} else {
+		} else { //nolint:staticcheck // SA9003: intentional documented no-op branch; prevEpochState already set under lock
 			// Another goroutine published first; prevEpochState was set while
 			// holding the lock above.
 		}

@@ -33,7 +33,7 @@ func (em *Emitter) onNewExternalEvent(e inter.EventPayloadI) {
 			"The node was stopped by one of the doublesign protection heuristics.\n" +
 			"There's no guaranteed automatic protection against a doublesign, " +
 			"please always ensure that no more than one instance of the same validator is running."
-		errlock.Permanent(fmt.Errorf(reason, e.ID().String(), em.config.Validator.ID, e.CreationTime().Time().Local().String(), passedSinceEvent.String()))
+		errlock.Permanent(fmt.Errorf(reason, e.ID().String(), em.config.Validator.ID, e.CreationTime().Time().Local().String(), passedSinceEvent.String())) //nolint:staticcheck // ST1005: error text comes from a deliberate multi-sentence doublesign-warning template; rewording changes operator-visible output
 		panic("unreachable")
 	}
 }

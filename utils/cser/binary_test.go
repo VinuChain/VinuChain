@@ -329,7 +329,7 @@ func TestBadVals(t *testing.T) {
 
 func randBytes(n int) []byte {
 	bb := make([]byte, n)
-	_, err := rand.Read(bb)
+	_, err := rand.Read(bb) //nolint:staticcheck // SA1019: math/rand.Read used for deterministic test fixtures; v2/crypto migration would change behavior
 	if err != nil {
 		panic(err)
 	}

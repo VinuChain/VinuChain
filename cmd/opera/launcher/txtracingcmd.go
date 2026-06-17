@@ -66,7 +66,7 @@ func importTxTraces(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	var (
 		reader  io.Reader = fh
@@ -76,7 +76,7 @@ func importTxTraces(ctx *cli.Context) error {
 		if reader, err = gzip.NewReader(reader); err != nil {
 			return err
 		}
-		defer reader.(*gzip.Reader).Close()
+		defer func() { _ = reader.(*gzip.Reader).Close() }()
 	}
 
 	log.Info("Importing transaction traces from file", "file", fn)
@@ -167,12 +167,12 @@ func exportTxTraces(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	var writer io.Writer = fh
 	if strings.HasSuffix(fn, ".gz") {
 		writer = gzip.NewWriter(writer)
-		defer writer.(*gzip.Writer).Close()
+		defer func() { _ = writer.(*gzip.Writer).Close() }()
 	}
 
 	from := idx.Block(1)
@@ -279,7 +279,7 @@ func deleteTraces(gdb *gossip.Store, from, to idx.Block) error {
 		for _, tx := range gdb.GetBlockTxs(i, blk) {
 			if existing, _ := gdb.TxTraceStore().GetTx(tx.Hash()); existing != nil {
 				counter++
-				gdb.TxTraceStore().RemoveTxTrace(tx.Hash())
+				_ = gdb.TxTraceStore().RemoveTxTrace(tx.Hash())
 				if time.Since(reported) >= statsReportLimit {
 					log.Info("Deleting traces", "deleted", counter, "elapsed", common.PrettyDuration(time.Since(start)))
 					reported = time.Now()

@@ -258,7 +258,7 @@ func (s *Store) Flush(block iblockproc.BlockState) {
 	// cache warmup when node restarts.
 	if s.cfg.Cache.TrieCleanJournal != "" {
 		triedb := s.EvmState.TrieDB()
-		triedb.SaveCache(s.cfg.Cache.TrieCleanJournal)
+		_ = triedb.SaveCache(s.cfg.Cache.TrieCleanJournal)
 	}
 }
 
@@ -271,7 +271,7 @@ func (s *Store) Cap() {
 	)
 	// If we exceeded our memory allowance, flush matured singleton nodes to disk
 	if nodes > limit+ethdb.IdealBatchSize || imgs > 4*1024*1024 {
-		triedb.Cap(limit)
+		_ = triedb.Cap(limit)
 	}
 }
 

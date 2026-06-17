@@ -95,10 +95,10 @@ func (bloom *stateBloom) Commit(filename, tempname string) error {
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
-	f.Close()
+	_ = f.Close()
 
 	log.Info("State bloom filter committed", "name", filename)
 	// Move the teporary file into it's final location

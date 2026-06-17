@@ -529,7 +529,7 @@ func genTestData(count int) (
 			Topics:      topics[from:to],
 			Data:        make([]byte, i),
 		}
-		_, _ = rand.Read(r.Data)
+		_, _ = rand.Read(r.Data) //nolint:staticcheck // math/rand.Read is fine for non-cryptographic test data
 		recs[i] = r
 	}
 
@@ -537,7 +537,7 @@ func genTestData(count int) (
 }
 
 func randAddress() (addr common.Address) {
-	n, err := rand.Read(addr[:])
+	n, err := rand.Read(addr[:]) //nolint:staticcheck // math/rand.Read is fine for non-cryptographic test data
 	if err != nil {
 		panic(err)
 	}

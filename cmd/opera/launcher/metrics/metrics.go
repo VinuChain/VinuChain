@@ -12,6 +12,7 @@ import (
 var (
 	// TODO: refactor it
 	dbDir        atomic.Value
+	// nolint:unused // registered as a side-effect metrics gauge; framework calls measureDbDir via callback
 	dbSizeMetric = metrics.NewRegisteredFunctionalGauge("db_size", nil, measureDbDir)
 )
 
@@ -19,6 +20,7 @@ func SetDataDir(datadir string) {
 	dbDir.Store(datadir)
 }
 
+//nolint:unused // callback for dbSizeMetric gauge registered above
 func measureDbDir() (size int64) {
 	datadir, ok := dbDir.Load().(string)
 	if !ok || datadir == "" || datadir == "inmemory" {
@@ -27,6 +29,7 @@ func measureDbDir() (size int64) {
 	return sizeOfDir(datadir)
 }
 
+//nolint:unused // helper for measureDbDir
 func sizeOfDir(dir string) (size int64) {
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

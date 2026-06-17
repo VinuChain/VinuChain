@@ -67,7 +67,7 @@ type Peer interface {
 }
 
 // newPeerConnection creates a new downloader peer.
-func newPeerConnection(id string, version uint, peer Peer, logger log.Logger) *peerConnection {
+func newPeerConnection(id string, version uint, peer Peer, logger log.Logger) *peerConnection { //nolint:unused // upstream downloader peer constructor kept for parity
 	return &peerConnection{
 		id:      id,
 		lacking: make(map[common.Hash]struct{}),
@@ -95,7 +95,7 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	}
 	p.stateStarted = time.Now()
 
-	go p.peer.RequestNodeData(hashes)
+	go func() { _ = p.peer.RequestNodeData(hashes) }()
 
 	return nil
 }
@@ -219,7 +219,7 @@ func (ps *peerSet) Unregister(id string) error {
 		return errNotRegistered
 	}
 	delete(ps.peers, id)
-	ps.rates.Untrack(id)
+	_ = ps.rates.Untrack(id)
 	ps.lock.Unlock()
 
 	ps.peerDropFeed.Send(p)

@@ -146,7 +146,7 @@ func eraseTable(name string, producer kvdb.IterableDBProducer) error {
 		return fmt.Errorf("unable to open DB %s; %s", name, err)
 	}
 	db = batched.Wrap(db)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	it := db.NewIterator(nil, nil)
 	defer it.Release()
 	for it.Next() {

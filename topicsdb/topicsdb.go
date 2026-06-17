@@ -75,6 +75,7 @@ func (tt *Index) FindInBlocks(ctx context.Context, from, to idx.Block, pattern [
 }
 
 // ForEach matches log records by pattern. 1st pattern element is an address.
+//nolint:unused // dead code preserved for potential future use as a public API
 func (tt *Index) forEach(ctx context.Context, pattern [][]common.Hash, onLog func(*types.Log) (gonext bool)) error {
 	pattern, err := limitPattern(pattern)
 	if err != nil {

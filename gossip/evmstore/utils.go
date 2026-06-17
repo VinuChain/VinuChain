@@ -113,7 +113,7 @@ func (s *Store) CheckEvm(forEachState func(func(root common.Hash) (found bool, e
 
 				var account state.Account
 				if err = rlp.Decode(bytes.NewReader(stateIt.LeafBlob()), &account); err != nil {
-					err = fmt.Errorf("Failed to decode accoun as %s addr: %s", addrHash.String(), err.Error())
+					err = fmt.Errorf("Failed to decode accoun as %s addr: %s", addrHash.String(), err.Error()) //nolint:staticcheck // ST1005: preserve existing error text verbatim (avoid changing emitted message)
 					return
 				}
 

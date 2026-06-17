@@ -66,7 +66,7 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() { _ = input.Close() }()
 
 	// Temporarily discard any journal additions (don't double add on load)
 	journal.writer = new(devNull)
@@ -146,13 +146,13 @@ func (journal *txJournal) rotate(all map[common.Address]types.Transactions) erro
 	for _, txs := range all {
 		for _, tx := range txs {
 			if err = rlp.Encode(replacement, tx); err != nil {
-				replacement.Close()
+				_ = replacement.Close()
 				return err
 			}
 		}
 		journaled += len(txs)
 	}
-	replacement.Close()
+	_ = replacement.Close()
 
 	// Replace the live journal with the newly generated one
 	if err = os.Rename(journal.path+".new", journal.path); err != nil {

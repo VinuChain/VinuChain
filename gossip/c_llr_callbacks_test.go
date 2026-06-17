@@ -313,7 +313,7 @@ func newRepeater(s *IntegrationTestSuite) repeater {
 // If ProcessFullBlockRecord returns an error, omit it in fullRepeater scenario, but not in testRepeater scenario.
 func (r repeater) processBlockVotesRecords(isTestRepeater bool) {
 	for _, bv := range r.bvs {
-		r.processor.ProcessBlockVotes(*bv)
+		_ = r.processor.ProcessBlockVotes(*bv)
 	}
 
 	for _, blockIdx := range r.blockIndices {
@@ -341,7 +341,7 @@ func (r repeater) processBlockVotesRecords(isTestRepeater bool) {
 // processEpochVotesRecords processes each epoch vote. Additionally, it processes epoch block records in range [startEpoch+1; lastEpoch]
 func (r repeater) processEpochVotesRecords(startEpoch, lastEpoch idx.Epoch) {
 	// invoke repeater.ProcessEpochVote and ProcessFullEpochRecord for epoch in range [2; lastepoch]
-	for e := idx.Epoch(startEpoch + 1); e <= lastEpoch; e++ {
+	for e := startEpoch + 1; e <= lastEpoch; e++ {
 		epochVotes, ok := r.epochToEvsMap[e]
 		if !ok {
 			r.processor.store.Log.Crit("Failed to fetch epoch votes for a given epoch")
@@ -529,17 +529,17 @@ func (r repeater) compareLogsByFilterCriteria() {
 	}
 
 	fetchRandomTopicFromLogs := func(logs []*types.Log) common.Hash {
-		rand.Seed(time.Now().Unix())
+		rand.Seed(time.Now().Unix()) //nolint:staticcheck // SA1019: preserving exact deprecated-Seed behavior in this test helper
 		l := rand.Int() % len(logs) // pick log at random
 
-		rand.Seed(time.Now().Unix())
+		rand.Seed(time.Now().Unix()) //nolint:staticcheck // SA1019: preserving exact deprecated-Seed behavior in this test helper
 		t := rand.Int() % len(logs[l].Topics) // pick topic at random
 
 		return logs[l].Topics[t]
 	}
 
 	fetchRandomAddrFromLogs := func(logs []*types.Log) common.Address {
-		rand.Seed(time.Now().Unix())
+		rand.Seed(time.Now().Unix()) //nolint:staticcheck // SA1019: preserving exact deprecated-Seed behavior in this test helper
 		l := rand.Int() % len(logs) // pick log at random
 
 		return logs[l].Address
@@ -908,7 +908,7 @@ func TestBlockAndEpochRecords(t *testing.T) {
 	require.NoError(t, env.ProcessFullEpochRecord(er1))
 
 	// 6.create epoch record er2  of same epoch as er1, but with another name.
-	er2 := ier.LlrIdxFullEpochRecord{Idx: idx.Epoch(startEpoch + 1)}
+	er2 := ier.LlrIdxFullEpochRecord{Idx: startEpoch + 1}
 	// 7.Get an error that the er has been already processed.
 	require.EqualError(t, env.ProcessFullEpochRecord(er2), eventcheck.ErrAlreadyProcessedER.Error())
 
@@ -1040,7 +1040,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 	// process ER of 3rd epoch
 	er := ier.LlrIdxFullEpochRecord{
 		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
-		Idx:                idx.Epoch(startEpoch + 1),
+		Idx:                startEpoch + 1,
 	}
 	erHash := er.Hash()
 
@@ -1136,7 +1136,7 @@ func TestEpochRecordWithDiffValidators(t *testing.T) {
 	// 7 validators with total weight 7000 is less than threshold weight
 	// so 7 votes are not enough
 	totalWeight := newVals.TotalWeight()
-	thresholdWeight := pos.Weight(totalWeight/3 + 1)
+	thresholdWeight := totalWeight/3 + 1
 	require.Less(partialWeight, thresholdWeight)
 	require.EqualError(env.ProcessFullEpochRecord(er), eventcheck.ErrUndecidedER.Error())
 }
@@ -1184,7 +1184,7 @@ func TestProcessEpochVotesWonErNil(t *testing.T) {
 
 	er := ier.LlrIdxFullEpochRecord{
 		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
-		Idx:                idx.Epoch(startEpoch + 1),
+		Idx:                startEpoch + 1,
 	}
 	erHash := er.Hash()
 
@@ -1226,7 +1226,7 @@ func TestProcessEpochVotesWonErNil(t *testing.T) {
 	require.Equal(actualLowestEpochToDecide, expectedLowestEpochToDecide)
 
 	totalWeight := newVals.TotalWeight()
-	thresholdWeight := pos.Weight(totalWeight/3 + 1)
+	thresholdWeight := totalWeight/3 + 1
 	require.GreaterOrEqual(partialWeight, thresholdWeight)
 
 	require.NoError(env.ProcessFullEpochRecord(er))
@@ -1272,7 +1272,7 @@ func TestProcessEpochVotesWonErNotNilDoubleSign(t *testing.T) {
 
 	er := ier.LlrIdxFullEpochRecord{
 		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
-		Idx:                idx.Epoch(startEpoch + 1),
+		Idx:                startEpoch + 1,
 	}
 	erHash := er.Hash()
 
@@ -1482,7 +1482,7 @@ func TestBlockVotesTests(t *testing.T) {
 	// process ER of 3rd epoch
 	er := ier.LlrIdxFullEpochRecord{
 		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: esCopy},
-		Idx:                idx.Epoch(startEpoch + 1),
+		Idx:                startEpoch + 1,
 	}
 	erHash := er.Hash()
 
@@ -1508,7 +1508,7 @@ func TestBlockVotesTests(t *testing.T) {
 	er = ier.LlrIdxFullEpochRecord{
 		LlrFullEpochRecord: ier.LlrFullEpochRecord{BlockState: *bs, EpochState: *es},
 		Idx:                idx.Epoch(startEpoch + 2)}
-	erHash = er.Hash()
+	_ = er.Hash()
 
 	br := ibr.LlrIdxFullBlockRecord{Idx: idx.Block(2)}
 	brHash := br.Hash()

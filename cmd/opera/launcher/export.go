@@ -50,12 +50,12 @@ func exportEvents(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 
 	var writer io.Writer = fh
 	if strings.HasSuffix(fn, ".gz") {
 		writer = gzip.NewWriter(writer)
-		defer writer.(*gzip.Writer).Close()
+		defer func() { _ = writer.(*gzip.Writer).Close() }()
 	}
 
 	from := idx.Epoch(1)
@@ -136,7 +136,7 @@ func exportEvmKeys(ctx *cli.Context) error {
 		return err
 	}
 	keysDB := batched.Wrap(keysDB_)
-	defer keysDB.Close()
+	defer func() { _ = keysDB.Close() }()
 
 	it := gdb.EvmStore().EvmDb.NewIterator(nil, nil)
 	// iterate only over MPT data

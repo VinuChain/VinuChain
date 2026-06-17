@@ -262,7 +262,7 @@ func init() {
 
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
-		prompt.Stdin.Close() // Resets terminal mode.
+		_ = prompt.Stdin.Close() // Resets terminal mode.
 
 		return nil
 	}
@@ -475,7 +475,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 
 			case accounts.WalletDropped:
 				log.Info("Old wallet dropped", "url", event.Wallet.URL())
-				event.Wallet.Close()
+				_ = event.Wallet.Close()
 			}
 		}
 	}()

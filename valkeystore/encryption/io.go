@@ -19,15 +19,15 @@ func writeTemporaryKeyFile(file string, content []byte) (string, error) {
 		return "", err
 	}
 	if _, err := f.Write(content); err != nil {
-		f.Close()
-		os.Remove(f.Name())
+		_ = f.Close()
+		_ = os.Remove(f.Name())
 		return "", err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(f.Name())
+		_ = f.Close()
+		_ = os.Remove(f.Name())
 		return "", err
 	}
-	f.Close()
+	_ = f.Close()
 	return f.Name(), nil
 }

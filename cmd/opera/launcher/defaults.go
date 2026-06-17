@@ -106,7 +106,7 @@ func isNonEmptyDir(dir string) bool {
 		return false
 	}
 	names, _ := f.Readdir(1)
-	f.Close()
+	_ = f.Close()
 	return len(names) > 0
 }
 

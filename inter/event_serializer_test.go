@@ -36,7 +36,7 @@ func TestEventPayloadSerialization(t *testing.T) {
 	max.SetSeq(idx.Event(math.MaxUint32))
 	max.SetLamport(idx.Lamport(math.MaxUint32))
 	h := hash.BytesToEvent(bytes.Repeat([]byte{math.MaxUint8}, 32))
-	max.SetParents(hash.Events{hash.Event(h), hash.Event(h), hash.Event(h)})
+	max.SetParents(hash.Events{h, h, h})
 	max.SetPayloadHash(hash.Hash(h))
 	sig, err := BytesToSignature(bytes.Repeat([]byte{math.MaxUint8}, SigSize))
 	if err != nil {
@@ -253,6 +253,7 @@ func TestEventRPCMarshaling(t *testing.T) {
 
 			mapping = make(map[string]interface{})
 			err = json.Unmarshal(bb, &mapping)
+			require.NoError(err)
 
 			event1 := RPCUnmarshalEvent(mapping)
 			require.Equal(&event0.Event, event1, i)

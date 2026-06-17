@@ -147,13 +147,13 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 
 	origDatadir := ctx.GlobalString(DataDirFlag.Name)
 	for i := 1; i <= int(num); i++ {
-		ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, i))
+		_ = ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, i))
 		val, err := ValidatorCreate(ctx, i)
 		if err != nil {
 			return err
 		}
 		validators = append(validators, *val)
-		ctx.GlobalSet(DataDirFlag.Name, origDatadir)
+		_ = ctx.GlobalSet(DataDirFlag.Name, origDatadir)
 	}
 
 	epoch := idx.Epoch(2)
@@ -178,7 +178,7 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 
 	for _, val := range validators {
 
-		ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, val.ID))
+		_ = ctx.GlobalSet(DataDirFlag.Name, fmt.Sprintf("%s%d", origDatadir, val.ID))
 		tmpCfg := makeAllConfigs(ctx)
 		//tmpCfg.Node.DataDir = fmt.Sprintf("%s%d", cfg.Node.DataDir, val.ID)
 
@@ -192,7 +192,7 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 
 		defer nodeCloser()
 		fmt.Printf("Node %s created (validator %d)\n", node.Config().P2P.ListenAddr, val.ID)
-		node.Close()
+		_ = node.Close()
 		node.Wait()
 	}
 
@@ -206,7 +206,7 @@ func saveValidators(ctx *cli.Context, validators []gpos.Validator) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		for i, val := range validators {
 			line := val.PubKey.String() + "\n"
 			if i == len(validators)-1 {

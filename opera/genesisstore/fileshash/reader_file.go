@@ -164,7 +164,7 @@ func (r *Reader) init() error {
 	r.size = bigendian.BytesToUint64(buf)
 
 	hashesNum := r.getPiecesNum(r.size)
-	if memUsageOf(r.pieceSize, hashesNum) > uint64(r.maxMemUsage) {
+	if memUsageOf(r.pieceSize, hashesNum) > r.maxMemUsage {
 		return ErrTooMuchMem
 	}
 	// read piece hashes

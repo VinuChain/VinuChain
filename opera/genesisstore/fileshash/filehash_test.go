@@ -71,7 +71,7 @@ func TestFileHash_ReadWrite(t *testing.T) {
 func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pieceSize uint64) {
 	require := require.New(t)
 	tmpDirPath, err := os.MkdirTemp("", "filehash*")
-	defer os.RemoveAll(tmpDirPath)
+	defer func() { _ = os.RemoveAll(tmpDirPath) }()
 	require.NoError(err)
 	f, err := os.CreateTemp(tmpDirPath, "testnet.g")
 	filePath := f.Name()
@@ -92,7 +92,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 	root, err := writer.Flush()
 	require.NoError(err)
 	require.Equal(expRoot.Hex(), root.Hex())
-	f.Close()
+	_ = f.Close()
 
 	maxMemUsage := memUsageOf(pieceSize, getPiecesNum(uint64(len(content)), pieceSize))
 
@@ -105,7 +105,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 		err = ioread.ReadAll(reader, readB)
 		require.NoError(err)
 		require.Equal(content[:len(readB)], readB)
-		reader.Close()
+		_ = reader.Close()
 	}
 
 	// normal case: correct root hash and content after reading the whole file
@@ -119,7 +119,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 		require.Equal(content, readB)
 		// try to read one more byte
 		require.Error(ioread.ReadAll(reader, make([]byte, 1)), io.EOF)
-		reader.Close()
+		_ = reader.Close()
 	}
 
 	// correct root hash and reading too much content
@@ -129,7 +129,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 		reader := WrapReader(f, maxMemUsage, root)
 		readB := make([]byte, len(content)+1)
 		require.Error(ioread.ReadAll(reader, readB), io.EOF)
-		reader.Close()
+		_ = reader.Close()
 	}
 
 	// passing the wrong root hash to reader
@@ -140,7 +140,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 		data := make([]byte, 1)
 		err = ioread.ReadAll(maliciousReader, data)
 		require.Contains(err.Error(), ErrInit.Error())
-		maliciousReader.Close()
+		_ = maliciousReader.Close()
 	}
 
 	// modify piece data to make the mismatch piece hash
@@ -161,6 +161,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 
 		// try to read
 		f, err = os.OpenFile(filePath, os.O_RDONLY, 0600)
+		require.NoError(err)
 		maliciousReader := WrapReader(f, maxMemUsage, root)
 		data := make([]byte, contentPos+1)
 		err = ioread.ReadAll(maliciousReader, data)
@@ -192,6 +193,7 @@ func testFileHash_ReadWrite(t *testing.T, content []byte, expRoot hash.Hash, pie
 
 		// try to read
 		f, err = os.OpenFile(filePath, os.O_RDONLY, 0600)
+		require.NoError(err)
 		maliciousReader := WrapReader(f, maxMemUsage*2, root)
 		data := make([]byte, 1)
 		err = ioread.ReadAll(maliciousReader, data)

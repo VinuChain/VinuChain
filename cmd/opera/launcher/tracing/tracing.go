@@ -38,7 +38,7 @@ func Start(ctx *cli.Context) (stop func(), err error) {
 		return
 	}
 	stop = func() {
-		closer.Close()
+		_ = closer.Close()
 	}
 
 	opentracing.SetGlobalTracer(tracer)

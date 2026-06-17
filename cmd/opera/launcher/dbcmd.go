@@ -144,7 +144,7 @@ func compactDB(typ multidb.TypeName, name string, producer kvdb.DBProducer) erro
 		log.Error("Cannot open db or db does not exists", "db", humanName)
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	log.Info("Stats before compaction", "db", humanName)
 	showDbStats(db)

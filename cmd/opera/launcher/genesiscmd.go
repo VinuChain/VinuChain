@@ -258,7 +258,7 @@ func exportGenesis(ctx *cli.Context) error {
 	cfg := makeAllConfigs(ctx)
 	tmpPath := path.Join(cfg.Node.DataDir, "tmp")
 	_ = os.RemoveAll(tmpPath)
-	defer os.RemoveAll(tmpPath)
+	defer func() { _ = os.RemoveAll(tmpPath) }()
 
 	rawDbs := makeDirectDBsProducer(cfg)
 	gdb := makeGossipStore(rawDbs, cfg)
@@ -276,7 +276,7 @@ func exportGenesis(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		defer fh.Close()
+		defer func() { _ = fh.Close() }()
 		plain = fh
 	}
 

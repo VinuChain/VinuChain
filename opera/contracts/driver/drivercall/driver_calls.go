@@ -94,7 +94,7 @@ func SetGenesisValidator(v gpos.Validator) []byte {
 }
 
 func SetGenesisDelegation(d Delegation) []byte {
-	data, err := sAbi.Pack("setGenesisDelegation", d.Address, utils.U64toBig(uint64(d.ValidatorID)), d.Stake, d.LockedStake, utils.U64toBig(uint64(d.LockupFromEpoch)), utils.U64toBig(uint64(d.LockupEndTime)), utils.U64toBig(uint64(d.LockupDuration)), d.EarlyUnlockPenalty, d.Rewards)
+	data, err := sAbi.Pack("setGenesisDelegation", d.Address, utils.U64toBig(uint64(d.ValidatorID)), d.Stake, d.LockedStake, utils.U64toBig(uint64(d.LockupFromEpoch)), utils.U64toBig(uint64(d.LockupEndTime)), utils.U64toBig(d.LockupDuration), d.EarlyUnlockPenalty, d.Rewards)
 	if err != nil {
 		log.Crit("Failed to ABI-pack setGenesisDelegation", "err", err)
 	}

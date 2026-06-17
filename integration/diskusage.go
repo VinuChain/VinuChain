@@ -32,7 +32,7 @@ func getFreeDiskSpace(path string) (uint64, error) {
 
 	// Available blocks * size per block = available space in bytes
 	var bavail = stat.Bavail
-	if stat.Bavail < 0 {
+	if stat.Bavail < 0 { //nolint:staticcheck // Bavail is typed uint64 on Linux but the guard is kept for cross-platform safety
 		// FreeBSD can have a negative number of blocks available
 		// because of the grace limit.
 		bavail = 0

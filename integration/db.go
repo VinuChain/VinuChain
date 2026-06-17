@@ -123,12 +123,9 @@ func isEmpty(dir string) bool {
 	if err != nil {
 		return true
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		return true
-	}
-	return false
+	return err == io.EOF
 }
 
 func dropAllDBs(chaindataDir string) {

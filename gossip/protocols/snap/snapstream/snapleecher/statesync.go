@@ -31,8 +31,10 @@ import (
 // stateReq represents a batch of state fetch requests grouped together into
 // a single data retrieval network packet.
 type stateReq struct {
-	nItems    uint16                    // Number of items requested for download (max is 384, so uint16 is sufficient)
+	nItems uint16 // Number of items requested for download (max is 384, so uint16 is sufficient)
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	trieTasks map[common.Hash]*trieTask // Trie node download tasks to track previous attempts
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	codeTasks map[common.Hash]*codeTask // Byte code download tasks to track previous attempts
 	timeout   time.Duration             // Maximum round trip time for this to complete
 	timer     *time.Timer               // Timer to fire when the RTT timeout expires
@@ -42,12 +44,13 @@ type stateReq struct {
 	dropped   bool                      // Flag whether the peer dropped off early
 }
 
-
 // stateSyncStats is a collection of progress stats to report during a state trie
 // sync to RPC requests as well as to display in user logs.
 type stateSyncStats struct {
-	processed  uint64 // Number of state entries processed
-	duplicate  uint64 // Number of state entries downloaded twice
+	processed uint64 // Number of state entries processed
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
+	duplicate uint64 // Number of state entries downloaded twice
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	unexpected uint64 // Number of non-requested state entries received
 	pending    uint64 // Number of still pending state entries
 }
@@ -105,7 +108,7 @@ func (d *Leecher) runStateSync(s *stateSync) *stateSync {
 		}
 	}()
 	go s.run()
-	defer s.Cancel()
+	defer func() { _ = s.Cancel() }()
 
 	// Listen for peer departure events to cancel assigned tasks
 	peerDrop := make(chan *peerConnection, 1024)
@@ -260,7 +263,9 @@ type stateSync struct {
 	trieTasks map[common.Hash]*trieTask // Set of trie node tasks currently queued for retrieval
 	codeTasks map[common.Hash]*codeTask // Set of byte code tasks currently queued for retrieval
 
-	numUncommitted   int
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
+	numUncommitted int
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	bytesUncommitted int
 
 	started chan struct{} // Started is signalled once the sync loop starts
@@ -275,13 +280,16 @@ type stateSync struct {
 // trieTask represents a single trie node download task, containing a set of
 // peers already attempted retrieval from to detect stalled syncs and abort.
 type trieTask struct {
-	path     [][]byte
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
+	path [][]byte
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	attempts map[string]struct{}
 }
 
 // codeTask represents a single byte code download task, containing a set of
 // peers already attempted retrieval from to detect stalled syncs and abort.
 type codeTask struct {
+	//nolint:unused // upstream go-ethereum downloader in-memory bookkeeping field kept for struct parity (not serialized)
 	attempts map[string]struct{}
 }
 

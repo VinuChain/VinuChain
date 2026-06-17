@@ -57,7 +57,7 @@ func BenchmarkFilters(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	backend := newTestBackend()
 	ldb, err := rawdb.NewLevelDBDatabase(path.Join(dir, "backend-db"), 100, 1000, "", false)

@@ -81,7 +81,7 @@ func (tt *TestCmd) Run(name string, args ...string) {
 //
 //	cli.expect(`Passphrase: {{.InputLine "password"}}`)
 func (tt *TestCmd) InputLine(s string) string {
-	io.WriteString(tt.stdin, s+"\n")
+	_, _ = io.WriteString(tt.stdin, s+"\n")
 	return ""
 }
 
@@ -122,16 +122,16 @@ func (tt *TestCmd) matchExactOutput(want []byte) error {
 		// Grab any additional buffered output in case of mismatch
 		// because it might help with debugging.
 		buf = append(buf, make([]byte, tt.stdout.Buffered())...)
-		tt.stdout.Read(buf[n:])
+		_, _ = tt.stdout.Read(buf[n:])
 		// Find the mismatch position.
 		for i := 0; i < n; i++ {
 			if want[i] != buf[i] {
-				return fmt.Errorf("Output mismatch at ◊:\n---------------- (stdout text)\n%s◊%s\n---------------- (expected text)\n%s",
+				return fmt.Errorf("output mismatch at ◊:\n---------------- (stdout text)\n%s◊%s\n---------------- (expected text)\n%s",
 					buf[:i], buf[i:n], want)
 			}
 		}
 		if n < len(want) {
-			return fmt.Errorf("Not enough output, got until ◊:\n---------------- (stdout text)\n%s\n---------------- (expected text)\n%s◊%s",
+			return fmt.Errorf("not enough output, got until ◊:\n---------------- (stdout text)\n%s\n---------------- (expected text)\n%s◊%s",
 				buf, want[:n], want[n:])
 		}
 	}
@@ -213,11 +213,11 @@ func (tt *TestCmd) StderrText() string {
 }
 
 func (tt *TestCmd) CloseStdin() {
-	tt.stdin.Close()
+	_ = tt.stdin.Close()
 }
 
 func (tt *TestCmd) Kill() {
-	tt.cmd.Process.Kill()
+	_ = tt.cmd.Process.Kill()
 	if tt.Cleanup != nil {
 		tt.Cleanup()
 	}

@@ -11,7 +11,7 @@ type inmemIDStore struct {
 }
 
 func (p *inmemIDStore) GetID() string {
-	return string(p.lastID)
+	return p.lastID
 }
 
 func (p *inmemIDStore) SetID(id string) {

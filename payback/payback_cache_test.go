@@ -499,7 +499,7 @@ func TestAddTransaction_FeeRefundCappedAtTxFee(t *testing.T) {
 	)
 	addr = crypto.PubkeyToAddress(key.PublicKey)
 	// Cache the sender so tx.From() works.
-	types.Sender(signer, tx)
+	_, _ = types.Sender(signer, tx)
 
 	// FeeRefund is 10x the actual tx fee — should be capped.
 	oversizedRefund := new(big.Int).Mul(txFee, big.NewInt(10))

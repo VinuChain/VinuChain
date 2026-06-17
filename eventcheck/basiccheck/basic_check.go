@@ -26,13 +26,13 @@ var (
 	ErrWrongCreatorMP = errors.New("wrong creator in misbehaviour proof")
 	ErrMPTooLate      = errors.New("too old misbehaviour proof")
 	ErrMalformedMP    = errors.New("malformed MP union struct")
-	FutureBVsEpoch    = errors.New("future block votes epoch")
-	FutureEVEpoch     = errors.New("future epoch vote")
-	MalformedBVs      = errors.New("malformed BVs")
-	MalformedEV       = errors.New("malformed EV")
-	TooManyBVs        = errors.New("too many BVs")
-	EmptyEV           = errors.New("empty EV")
-	EmptyBVs          = errors.New("empty BVs")
+	FutureBVsEpoch    = errors.New("future block votes epoch") //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	FutureEVEpoch     = errors.New("future epoch vote")        //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	MalformedBVs      = errors.New("malformed BVs")            //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	MalformedEV       = errors.New("malformed EV")             //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	TooManyBVs        = errors.New("too many BVs")             //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	EmptyEV           = errors.New("empty EV")                 //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
+	EmptyBVs          = errors.New("empty BVs")                //nolint:staticcheck // ST1012: exported name referenced by gossip/ tests; renaming is a cross-package API break
 )
 
 const (

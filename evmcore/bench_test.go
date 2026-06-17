@@ -137,12 +137,12 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 		if err != nil {
 			b.Fatalf("cannot create temporary directory: %v", err)
 		}
-		defer os.RemoveAll(dir)
+		defer func() { _ = os.RemoveAll(dir) }()
 		db, err = rawdb.NewLevelDBDatabase(dir, 128, 128, "", false)
 		if err != nil {
 			b.Fatalf("cannot create temporary database: %v", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 	}
 
 	// Generate a chain of b.N blocks using the supplied block

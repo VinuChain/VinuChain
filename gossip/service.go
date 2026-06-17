@@ -138,7 +138,7 @@ type Service struct {
 	eventBusyFlag uint32
 
 	feed     ServiceFeed
-	eventMux *notify.TypeMux
+	eventMux *notify.TypeMux //nolint:staticcheck // SA1019: TypeMux still used across service wiring; migrating to Feed is a behavioral change out of scope for lint cleanup
 
 	gpo *gasprice.Oracle
 

@@ -80,7 +80,7 @@ func exec(t *testing.T, args ...string) *testcli {
 		}
 
 		// Remove the temporary datadir.
-		tt.Cleanup = func() { os.RemoveAll(tt.Datadir) }
+		tt.Cleanup = func() { _ = os.RemoveAll(tt.Datadir) }
 		defer func() {
 			if t.Failed() {
 				tt.Cleanup()

@@ -111,7 +111,7 @@ func (s *Store) eraseSfcApiTable() error {
 		log.Warn("Could not open gossip/S table for migration, skipping", "err", err)
 		return nil
 	}
-	defer sfcapiTable.Close()
+	defer func() { _ = sfcapiTable.Close() }()
 	it := sfcapiTable.NewIterator(nil, nil)
 	defer it.Release()
 	for it.Next() {

@@ -26,7 +26,7 @@ func dbTransform(ctx *cli.Context) error {
 	tmpPath := path.Join(cfg.Node.DataDir, "tmp")
 	integration.MakeDBDirs(tmpPath)
 	_ = os.RemoveAll(tmpPath)
-	defer os.RemoveAll(tmpPath)
+	defer func() { _ = os.RemoveAll(tmpPath) }()
 
 	// get supported DB producers
 	dbTypes := makeUncheckedCachedDBsProducers(path.Join(cfg.Node.DataDir, "chaindata"))
@@ -153,7 +153,7 @@ func readRoutes(cfg *config, dbTypes map[multidb.TypeName]kvdb.FullDBProducer) (
 			if err != nil {
 				return nil, fmt.Errorf("failed to open DB %s: %v", dbName, err)
 			}
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			tables, err := multidb.ReadTablesList(db, integration.TablesKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tables list for %s: %v", dbName, err)
@@ -196,7 +196,7 @@ func writeCleanTableRecords(dbTypes map[multidb.TypeName]kvdb.FullDBProducer, by
 		if err != nil {
 			return err
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		err = multidb.WriteTablesList(db, integration.TablesKey, records[dbLocatorOf(e.New)])
 		if err != nil {
 			return err
@@ -256,7 +256,7 @@ func transformComponent(datadir string, dbTypes, tmpDbTypes map[multidb.TypeName
 					return err
 				}
 				oldDB = batched.Wrap(oldDB)
-				defer oldDB.Close()
+				defer func() { _ = oldDB.Close() }()
 				oldHumanName := path.Join(string(e.Old.Type), e.Old.Name)
 				newDB, err := tmpDbTypes[e.New.Type].OpenDB(e.New.Name)
 				if err != nil {
@@ -264,7 +264,7 @@ func transformComponent(datadir string, dbTypes, tmpDbTypes map[multidb.TypeName
 				}
 				toMove[dbLocatorOf(e.New)] = true
 				newDB = batched.Wrap(newDB)
-				defer newDB.Close()
+				defer func() { _ = newDB.Close() }()
 				newHumanName := path.Join("tmp", string(e.New.Type), e.New.Name)
 				log.Info("Copying DB table", "req", e.Req, "old_db", oldHumanName, "old_table", e.Old.Table,
 					"new_db", newHumanName, "new_table", e.New.Table)

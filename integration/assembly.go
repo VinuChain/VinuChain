@@ -110,7 +110,7 @@ func rawMakeEngine(gdb *gossip.Store, cdb *abft.Store, g *genesis.Genesis, cfg C
 func applyGenesis(dbs kvdb.FlushableDBProducer, g genesis.Genesis, cfg Configs) error {
 	gdb, cdb := getStores(dbs, cfg)
 	defer gdb.Close()
-	defer cdb.Close()
+	defer func() { _ = cdb.Close() }()
 	log.Info("Applying genesis state")
 	err := rawApplyGenesis(gdb, cdb, g, cfg)
 	if err != nil {
@@ -126,7 +126,7 @@ func applyGenesis(dbs kvdb.FlushableDBProducer, g genesis.Genesis, cfg Configs) 
 func migrate(dbs kvdb.FlushableDBProducer, cfg Configs) error {
 	gdb, cdb := getStores(dbs, cfg)
 	defer gdb.Close()
-	defer cdb.Close()
+	defer func() { _ = cdb.Close() }()
 	err := gdb.Commit()
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func compactDB(typ multidb.TypeName, name string, producer kvdb.DBProducer) erro
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	return compactdb.Compact(db, humanName)
 }
 
@@ -220,8 +220,8 @@ func makeEngine(chaindataDir string, g *genesis.Genesis, genesisProc bool, cfg C
 	defer func() {
 		if err != nil {
 			gdb.Close()
-			cdb.Close()
-			dbs.Close()
+			_ = cdb.Close()
+			_ = dbs.Close()
 		}
 	}()
 

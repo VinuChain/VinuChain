@@ -28,7 +28,7 @@ func TestMedianTimeOnIndex(t *testing.T) {
 	{ // seq=0
 		e := hash.ZeroEvent
 		// validator indexes are sorted by weight amount
-		before := NewHighestBefore(idx.Validator(validators.Len()))
+		before := NewHighestBefore(validators.Len())
 
 		before.VSeq.Set(0, vecfc.BranchSeq{Seq: 0})
 		before.VTime.Set(0, 100)
@@ -52,7 +52,7 @@ func TestMedianTimeOnIndex(t *testing.T) {
 	{ // fork seen = true
 		e := hash.ZeroEvent
 		// validator indexes are sorted by weight amount
-		before := NewHighestBefore(idx.Validator(validators.Len()))
+		before := NewHighestBefore(validators.Len())
 
 		before.SetForkDetected(0)
 		before.VTime.Set(0, 100)
@@ -76,7 +76,7 @@ func TestMedianTimeOnIndex(t *testing.T) {
 	{ // normal
 		e := hash.ZeroEvent
 		// validator indexes are sorted by weight amount
-		before := NewHighestBefore(idx.Validator(validators.Len()))
+		before := NewHighestBefore(validators.Len())
 
 		before.VSeq.Set(0, vecfc.BranchSeq{Seq: 1})
 		before.VTime.Set(0, 11)
@@ -112,10 +112,10 @@ func TestMedianTimeAllCheaters(t *testing.T) {
 	vi.Reset(validators, memorydb.New(), nil)
 
 	e := hash.ZeroEvent
-	before := NewHighestBefore(idx.Validator(validators.Len()))
+	before := NewHighestBefore(validators.Len())
 
 	// Mark all validators as fork cheaters — their weights must be zeroed out.
-	for i := idx.Validator(0); i < idx.Validator(validators.Len()); i++ {
+	for i := idx.Validator(0); i < validators.Len(); i++ {
 		before.SetForkDetected(i)
 		before.VTime.Set(i, inter.Timestamp(1000+uint64(i)))
 	}
@@ -145,12 +145,12 @@ func TestMedianTimeElemont_StableSort(t *testing.T) {
 		vi.SetElemont(elemont)
 
 		e := hash.ZeroEvent
-		before := NewHighestBefore(idx.Validator(validators.Len()))
+		before := NewHighestBefore(validators.Len())
 		before.elemont = elemont
 
 		// All validators report the same creation time. The stable-sort tie-breaker
 		// by weight must not change the final timestamp output.
-		for i := idx.Validator(0); i < idx.Validator(validators.Len()); i++ {
+		for i := idx.Validator(0); i < validators.Len(); i++ {
 			before.VSeq.Set(i, vecfc.BranchSeq{Seq: 1})
 			before.VTime.Set(i, inter.Timestamp(100))
 		}

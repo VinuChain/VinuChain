@@ -11,7 +11,7 @@ import (
 // records to the Sentry project identified by dsn. Records below LvlError are
 // dropped. Uses raven-go (Sentry SDK v1) which ships fire-and-forget delivery.
 func newSentryHandler(dsn string) (log.Handler, error) {
-	client, err := raven.NewClient(dsn, nil)
+	client, err := raven.NewClient(dsn, nil) //nolint:staticcheck // SA1019: raven.NewClient retained intentionally; raven-go v1 fire-and-forget API, migration is out of scope
 	if err != nil {
 		return nil, err
 	}
