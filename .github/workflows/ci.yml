@@ -107,10 +107,8 @@ jobs:
           version: v2.12.2
 
   coverage:
-    name: coverage (non-blocking)
+    name: coverage (gate)
     runs-on: ubuntu-latest
-    # Informational only — never blocks merges.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -131,7 +129,14 @@ jobs:
           go tool cover -func=cover.prof | tail -n 1 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      # Regression gate: fail if total coverage falls below the floor
+      # (baseline 35.5% minus a 1-point slack). Raise the floor in
+      # scripts/check-coverage.sh deliberately as coverage climbs.
+      - name: Enforce coverage floor
+        run: bash scripts/check-coverage.sh cover.prof
+
       - name: Upload coverage profile
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: cover-prof
