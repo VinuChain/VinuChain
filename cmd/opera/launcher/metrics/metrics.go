@@ -12,7 +12,7 @@ import (
 var (
 	// TODO: refactor it
 	dbDir        atomic.Value
-	// nolint:unused // registered as a side-effect metrics gauge; framework calls measureDbDir via callback
+	//nolint:unused // registered as a side-effect metrics gauge; framework calls measureDbDir via callback
 	dbSizeMetric = metrics.NewRegisteredFunctionalGauge("db_size", nil, measureDbDir)
 )
 
