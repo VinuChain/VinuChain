@@ -36,8 +36,8 @@ github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIO
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/VictoriaMetrics/fastcache v1.6.0 h1:C/3Oi3EiBCqufydp1neRZkqcwmEiuRT9c3fqvvgKm5o=
 github.com/VictoriaMetrics/fastcache v1.6.0/go.mod h1:0qHz5QP0GMX4pfmMA/zt5RgfNuXJrTP0zS7DqpHGGTw=
-github.com/VinuChain/go-vinu v1.20.24-quota h1:KGE4QyHS1kDlOMFJSF6LOdEYXkFPBd6o79Y1cl9HWW4=
-github.com/VinuChain/go-vinu v1.20.24-quota/go.mod h1:UcOsurSR1GenzCuIGLEm0w2FZ9tp22/xb7CT2X/XX44=
+github.com/VinuChain/go-vinu v1.20.25-quota h1:absKCMc4jaXaEFqoOrqUnzmFuDDzPV9i6QcsKBsnTdQ=
+github.com/VinuChain/go-vinu v1.20.25-quota/go.mod h1:UcOsurSR1GenzCuIGLEm0w2FZ9tp22/xb7CT2X/XX44=
 github.com/VinuChain/lachesis-base v0.1.6-elemont h1:DLnlFCJnC6OpB3FS7+FXd9JhrQdSV64VeBd4Ve3AvHQ=
 github.com/VinuChain/lachesis-base v0.1.6-elemont/go.mod h1:UkU9+H43DrcH5qS9O8IxJyaR8hoDbR6Ol9iCouSuKOk=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
@@ -262,8 +262,6 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/graph-gophers/graphql-go v1.3.0 h1:Eb9x/q6MFpCLz7jBCiP/WTxjSDrYLR1QY41SORZyNJ0=
 github.com/graph-gophers/graphql-go v1.3.0/go.mod h1:9CQHMSxwO4MprSdzoIEobiHpoLtHm77vfxsvsIN5Vuc=
-github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f h1:GQpcb9ywkaawJfZCFeIcrSWlsZFRTsig42e03dkzc+I=
-github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f/go.mod h1:Q5On640X2Z0YzKOijx9GVhUu/kvHnk9aKoWGMlRDMtc=
 github.com/hashicorp/go-version v1.2.0/go.mod h1:fltr4n8CU8Ke44wwGCBoEymUuxUHl09ZGVZPK5anwXA=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=

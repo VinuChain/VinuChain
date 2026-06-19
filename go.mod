@@ -7,7 +7,6 @@ require (
 	github.com/cespare/cp v1.1.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/dvyukov/go-fuzz v0.0.0-20201127111758-49e582c6c23d
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/getsentry/raven-go v0.2.0
 	github.com/golang/mock v1.6.0
@@ -27,6 +26,7 @@ require (
 	github.com/uber/jaeger-lib v2.2.0+incompatible
 	golang.org/x/crypto v0.45.0
 	golang.org/x/sys v0.38.0
+	golang.org/x/text v0.31.0
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
 
@@ -93,7 +93,6 @@ require (
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
@@ -103,7 +102,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.24-quota
+replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.25-quota
 
 replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.6-elemont
 
