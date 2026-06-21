@@ -110,12 +110,45 @@ func TestMultipleSfcV2PatchActivationsLogWarn(t *testing.T) {
 	require.Contains(t, s, "Multiple SfcV2Patch",
 		"sealEpochIfNeeded must emit a log.Warn tagged 'Multiple SfcV2Patch…' when >1 patch flags activate in the same seal")
 
-	for _, flag := range []string{"SfcV2Patch", "SfcV2Patch2", "SfcV2Patch3", "SfcV2Patch4", "SfcV2Patch5", "SfcV2Patch6"} {
+	for _, flag := range []string{"SfcV2Patch", "SfcV2Patch2", "SfcV2Patch3", "SfcV2Patch4", "SfcV2Patch5", "SfcV2Patch6", "SfcV2Patch7"} {
 		marker := "!prevUpg." + flag
 		count := strings.Count(s, marker)
 		require.GreaterOrEqual(t, count, 2,
 			"expected at least 2 references to !prevUpg.%s (one in the counter, one at the activation site); found %d", flag, count)
 	}
+}
+
+// TestSfcV2Patch7ActivationReflashBeforeBackfill is a structural source pin for
+// the SfcV2Patch7 activation branch in sealEpochIfNeeded. It asserts that the
+// bytecode reflash (SetCode with GetPatch7ContractBin) precedes the one-shot
+// testnet reward-cursor backfill (BackfillTestnetRewardCursors), and that the
+// backfill is gated behind the testnet NetworkID check — so the corrected
+// cursors are read by the fixed Cycle-162 logic and no other network mints
+// phantom rewards.
+func TestSfcV2Patch7ActivationReflashBeforeBackfill(t *testing.T) {
+	src, err := os.ReadFile("block_processor.go")
+	require.NoError(t, err)
+	s := string(src)
+
+	require.Contains(t, s, "sfc.GetPatch7ContractBin()",
+		"SfcV2Patch7 activation must reflash via sfc.GetPatch7ContractBin()")
+	require.Contains(t, s, "sfc.BackfillTestnetRewardCursors(bp.statedb)",
+		"SfcV2Patch7 activation must run the one-shot testnet reward-cursor backfill")
+
+	reflashIdx := strings.Index(s, "sfc.GetPatch7ContractBin()")
+	backfillIdx := strings.Index(s, "sfc.BackfillTestnetRewardCursors(bp.statedb)")
+	require.NotEqual(t, -1, reflashIdx)
+	require.NotEqual(t, -1, backfillIdx)
+	require.Less(t, reflashIdx, backfillIdx,
+		"the Patch7 bytecode reflash must precede the reward-cursor backfill so corrected cursors are read by the fixed logic")
+
+	// The backfill must be testnet-gated. Find the Patch7 activation block and
+	// assert the testnet NetworkID guard wraps the backfill call.
+	guardIdx := strings.LastIndex(s[:backfillIdx], "bp.es.Rules.NetworkID == opera.VinuChainTestNetworkID")
+	require.NotEqual(t, -1, guardIdx,
+		"the reward-cursor backfill must be gated behind the VinuChainTestNetworkID check")
+	require.Greater(t, backfillIdx, guardIdx,
+		"the testnet NetworkID guard must precede the reward-cursor backfill call")
 }
 
 func TestShouldBackfillSfcV2MainnetDelegationsIncludesStaging(t *testing.T) {

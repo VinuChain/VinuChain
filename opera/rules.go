@@ -42,6 +42,7 @@ const (
 	pragueBit                         = 1 << 17
 	vinuBLS12381Bit                   = 1 << 18
 	vinuLatestEVMBit                  = 1 << 19
+	sfcV2Patch7Bit                    = 1 << 20
 )
 
 var DefaultVMConfig = vm.Config{
@@ -318,6 +319,37 @@ type Upgrades struct {
 	// edge to replace the receiver-owned withdrawal deployment with the
 	// corrected staker-owned contract.
 	PaybackV2Patch bool
+	// SfcV2Patch7 re-flashes the SFC V2 bytecode a seventh time to install the
+	// Cycle-162 reward-cursor bytecode sourced from VinuChain/vinuchain-lists.
+	// The Solidity delta seeds stashedRewardsUntilEpoch[delegator][validatorID]
+	// to currentSealedEpoch on a delegator's first delegation in _rawDelegate,
+	// so a post-genesis delegator's reward cursor no longer starts at 0 and
+	// crawls forward at most 100 epochs per call through the all-zero-ARPT dead
+	// zone. Without the seed, pendingRewards() over-reports while claimRewards/
+	// restakeRewards revert "zero rewards" because the cursor-bounded stash sees
+	// only the dead zone. This is the permanent forward fix that ships in the
+	// bytecode for every network.
+	//
+	// On VinuChain testnet (NetworkID 206), the SfcV2Patch7 activation seal also
+	// runs a ONE-SHOT storage correction (sfc_cursor_backfill.go) that RAISES
+	// the stuck stashedRewardsUntilEpoch cursor for the already-corrupted
+	// (delegator, validatorID) pairs to their corrected first-reward epoch so a
+	// subsequent claim mints only the genuine owed reward instead of reverting.
+	// The backfill is gated to NetworkID 206; the mainnet correction list is
+	// empty, so the activation is a no-op (apart from the bytecode reflash) on
+	// every other network.
+	//
+	// Testnet-only at activation time: mainnet has not yet activated any SfcV2*
+	// flag and will consume the latest available bytecode directly on its first
+	// SfcV2 activation via GetLatestContractBin(), which already points at the
+	// Cycle-162 reward-cursor bytecode — so mainnet's first SfcV2 activation
+	// ships the permanent fix without needing this re-flash flag.
+	//
+	// The patch7 bytecode is re-flashed via sfc.GetPatch7ContractBin(); a
+	// validation guard in sfc_patch7_bytecode.go log.Crits at binary startup if
+	// the asset is the sentinel placeholder, under-size, all-zero, or
+	// byte-identical to Patch5/Patch6.
+	SfcV2Patch7 bool
 }
 
 type UpgradeHeight struct {
@@ -513,6 +545,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch4:             true,
 			SfcV2Patch5:             true,
 			SfcV2Patch6:             true,
+			SfcV2Patch7:             true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
 			PaybackV2Patch:          true,

@@ -563,3 +563,86 @@ func TestRuntimeActivationIdempotentAcrossRestart(t *testing.T) {
 	require.True(t, bs2.DirtyRules.Upgrades.Podgorica)
 	require.True(t, bs2.DirtyRules.Upgrades.Elemont)
 }
+
+// newPreSfcV2Patch7TestEnv builds a testEnv on the testnet NetworkID (206)
+// whose stored epoch state has every prior flag sealed (SfcV2 active) but
+// SfcV2Patch7 OFF — exactly the live testnet fleet's state on a binary upgrade.
+// The hardcoded testnet rules (VinuChainTestNetRules) carry SfcV2Patch7=true, so
+// service.go staging must surface it as a DirtyRule and the next seal must
+// activate it (reflash + testnet backfill).
+func newPreSfcV2Patch7TestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *testEnv {
+	rules := opera.VinuChainTestNetRules()
+	rules.Epochs.MaxEpochDuration = inter.Timestamp(maxEpochDuration)
+	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
+	// Pre-Patch7 stored epoch state: every prior flag already sealed (this is
+	// the load-bearing difference from a fakenet, where stageHardcodedUpgrades
+	// returns early because MainNetRulesForNetwork(27) is nil and the flag never
+	// enters DirtyRules). SfcV2 stays true so the Patch7 reflash is meaningful.
+	rules.Upgrades.SfcV2Patch7 = false
+
+	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
+}
+
+// TestSfcV2Patch7StagesAndActivatesOnTestnet is the BLOCKER-2 seal-level
+// integration test. It proves the end-to-end path that was previously dead on
+// the live testnet fleet: with every prior flag already sealed, the new
+// service.go staging branch surfaces SfcV2Patch7 into DirtyRules, and the next
+// epoch seal fires the activation guard in block_processor.go, emitting the
+// "Re-applying SFC V2 bytecode upgrade (patch 7)" reflash log and flipping the
+// stored flag. Because this env is NetworkID 206, the testnet reward-cursor
+// backfill also runs (it is gated to 206 and is a no-op on every other network
+// — see TestSfcV2Patch7ActivationReflashBeforeBackfill).
+func TestSfcV2Patch7StagesAndActivatesOnTestnet(t *testing.T) {
+	logger.SetTestMode(t)
+
+	var reflashLogCount int64
+	prevHandler := log.Root().GetHandler()
+	defer log.Root().SetHandler(prevHandler)
+	log.Root().SetHandler(log.FuncHandler(func(r *log.Record) error {
+		if r.Msg == "Re-applying SFC V2 bytecode upgrade (patch 7)" {
+			atomic.AddInt64(&reflashLogCount, 1)
+		}
+		return prevHandler.Log(r)
+	}))
+
+	env := newPreSfcV2Patch7TestEnv(2, 3)
+	defer env.Close()
+
+	// Staging in newService must have written DirtyRules with SfcV2Patch7 true,
+	// surfaced from the hardcoded testnet binary rules.
+	bs := env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"newService must stage DirtyRules from hardcoded testnet binary rules")
+	require.True(t, bs.DirtyRules.Upgrades.SfcV2Patch7,
+		"SfcV2Patch7 must be staged into DirtyRules at startup on testnet")
+
+	// Patch7 reflashes the Cycle-162 reward-cursor bytecode. Confirm the live
+	// SFC holds the Patch7 bytecode only AFTER the seal, not before.
+	patch7Bin := sfc.GetPatch7ContractBin()
+	gotAtStart, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.False(t, bytes.Equal(gotAtStart, patch7Bin),
+		"test precondition: SFC must not already hold Patch7 bytecode before the seal")
+
+	// Drive blocks across the epoch boundary so the sealer fires.
+	admin := idx.ValidatorID(1)
+	other := idx.ValidatorID(2)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&reflashLogCount),
+		"the SfcV2Patch7 reflash log must fire exactly once at the activation seal")
+
+	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(gotAfterSeal, patch7Bin),
+		"expected Patch7 SFC bytecode (%d bytes) after epoch seal but got %d bytes; "+
+			"the SfcV2Patch7 reflash in block_processor.go did not fire",
+		len(patch7Bin), len(gotAfterSeal))
+
+	postSealEs := env.store.GetEpochState()
+	require.True(t, postSealEs.Rules.Upgrades.SfcV2Patch7,
+		"stored epoch state SfcV2Patch7 must be true after the seal")
+}

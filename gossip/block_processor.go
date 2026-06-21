@@ -383,6 +383,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch6 && !prevUpg.SfcV2Patch6 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch7 && !prevUpg.SfcV2Patch7 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -494,6 +497,29 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 			stats := sfc.BackfillPatch6TestnetDelegations(bp.statedb, uint64(bp.blockCtx.Time))
 			if stats.Changed() {
 				log.Info("Backfilled SFC Patch6 testnet delegations", "block", bp.blockCtx.Idx, "appended", stats.Appended, "repaired", stats.Repaired)
+			}
+		}
+	}
+	// SfcV2Patch7 installs the Cycle-162 reward-cursor bytecode sourced from
+	// VinuChain/vinuchain-lists. The Solidity delta seeds
+	// stashedRewardsUntilEpoch[delegator][toValidatorID] = currentSealedEpoch on
+	// a delegator's first delegation in _rawDelegate, so a post-genesis
+	// delegator's reward cursor no longer starts at 0 in the all-zero-ARPT dead
+	// zone where pendingRewards() over-reports while claimRewards/restakeRewards
+	// revert "zero rewards". This is the permanent forward fix shipped to every
+	// network. On testnet (NetworkID 206), the activation also runs a one-shot
+	// raise-only, currentSealedEpoch-capped storage correction that fixes the
+	// already-corrupted reward cursors so a subsequent claim mints only the
+	// genuine owed reward. The mainnet correction list is empty, so the backfill
+	// is a no-op there and the reflash alone applies. The backfill MUST run after
+	// the bytecode reflash so the corrected cursors are read by the fixed logic.
+	if bp.es.Rules.Upgrades.SfcV2Patch7 && !prevUpg.SfcV2Patch7 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 7)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch7ContractBin())
+		if bp.es.Rules.NetworkID == opera.VinuChainTestNetworkID {
+			stats := sfc.BackfillTestnetRewardCursors(bp.statedb)
+			if stats.Changed() {
+				log.Info("Backfilled SFC Patch7 testnet reward cursors", "block", bp.blockCtx.Idx, "raised", stats.Raised)
 			}
 		}
 	}
