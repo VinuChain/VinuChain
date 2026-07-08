@@ -43,6 +43,7 @@ const (
 	vinuBLS12381Bit                   = 1 << 18
 	vinuLatestEVMBit                  = 1 << 19
 	sfcV2Patch7Bit                    = 1 << 20
+	sfcV2Patch8Bit                    = 1 << 21
 )
 
 var DefaultVMConfig = vm.Config{
@@ -350,6 +351,37 @@ type Upgrades struct {
 	// the asset is the sentinel placeholder, under-size, all-zero, or
 	// byte-identical to Patch5/Patch6.
 	SfcV2Patch7 bool
+	// SfcV2Patch8 re-flashes the SFC V2 bytecode an eighth time to install the
+	// Cycle-163 self-service-reactivation bytecode sourced from
+	// VinuChain/vinuchain-lists. The Solidity delta makes reactivateValidator
+	// self-service: it drops onlyOwner for a nonReentrant owner-OR-self gate so
+	// the validator's own immutable auth key can reactivate an OFFLINE-only
+	// validator after an anti-flap cooldown (offlinePenaltyThresholdTime); the
+	// owner keeps the looser power for lost-key recovery. Doublesign/cheater
+	// validators (CHEATER_MASK) stay permanently un-reactivatable for ALL
+	// callers. To avoid freezing delegators across a validator's offline gap, two
+	// appended mappings (reactivationHealFloor, reactivationHealFrom) capture the
+	// pre-gap reward rate R at deactivation and carry it forward across the gap
+	// epochs, so the monotonic reward index never inverts and no owner correction
+	// is needed. This is the permanent forward fix that ships in the bytecode for
+	// every network.
+	//
+	// Testnet-only at activation time: mainnet has not yet activated any SfcV2*
+	// flag and will consume the latest available bytecode directly on its first
+	// SfcV2 activation via GetLatestContractBin(), which points at the Cycle-163
+	// reactivation bytecode — so mainnet's first SfcV2 activation ships the
+	// permanent fix without needing this re-flash flag.
+	//
+	// A one-shot storage backfill for any PRE-upgrade stranded reactivation-gap
+	// pairs (sfc_patch8_backfill.go) is gated to NetworkID 206 at the activation
+	// seal; its pair list is currently empty, so the activation is a no-op apart
+	// from the bytecode reflash.
+	//
+	// The patch8 bytecode is re-flashed via sfc.GetPatch8ContractBin(); a
+	// validation guard in sfc_patch8_bytecode.go log.Crits at binary startup if
+	// the asset is the sentinel placeholder, under-size, all-zero, or
+	// byte-identical to Patch6/Patch7.
+	SfcV2Patch8 bool
 }
 
 type UpgradeHeight struct {
@@ -546,6 +578,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch5:             true,
 			SfcV2Patch6:             true,
 			SfcV2Patch7:             true,
+			SfcV2Patch8:             true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
 			PaybackV2Patch:          true,

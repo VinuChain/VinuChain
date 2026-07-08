@@ -68,8 +68,8 @@ func TestPatch6ContractBin_PassesEnforce(t *testing.T) {
 // TestLatestContractBinSupersedesPatch6 documents that Patch6 is no longer the
 // newest SFC bytecode: SfcV2Patch7 (Cycle-162 reward-cursor fix) superseded it,
 // so GetLatestContractBin() must NOT return the Patch6 bytecode anymore. The
-// positive assertion (latest == Patch7) lives in
-// sfc_patch7_bytecode_test.go::TestLatestContractBinMatchesPatch7.
+// positive assertion (latest == Patch8) lives in
+// sfc_patch8_bytecode_test.go::TestLatestContractBinMatchesPatch8.
 func TestLatestContractBinSupersedesPatch6(t *testing.T) {
 	if bytes.Equal(GetLatestContractBin(), GetPatch6ContractBin()) {
 		t.Fatal("GetLatestContractBin must no longer return the Patch6 bytecode — Patch7 (reward-cursor fix) supersedes it for fresh SfcV2 activations")

@@ -147,6 +147,9 @@ func (u Upgrades) EncodeRLP(w io.Writer) error {
 	if u.SfcV2Patch7 {
 		bitmap.V |= sfcV2Patch7Bit
 	}
+	if u.SfcV2Patch8 {
+		bitmap.V |= sfcV2Patch8Bit
+	}
 	return rlp.Encode(w, &bitmap)
 }
 
@@ -180,6 +183,7 @@ func (u *Upgrades) DecodeRLP(s *rlp.Stream) error {
 	u.PaybackV2 = (bitmap.V & paybackV2Bit) != 0
 	u.PaybackV2Patch = (bitmap.V & paybackV2PatchBit) != 0
 	u.SfcV2Patch7 = (bitmap.V & sfcV2Patch7Bit) != 0
+	u.SfcV2Patch8 = (bitmap.V & sfcV2Patch8Bit) != 0
 	return nil
 }
 

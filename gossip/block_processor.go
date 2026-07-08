@@ -386,6 +386,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch7 && !prevUpg.SfcV2Patch7 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch8 && !prevUpg.SfcV2Patch8 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -520,6 +523,27 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 			stats := sfc.BackfillTestnetRewardCursors(bp.statedb)
 			if stats.Changed() {
 				log.Info("Backfilled SFC Patch7 testnet reward cursors", "block", bp.blockCtx.Idx, "raised", stats.Raised)
+			}
+		}
+	}
+	// SfcV2Patch8 installs the Cycle-163 self-service-reactivation bytecode
+	// sourced from VinuChain/vinuchain-lists. The Solidity delta makes
+	// reactivateValidator self-service (owner-OR-self, OFFLINE-only, anti-flap
+	// cooldown; cheaters stay un-reactivatable) and heals a validator's offline
+	// reward gap forward via two appended mappings so delegators are never
+	// frozen. This is the permanent forward fix shipped to every network. On
+	// testnet (NetworkID 206) the activation also runs a one-shot storage
+	// backfill for any PRE-upgrade stranded reactivation-gap pairs; its pair list
+	// is currently empty, so it is a verified no-op there and the reflash alone
+	// applies. The backfill MUST run after the bytecode reflash so any corrected
+	// heal records are read by the fixed logic.
+	if bp.es.Rules.Upgrades.SfcV2Patch8 && !prevUpg.SfcV2Patch8 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 8)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch8ContractBin())
+		if bp.es.Rules.NetworkID == opera.VinuChainTestNetworkID {
+			stats := sfc.BackfillReactivationHealRecords(bp.statedb)
+			if stats.Changed() {
+				log.Info("Backfilled SFC Patch8 testnet reactivation heal records", "block", bp.blockCtx.Idx, "installed", stats.Installed)
 			}
 		}
 	}
