@@ -668,6 +668,14 @@ func newPreSfcV2Patch8TestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator)
 	// so only Patch8 transitions at the seal). SfcV2 stays true so the Patch8
 	// reflash is meaningful.
 	rules.Upgrades.SfcV2Patch8 = false
+	// SfcV2Patch9 is deliberately LEFT SEALED (true) so this seal isolates the
+	// SfcV2Patch8 transition: with Patch9 already active in the stored state,
+	// stageHardcodedUpgrades stages only Patch8 and block_processor reflashes
+	// only the Patch8 bytecode, letting this test verify the Patch8 mechanism
+	// alone. The pre-BOTH scenario (a node with neither) is covered by
+	// TestSfcV2Patch9StagesAndActivatesOnTestnet, where Patch9 (the latest)
+	// wins.
+	rules.Upgrades.SfcV2Patch9 = true
 
 	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
 }
@@ -733,4 +741,85 @@ func TestSfcV2Patch8StagesAndActivatesOnTestnet(t *testing.T) {
 	postSealEs := env.store.GetEpochState()
 	require.True(t, postSealEs.Rules.Upgrades.SfcV2Patch8,
 		"stored epoch state SfcV2Patch8 must be true after the seal")
+}
+
+// newPreSfcV2Patch9TestEnv builds a testEnv on the testnet NetworkID (206) whose
+// stored epoch state has every prior flag sealed INCLUDING SfcV2Patch8, but
+// SfcV2Patch9 OFF — the live testnet fleet's state on the SfcV2Patch9 binary
+// upgrade. The hardcoded testnet rules carry SfcV2Patch9=true, so service.go
+// staging must surface it as a DirtyRule and the next seal must activate it
+// (reflash Cycle-164 two-reward-fix bytecode + testnet backfill).
+func newPreSfcV2Patch9TestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *testEnv {
+	rules := opera.VinuChainTestNetRules()
+	rules.Epochs.MaxEpochDuration = inter.Timestamp(maxEpochDuration)
+	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
+	// Pre-Patch9 stored state: every prior flag already sealed (Patch8 stays true,
+	// so only Patch9 transitions at the seal). SfcV2 stays true so the Patch9
+	// reflash is meaningful.
+	rules.Upgrades.SfcV2Patch9 = false
+
+	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
+}
+
+// TestSfcV2Patch9StagesAndActivatesOnTestnet proves the SfcV2Patch9 end-to-end
+// path: with every prior flag (including Patch8) already sealed, the service.go
+// staging branch surfaces SfcV2Patch9 into DirtyRules, and the next epoch seal
+// fires the activation guard in block_processor.go — emitting the "Re-applying
+// SFC V2 bytecode upgrade (patch 9)" reflash log, installing the Cycle-164
+// two-reward-fix bytecode, and (NetworkID 206) running the reactivation-heal
+// backfill (a verified no-op with the empty pair list) — then flipping the
+// stored flag. Mirrors TestSfcV2Patch8StagesAndActivatesOnTestnet.
+func TestSfcV2Patch9StagesAndActivatesOnTestnet(t *testing.T) {
+	logger.SetTestMode(t)
+
+	var reflashLogCount int64
+	prevHandler := log.Root().GetHandler()
+	defer log.Root().SetHandler(prevHandler)
+	log.Root().SetHandler(log.FuncHandler(func(r *log.Record) error {
+		if r.Msg == "Re-applying SFC V2 bytecode upgrade (patch 9)" {
+			atomic.AddInt64(&reflashLogCount, 1)
+		}
+		return prevHandler.Log(r)
+	}))
+
+	env := newPreSfcV2Patch9TestEnv(2, 3)
+	defer env.Close()
+
+	// Staging in newService must have written DirtyRules with SfcV2Patch9 true,
+	// surfaced from the hardcoded testnet binary rules.
+	bs := env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"newService must stage DirtyRules from hardcoded testnet binary rules")
+	require.True(t, bs.DirtyRules.Upgrades.SfcV2Patch9,
+		"SfcV2Patch9 must be staged into DirtyRules at startup on testnet")
+
+	// Patch9 reflashes the Cycle-164 two-reward-fix bytecode. Confirm the live
+	// SFC holds the Patch9 bytecode only AFTER the seal, not before.
+	patch9Bin := sfc.GetPatch9ContractBin()
+	gotAtStart, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.False(t, bytes.Equal(gotAtStart, patch9Bin),
+		"test precondition: SFC must not already hold Patch9 bytecode before the seal")
+
+	// Drive blocks across the epoch boundary so the sealer fires.
+	admin := idx.ValidatorID(1)
+	other := idx.ValidatorID(2)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&reflashLogCount),
+		"the SfcV2Patch9 reflash log must fire exactly once at the activation seal")
+
+	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(gotAfterSeal, patch9Bin),
+		"expected Patch9 SFC bytecode (%d bytes) after epoch seal but got %d bytes; "+
+			"the SfcV2Patch9 reflash in block_processor.go did not fire",
+		len(patch9Bin), len(gotAfterSeal))
+
+	postSealEs := env.store.GetEpochState()
+	require.True(t, postSealEs.Rules.Upgrades.SfcV2Patch9,
+		"stored epoch state SfcV2Patch9 must be true after the seal")
 }

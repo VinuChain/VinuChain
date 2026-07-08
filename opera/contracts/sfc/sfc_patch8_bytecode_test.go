@@ -93,8 +93,13 @@ func TestPatch8DiffersFromPatch6AndPatch7(t *testing.T) {
 	}
 }
 
-func TestLatestContractBinMatchesPatch8(t *testing.T) {
-	if !bytes.Equal(GetLatestContractBin(), GetPatch8ContractBin()) {
-		t.Fatal("GetLatestContractBin must return the Patch8 reactivation bytecode for fresh SfcV2 activations")
+// TestLatestContractBinSupersedesPatch8 documents that Patch8 is no longer the
+// newest SFC bytecode: SfcV2Patch9 (Cycle-164 two-reward-fix) superseded it, so
+// GetLatestContractBin() must NOT return the Patch8 bytecode anymore. The
+// positive assertion (latest == Patch9) lives in
+// sfc_patch9_bytecode_test.go::TestLatestContractBinMatchesPatch9.
+func TestLatestContractBinSupersedesPatch8(t *testing.T) {
+	if bytes.Equal(GetLatestContractBin(), GetPatch8ContractBin()) {
+		t.Fatal("GetLatestContractBin must no longer return the Patch8 bytecode — Patch9 (two reward fixes) supersedes it for fresh SfcV2 activations")
 	}
 }

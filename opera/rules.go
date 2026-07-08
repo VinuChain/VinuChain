@@ -44,6 +44,7 @@ const (
 	vinuLatestEVMBit                  = 1 << 19
 	sfcV2Patch7Bit                    = 1 << 20
 	sfcV2Patch8Bit                    = 1 << 21
+	sfcV2Patch9Bit                    = 1 << 22
 )
 
 var DefaultVMConfig = vm.Config{
@@ -382,6 +383,32 @@ type Upgrades struct {
 	// the asset is the sentinel placeholder, under-size, all-zero, or
 	// byte-identical to Patch6/Patch7.
 	SfcV2Patch8 bool
+	// SfcV2Patch9 re-flashes the SFC V2 bytecode a ninth time to install the
+	// Cycle-164 bytecode sourced from VinuChain/vinuchain-lists. The Solidity
+	// delta ships two reward fixes on top of Patch8's self-service
+	// reactivation: (1) _rawDelegate seeds a delegator's reward cursor to
+	// currentSealedEpoch+1 rather than currentSealedEpoch to avoid a
+	// one-epoch over-mint for new delegators; (2) reactivateValidator
+	// physically backfills a prior offline gap on repeated reactivation so
+	// passive delegators are not re-stranded. This is the permanent forward
+	// fix that ships in the bytecode for every network.
+	//
+	// Testnet-only at activation time: mainnet has not yet activated any SfcV2*
+	// flag and will consume the latest available bytecode directly on its first
+	// SfcV2 activation via GetLatestContractBin(), which points at the Cycle-164
+	// two-reward-fix bytecode — so mainnet's first SfcV2 activation ships the
+	// permanent fix without needing this re-flash flag.
+	//
+	// A one-shot storage backfill for any PRE-upgrade stranded pairs
+	// (sfc_patch9_backfill.go) is gated to NetworkID 206 at the activation
+	// seal; its pair list is currently empty, so the activation is a no-op apart
+	// from the bytecode reflash.
+	//
+	// The patch9 bytecode is re-flashed via sfc.GetPatch9ContractBin(); a
+	// validation guard in sfc_patch9_bytecode.go log.Crits at binary startup if
+	// the asset is the sentinel placeholder, under-size, all-zero, or
+	// byte-identical to Patch7/Patch8.
+	SfcV2Patch9 bool
 }
 
 type UpgradeHeight struct {
@@ -579,6 +606,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch6:             true,
 			SfcV2Patch7:             true,
 			SfcV2Patch8:             true,
+			SfcV2Patch9:             true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
 			PaybackV2Patch:          true,

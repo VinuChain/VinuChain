@@ -389,6 +389,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch8 && !prevUpg.SfcV2Patch8 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch9 && !prevUpg.SfcV2Patch9 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -544,6 +547,29 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 			stats := sfc.BackfillReactivationHealRecords(bp.statedb)
 			if stats.Changed() {
 				log.Info("Backfilled SFC Patch8 testnet reactivation heal records", "block", bp.blockCtx.Idx, "installed", stats.Installed)
+			}
+		}
+	}
+	// SfcV2Patch9 installs the Cycle-164 two-reward-fix bytecode sourced from
+	// VinuChain/vinuchain-lists. The Solidity delta ships two reward fixes on
+	// top of Patch8's self-service reactivation: _rawDelegate seeds a
+	// delegator's reward cursor to currentSealedEpoch+1 (avoiding a one-epoch
+	// over-mint for new delegators), and reactivateValidator physically
+	// backfills a prior offline gap on repeated reactivation so passive
+	// delegators are not re-stranded. This is the permanent forward fix
+	// shipped to every network. On testnet (NetworkID 206) the activation
+	// also runs a one-shot storage backfill for any PRE-upgrade stranded
+	// pairs; its pair list is currently empty, so it is a verified no-op
+	// there and the reflash alone applies. The backfill MUST run after the
+	// bytecode reflash so any corrected heal records are read by the fixed
+	// logic.
+	if bp.es.Rules.Upgrades.SfcV2Patch9 && !prevUpg.SfcV2Patch9 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 9)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch9ContractBin())
+		if bp.es.Rules.NetworkID == opera.VinuChainTestNetworkID {
+			stats := sfc.BackfillPatch9ReactivationHealRecords(bp.statedb)
+			if stats.Changed() {
+				log.Info("Backfilled SFC Patch9 testnet reactivation heal records", "block", bp.blockCtx.Idx, "installed", stats.Installed)
 			}
 		}
 	}
