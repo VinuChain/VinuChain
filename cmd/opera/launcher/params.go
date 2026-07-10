@@ -88,6 +88,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xbfe43b2d77e7d672c4b0130d0a43f0710704f53ebb2c39a379c93076a43bddce"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x7c3476d667f7912172df77a5e5804428380541bf98282442689e6b442d16da34"),
 			},
+			SupersededBy: "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g",
 		},
 
 		// VinuChain testnet with history through epoch 5637 / block 1,423,701 (2026-04-19)
@@ -96,6 +97,11 @@ var (
 		// caused "wrong event epoch hash" divergence on fresh installs under current
 		// binary rules. Distributed at:
 		//   https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260419.g
+		// STALE for fresh installs under v2.0.41+ rules: it pre-dates the
+		// SfcV2Patch7/8/9 activations (epochs 6016/6117/6118), so a replay
+		// re-stages them at the wrong seal and diverges. SupersededBy keeps
+		// it trusted for already-initialized datadirs while refusing fresh
+		// installs; use the 2026-07-11 genesis below for new installs.
 		{
 			Name:   "VinuChain testnet with history (2026-04-19)",
 			Header: vinuChainTestnetHeader,
@@ -103,6 +109,27 @@ var (
 				genesisstore.EpochsSection(0): hash.HexToHash("0x72f1b25236876c877f800fa50038870ef36eef0b4c6f3ba0b1d8b67c37b34c22"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0xf11619ff578754ce5680982eecc805387dd7dde02fd1d59d43ff4d7ead231fa7"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x459360bfa1fce292e3f9e7c9ea204f91ca89040258126a6aa07c6c0c1e345624"),
+			},
+			SupersededBy: "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g",
+		},
+
+		// VinuChain testnet with history through epoch 6119 / block 1,529,442 (2026-07-11)
+		// Regenerated post-SfcV2Patch9 (v2.0.44-elemont) from the published
+		// testnet-chaindata-v2.0.44-elemont-20260708T163957Z-clean snapshot;
+		// covers the SfcV2Patch7 (epoch 6016 seal), SfcV2Patch8 (6117), and
+		// SfcV2Patch9 (6118) activations, so fresh installs under v2.0.44+
+		// rules stage nothing during replay and stay on the live chain's
+		// epoch-state hashes. Replaces the 2026-04-19 genesis, which forked
+		// two community validators (17/18) crossing the Patch7 seal.
+		// Distributed at:
+		//   https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g
+		{
+			Name:   "VinuChain testnet with history (2026-07-11)",
+			Header: vinuChainTestnetHeader,
+			Hashes: genesis.Hashes{
+				genesisstore.EpochsSection(0): hash.HexToHash("0xf7493a6a546a7cac432864c9ddd92f3d4cead6ecf9cecf416c84669683cde15b"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0x21b5b18943bb2d7ccfc8fa6a09781146d8322a2dab5280db2d5ab87860f9ff0f"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0xeb82e4cf63b20c0655cc9514c3f5d87774d796c0b09afc01179f899bbdf4168b"),
 			},
 		},
 

@@ -309,7 +309,7 @@ func vinuChainMain(ctx *cli.Context) error {
 	//defer tracingStop()
 
 	cfg := makeAllConfigs(ctx)
-	genesisStore := mayGetGenesisStore(ctx)
+	genesisStore := mayGetGenesisStore(ctx, cfg.Node.DataDir)
 	node, _, nodeClose := makeNode(ctx, cfg, genesisStore)
 	defer nodeClose()
 	startNode(ctx, node)

@@ -163,6 +163,26 @@ type GenesisTemplate struct {
 	Name   string
 	Header genesis.Header
 	Hashes genesis.Hashes
+	// SupersededBy, when non-empty, names the replacement genesis (URL or
+	// file) for a preset that pre-dates staged upgrade activations. Such a
+	// preset stays trusted for already-initialized datadirs, but is refused
+	// for fresh installs: a replay from it re-stages the missing upgrades at
+	// a different seal than the live chain's historical activations and
+	// diverges with "wrong event epoch hash".
+	SupersededBy string
+}
+
+// checkGenesisPresetFreshness refuses a superseded genesis preset that is
+// about to initialize a fresh (or interrupted-genesis) datadir. Superseded
+// presets remain accepted for datadirs that already carry chain state.
+func checkGenesisPresetFreshness(preset GenesisTemplate, firstLaunchPending bool) error {
+	if preset.SupersededBy == "" || !firstLaunchPending {
+		return nil
+	}
+	return fmt.Errorf("genesis preset %q is superseded and unsafe for fresh installs under current binary rules: "+
+		"replaying it re-stages later upgrade activations at the wrong epoch seal and diverges from the live chain "+
+		"with \"wrong event epoch hash\"; bootstrap from %s instead, or restore a current chaindata snapshot",
+		preset.Name, preset.SupersededBy)
 }
 
 const (
@@ -238,7 +258,7 @@ func loadAllConfigs(file string, cfg *config) error {
 	return nil
 }
 
-func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
+func mayGetGenesisStore(ctx *cli.Context, dataDir string) *genesisstore.Store {
 	switch {
 	case ctx.GlobalIsSet(FakeNetFlag.Name):
 		_, num, err := parseFakeGen(ctx.GlobalString(FakeNetFlag.Name))
@@ -266,18 +286,30 @@ func mayGetGenesisStore(ctx *cli.Context) *genesisstore.Store {
 				NetworkID:   g.NetworkID,
 				NetworkName: g.NetworkName,
 			}
-			for _, allowed := range AllowedOperaGenesis {
+			var matched *GenesisTemplate
+			for i := range AllowedOperaGenesis {
+				allowed := &AllowedOperaGenesis[i]
 				if allowed.Hashes.Equal(genesisHashes) && allowed.Header.Equal(gHeader) {
 					log.Info("Genesis file is a known preset", "name", allowed.Name)
-					goto notExperimental
+					matched = allowed
+					break
 				}
 			}
-			if ctx.GlobalBool(ExperimentalGenesisFlag.Name) {
+			switch {
+			case matched != nil && matched.SupersededBy != "":
+				firstLaunchPending := integration.FirstLaunchPending(path.Join(dataDir, "chaindata"))
+				if err := checkGenesisPresetFreshness(*matched, firstLaunchPending); err != nil {
+					utils.Fatalf("%v", err)
+				}
+				log.Warn("Genesis preset is superseded — accepted only because this datadir already carries chain state; fresh installs must use the replacement",
+					"name", matched.Name, "replacement", matched.SupersededBy)
+			case matched != nil:
+				// current trusted preset
+			case ctx.GlobalBool(ExperimentalGenesisFlag.Name):
 				log.Warn("SECURITY WARNING: Genesis file doesn't refer to any trusted preset — node may join a different network")
-			} else {
+			default:
 				utils.Fatalf("Genesis file doesn't refer to any trusted preset. Enable experimental genesis with --genesis.allowExperimental")
 			}
-		notExperimental:
 		}
 		return genesisStore
 	}
