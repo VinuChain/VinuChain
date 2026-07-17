@@ -318,18 +318,6 @@ func vinuChainMain(ctx *cli.Context) error {
 }
 
 func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
-	return makeNodeWithOrigin(ctx, cfg, genesisStore)
-}
-
-// makeNodeForGeneratedNetwork preserves the dedicated creation call site while
-// startup classification relies on the persisted genesis ID, not an
-// in-process-only bypass. Generated private networks therefore remain
-// restartable through ordinary makeNode calls.
-func makeNodeForGeneratedNetwork(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
-	return makeNodeWithOrigin(ctx, cfg, genesisStore)
-}
-
-func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
 	// check errlock file
 	errlock.SetDefaultDatadir(cfg.Node.DataDir)
 	errlock.Check()
@@ -341,11 +329,20 @@ func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstor
 	}
 
 	engine, dagIndex, gdb, cdb, blockProc, closeDBs := integration.MakeEngine(path.Join(cfg.Node.DataDir, "chaindata"), g, cfg.AppConfigs())
-	if err := checkStoredTestnetUpgradeSeals(gdb); err != nil {
-		utils.Fatalf("%v", err)
-	}
 	if genesisStore != nil {
 		_ = genesisStore.Close()
+	}
+	// Refuse a datadir of a known public network that has not genuinely
+	// crossed this binary's hardcoded upgrade activation seals — it would
+	// re-stage them at a wrong local seal and fork. Keyed on the persisted
+	// GenesisID, so it holds for restarts without --genesis too; the
+	// fresh-install half of this guard lives in mayGetGenesisStore, which
+	// runs before the chaindata store is open.
+	if gdb.HasBlockEpochState() {
+		if err := checkStoredChainState(gdb.GetGenesisID(), gdb.GetEpoch(), gdb.GetRules().Upgrades,
+			gdb.GetUpgradeHeights()); err != nil {
+			utils.Fatalf("%v", err)
+		}
 	}
 	metrics.SetDataDir(cfg.Node.DataDir)
 

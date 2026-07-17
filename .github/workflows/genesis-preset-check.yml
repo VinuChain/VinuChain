@@ -1,0 +1,79 @@
+name: Genesis preset check
+
+# checkStoredChainState (cmd/opera/launcher/config.go) refuses to boot a datadir
+# whose upgrade activation history disagrees with the constants in
+# cmd/opera/launcher/params.go. Those constants are historical facts about the
+# live chain, and it fails via utils.Fatalf on every makeNode boot — so a wrong
+# value would hard-fail the whole fleet, including fresh installs from the very
+# genesis the refusal points operators at. Nothing else validates them: the
+# unit tests can only re-assert the literals against themselves.
+#
+# This job re-derives them from the published genesis, so the constants stay
+# evidenced rather than asserted. The artifact is ~500 MB, so it runs only when
+# the launcher's genesis/preset code changes and on demand — the merge to
+# elemont before a release tag is what gates a release.
+
+on:
+  push:
+    branches:
+      - elemont
+      - main
+    paths:
+      - 'cmd/opera/launcher/params.go'
+      - 'cmd/opera/launcher/config.go'
+      - 'cmd/opera/launcher/genesis_stored_state_test.go'
+      - '.github/workflows/genesis-preset-check.yml'
+  pull_request:
+    paths:
+      - 'cmd/opera/launcher/params.go'
+      - 'cmd/opera/launcher/config.go'
+      - 'cmd/opera/launcher/genesis_stored_state_test.go'
+      - '.github/workflows/genesis-preset-check.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: genesis-preset-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The current published testnet genesis, pinned by digest. If the object is
+  # ever republished this job fails loudly — which is correct: the activation
+  # constants are derived from this exact file.
+  GENESIS_URL: https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g
+  GENESIS_SHA256: a31e5100c0bf72deeab924ce0bed41955e2bc2b64b7a766827ee7603e68efaeb
+
+jobs:
+  verify-activation-constants:
+    name: verify activation constants against published genesis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Download published testnet genesis
+        run: curl -fsSL --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/testnet-genesis.g" "$GENESIS_URL"
+
+      - name: Verify genesis digest
+        run: echo "$GENESIS_SHA256  $RUNNER_TEMP/testnet-genesis.g" | sha256sum -c -
+
+      - name: Re-derive activation constants from genesis history
+        env:
+          VINUCHAIN_TESTNET_GENESIS: ${{ runner.temp }}/testnet-genesis.g
+        run: |
+          go test ./cmd/opera/launcher/ -v \
+            -run 'TestCurrentTestnetGenesisSatisfiesStoredStateRequirement' 2>&1 | tee result.log
+          # The test skips when the env var is unset; a skip here would mean the
+          # check silently did not run, which is the failure mode this job exists
+          # to prevent.
+          grep -q -- '--- PASS: TestCurrentTestnetGenesisSatisfiesStoredStateRequirement' result.log \
+            || { echo "::error::tripwire did not run (skipped or failed)"; exit 1; }

@@ -81,7 +81,9 @@ func ValidatorCreate(ctx *cli.Context, valId int) (*gpos.Validator, error) {
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
 	defer func() {
-		for i := range privateKey { privateKey[i] = 0 }
+		for i := range privateKey {
+			privateKey[i] = 0
+		}
 		if privateKeyECDSA.D != nil {
 			privateKeyECDSA.D.SetUint64(0)
 		}
@@ -188,7 +190,7 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 		}
 
 		log.Debug("creating node", "validator", val.ID)
-		node, _, nodeCloser := makeNodeForGeneratedNetwork(ctx, tmpCfg, genesisStore)
+		node, _, nodeCloser := makeNode(ctx, tmpCfg, genesisStore)
 
 		defer nodeCloser()
 		fmt.Printf("Node %s created (validator %d)\n", node.Config().P2P.ListenAddr, val.ID)

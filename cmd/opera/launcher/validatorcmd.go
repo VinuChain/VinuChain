@@ -100,7 +100,9 @@ func validatorKeyCreate(ctx *cli.Context) error {
 	}
 	privateKey := crypto.FromECDSA(privateKeyECDSA)
 	defer func() {
-		for i := range privateKey { privateKey[i] = 0 }
+		for i := range privateKey {
+			privateKey[i] = 0
+		}
 		if privateKeyECDSA.D != nil {
 			privateKeyECDSA.D.SetUint64(0)
 		}

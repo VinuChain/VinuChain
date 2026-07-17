@@ -28,7 +28,6 @@ import (
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
 	"github.com/Fantom-foundation/go-opera/integration"
 	"github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
-	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
@@ -169,16 +168,163 @@ type GenesisTemplate struct {
 	Hashes genesis.Hashes
 	// SupersededBy, when non-empty, names the replacement genesis (URL or
 	// file) for a preset that pre-dates staged upgrade activations. Such a
-	// preset stays trusted for already-initialized datadirs, but is refused
-	// for fresh installs: a replay from it re-stages the missing upgrades at
-	// a different seal than the live chain's historical activations and
-	// diverges with "wrong event epoch hash".
+	// preset is refused for fresh installs: a replay from it re-stages the
+	// missing upgrades at a different seal than the live chain's historical
+	// activations and diverges with "wrong event epoch hash". Datadirs that
+	// already carry chain state are verified independently at startup via
+	// checkStoredChainState, which is keyed on the persisted GenesisID and
+	// therefore also covers boots without any --genesis flag.
 	SupersededBy string
 }
 
+// UpgradeActivation records when an upgrade became active on a live public
+// network. These are historical facts, not policy — they are read back from
+// the published genesis' epoch history by
+// TestCurrentTestnetGenesisSatisfiesStoredStateRequirement.
+type UpgradeActivation struct {
+	// Name identifies the upgrade in refusal messages.
+	Name string
+	// ActiveFromEpoch is the first epoch in which Active reports true on
+	// the live chain, i.e. the seal that ended ActiveFromEpoch-1 performed
+	// the activation.
+	ActiveFromEpoch idx.Epoch
+	// ActiveFromBlock is the first block executed under the new rules — the
+	// Height a store records for this activation. Both writers agree on it:
+	// block_processor.sealEpochIfNeeded records blockCtx.Idx+1 at the seal,
+	// and Store.ApplyGenesis records LastBlock.Idx+1 replaying history, so
+	// a live node and a fresh install carry the same value.
+	ActiveFromBlock idx.Block
+	// Active reports whether the upgrade is active in a rules set.
+	Active func(opera.Upgrades) bool
+}
+
+// recordedActivationHeight returns the height at which upgradeHeights shows a
+// first becoming active, or 0 if it never does.
+func recordedActivationHeight(upgradeHeights []opera.UpgradeHeight, a UpgradeActivation) idx.Block {
+	var found idx.Block
+	for _, h := range upgradeHeights {
+		if !a.Active(h.Upgrades) {
+			continue
+		}
+		if found == 0 || h.Height < found {
+			found = h.Height
+		}
+	}
+	return found
+}
+
+// StoredStateRequirement pins the activation history a datadir of a known
+// public-network genesis lineage must agree with before this binary may run
+// it. Matching is on GenesisID — the lineage identity every published genesis
+// file of a network shares — so generated private networks and fakenets
+// (content-derived GenesisIDs) never match.
+//
+// Three independent conditions are checked (see checkStoredChainState):
+//
+//   - Consistency: the stored flags must equal the flags the live chain had
+//     at the stored epoch.
+//   - Provenance: every active upgrade must have been recorded at the block
+//     the live chain activated it. Flags and epoch alone are a snapshot and
+//     cannot establish history — a fork descended from a stale genesis that
+//     kept sealing on its own would eventually present a current-looking
+//     epoch with every flag set. Its stored UpgradeHeights still name the
+//     local seals it actually performed, so this catches it.
+//   - Currency: at most the newest activation may still be pending, so that
+//     stageHardcodedUpgrades activates it at the canonical seal. A datadir
+//     further behind would activate several upgrades at once at its own next
+//     seal — a seal the live chain never performed — and diverge with "wrong
+//     event epoch hash".
+type StoredStateRequirement struct {
+	// GenesisID identifies the public-network genesis lineage.
+	GenesisID hash.Hash
+	// NetworkName is used in the refusal message.
+	NetworkName string
+	// Activations is the lineage's historical activation record for every
+	// upgrade this binary hardcodes as active.
+	Activations []UpgradeActivation
+	// Bootstrap names the current genesis (URL) a refused operator should
+	// bootstrap a fresh datadir from.
+	Bootstrap string
+}
+
+// minStoredEpoch is the oldest epoch a datadir may sit at and still activate
+// every pending upgrade at the seal the live chain used: one epoch below the
+// newest activation, so only that newest upgrade is left to stage.
+func (req *StoredStateRequirement) minStoredEpoch() idx.Epoch {
+	var newest idx.Epoch
+	for _, a := range req.Activations {
+		if a.ActiveFromEpoch > newest {
+			newest = a.ActiveFromEpoch
+		}
+	}
+	if newest == 0 {
+		return 0
+	}
+	return newest - 1
+}
+
+// checkStoredChainState refuses to run a datadir of a known public-network
+// genesis lineage whose persisted epoch/rules disagree with the lineage's
+// upgrade activation history. It is enforced on every node boot (makeNode),
+// independent of the CLI genesis input: restarts without --genesis, stale
+// datadirs pointed at the current genesis file, and datadirs already bricked
+// by a wrong-seal replay are all covered.
+func checkStoredChainState(genesisID *hash.Hash, storedEpoch idx.Epoch, storedUpgrades opera.Upgrades,
+	upgradeHeights []opera.UpgradeHeight) error {
+	if genesisID == nil {
+		return nil
+	}
+	for i := range StoredStateRequirements {
+		req := &StoredStateRequirements[i]
+		if req.GenesisID != *genesisID {
+			continue
+		}
+		for _, a := range req.Activations {
+			// Consistency with the live chain's history at this epoch.
+			live := storedEpoch >= a.ActiveFromEpoch
+			if a.Active(storedUpgrades) != live {
+				state, expected := "inactive", "active"
+				if !live {
+					state, expected = "active", "inactive"
+				}
+				return fmt.Errorf("this datadir belongs to the %s network but disagrees with its upgrade "+
+					"activation history: at epoch %d the live chain has %s %s, while this datadir has it %s "+
+					"(%s activated at epoch %d). The datadir activated upgrades at a local epoch seal the live "+
+					"chain never performed and has diverged with \"wrong event epoch hash\"; bootstrap a fresh "+
+					"datadir from %s, or restore a current chaindata snapshot",
+					req.NetworkName, storedEpoch, a.Name, expected, state, a.Name, a.ActiveFromEpoch,
+					req.Bootstrap)
+			}
+			if !live {
+				continue
+			}
+			// Provenance: it must have activated at the live chain's seal.
+			if got := recordedActivationHeight(upgradeHeights, a); got != a.ActiveFromBlock {
+				return fmt.Errorf("this datadir belongs to the %s network but activated %s at block %d, while "+
+					"the live chain activated it at block %d: the datadir sealed the upgrade at a local block "+
+					"the live chain never performed and has diverged with \"wrong event epoch hash\"; bootstrap "+
+					"a fresh datadir from %s, or restore a current chaindata snapshot",
+					req.NetworkName, a.Name, got, a.ActiveFromBlock, req.Bootstrap)
+			}
+		}
+		// Currency: only the newest activation may still be pending.
+		if min := req.minStoredEpoch(); storedEpoch < min {
+			return fmt.Errorf("this datadir belongs to the %s network but stopped syncing at epoch %d, before its "+
+				"upgrade activation seals (this binary may only resume a datadir at epoch %d or later): resuming "+
+				"it would activate several upgrades at once at its next local epoch seal — a seal the live chain "+
+				"never performed — and diverge with \"wrong event epoch hash\"; bootstrap a fresh datadir from "+
+				"%s, or restore a current chaindata snapshot",
+				req.NetworkName, storedEpoch, min, req.Bootstrap)
+		}
+		return nil
+	}
+	return nil
+}
+
 // checkGenesisPresetFreshness refuses a superseded genesis preset that is
-// about to initialize a fresh (or interrupted-genesis) datadir. Superseded
-// presets remain accepted for datadirs that already carry chain state.
+// about to initialize a fresh (or interrupted-genesis) datadir, before the
+// replay is even attempted. Datadirs that already carry chain state are
+// verified at startup by checkStoredChainState instead.
 func checkGenesisPresetFreshness(preset GenesisTemplate, firstLaunchPending bool) error {
 	if preset.SupersededBy == "" || !firstLaunchPending {
 		return nil
@@ -187,95 +333,6 @@ func checkGenesisPresetFreshness(preset GenesisTemplate, firstLaunchPending bool
 		"replaying it re-stages later upgrade activations at the wrong epoch seal and diverges from the live chain "+
 		"with \"wrong event epoch hash\"; bootstrap from %s instead, or restore a current chaindata snapshot",
 		preset.Name, preset.SupersededBy)
-}
-
-type testnetUpgradeSealStore interface {
-	GetRules() opera.Rules
-	GetEpoch() idx.Epoch
-	GetGenesisID() *hash.Hash
-	GetHistoryBlockEpochState(idx.Epoch) (*iblockproc.BlockState, *iblockproc.EpochState)
-	GetUpgradeHeights() []opera.UpgradeHeight
-}
-
-// checkStoredTestnetUpgradeSeals proves that loaded public VinuChain testnet
-// chaindata activated Patch7/8/9 at the canonical historical seals. NetworkID
-// alone is insufficient because `opera network new` historically reused 206;
-// the public genesis ID durably distinguishes those generated private stores
-// across restarts.
-func checkStoredTestnetUpgradeSeals(store testnetUpgradeSealStore) error {
-	rules := store.GetRules()
-	genesisID := store.GetGenesisID()
-	if rules.NetworkID != opera.VinuChainTestNetworkID ||
-		genesisID == nil || *genesisID != vinuChainTestnetHeader.GenesisID {
-		return nil
-	}
-	const minimumEpoch idx.Epoch = 6119
-	epoch := store.GetEpoch()
-	missing := make([]string, 0, 3)
-	if !rules.Upgrades.SfcV2Patch7 {
-		missing = append(missing, "SfcV2Patch7")
-	}
-	if !rules.Upgrades.SfcV2Patch8 {
-		missing = append(missing, "SfcV2Patch8")
-	}
-	if !rules.Upgrades.SfcV2Patch9 {
-		missing = append(missing, "SfcV2Patch9")
-	}
-	if epoch < minimumEpoch || len(missing) != 0 {
-		return fmt.Errorf("VinuChain testnet chaindata has not crossed the required replacement-genesis upgrade seals: "+
-			"stored epoch %d must be at least epoch %d and missing activated upgrades are [%s]; "+
-			"restore a current chaindata snapshot before starting this binary",
-			epoch, minimumEpoch, strings.Join(missing, ", "))
-	}
-
-	canonicalSeals := []struct {
-		sealedEpoch idx.Epoch
-		height      idx.Block
-		name        string
-		active      func(opera.Upgrades) bool
-	}{
-		{6016, 1508212, "SfcV2Patch7", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch7 }},
-		{6117, 1529201, "SfcV2Patch8", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch8 }},
-		{6118, 1529443, "SfcV2Patch9", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch9 }},
-	}
-	heights := store.GetUpgradeHeights()
-	for _, seal := range canonicalSeals {
-		if height, found := firstUpgradeTransitionHeight(heights, seal.active); found {
-			if height != seal.height {
-				return fmt.Errorf("VinuChain testnet chaindata has non-canonical upgrade history: "+
-					"%s activates at persisted block %d, expected block %d; "+
-					"restore a current chaindata snapshot before starting this binary",
-					seal.name, height, seal.height)
-			}
-			continue
-		}
-		_, before := store.GetHistoryBlockEpochState(seal.sealedEpoch)
-		afterBlock, after := store.GetHistoryBlockEpochState(seal.sealedEpoch + 1)
-		if before == nil || after == nil ||
-			afterBlock == nil || afterBlock.LastBlock.Idx+1 != seal.height ||
-			seal.active(before.Rules.Upgrades) || !seal.active(after.Rules.Upgrades) {
-			return fmt.Errorf("VinuChain testnet chaindata does not prove canonical upgrade history: "+
-				"%s must activate at block %d and transition from inactive at stored epoch %d to active at epoch %d; "+
-				"restore a current chaindata snapshot before starting this binary",
-				seal.name, seal.height, seal.sealedEpoch, seal.sealedEpoch+1)
-		}
-	}
-	return nil
-}
-
-func firstUpgradeTransitionHeight(
-	heights []opera.UpgradeHeight,
-	active func(opera.Upgrades) bool,
-) (idx.Block, bool) {
-	wasActive := false
-	for _, height := range heights {
-		isActive := active(height.Upgrades)
-		if !wasActive && isActive {
-			return height.Height, true
-		}
-		wasActive = isActive
-	}
-	return 0, false
 }
 
 const (
@@ -394,7 +451,7 @@ func mayGetGenesisStore(ctx *cli.Context, dataDir string) *genesisstore.Store {
 				if err := checkGenesisPresetFreshness(*matched, firstLaunchPending); err != nil {
 					utils.Fatalf("%v", err)
 				}
-				log.Warn("Genesis preset is superseded — candidate datadir is initialized; stored epoch upgrade seals will be validated before services start",
+				log.Warn("Genesis preset is superseded — this datadir already carries chain state, which is verified separately against the binary's upgrade activation seals; fresh installs must use the replacement",
 					"name", matched.Name, "replacement", matched.SupersededBy)
 			case matched != nil:
 				// current trusted preset

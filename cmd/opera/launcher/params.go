@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"github.com/Fantom-foundation/lachesis-base/hash"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/Fantom-foundation/go-opera/opera"
@@ -14,6 +15,31 @@ const (
 	vinuChainTestnetNetworkName        = "VinuChain Testnet"
 	vinuChainStagingMainnetNetworkName = "VinuChain Staging Mainnet"
 	vinuChainMainnetNetworkName        = "VinuChain Mainnet"
+
+	// testnetGenesis20260711URL is the current published testnet genesis:
+	// regenerated post-SfcV2Patch9, its history covers every activation this
+	// binary hardcodes, so a fresh replay stages nothing and stays on the
+	// live chain's epoch-state hashes.
+	testnetGenesis20260711URL = "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g"
+
+	// Epoch and block at which the live testnet activated each SFC patch this
+	// binary hardcodes. These are historical facts read back from the
+	// published 2026-07-11 genesis' epoch history (sha256
+	// a31e5100c0bf72deeab924ce0bed41955e2bc2b64b7a766827ee7603e68efaeb; its
+	// top record is epoch 6119 with all three active), not policy. Re-verify
+	// with TestCurrentTestnetGenesisSatisfiesStoredStateRequirement before
+	// changing them — see StoredStateRequirements.
+	//
+	// The blocks are the first executed under each new rule set, which is
+	// what a store records as UpgradeHeight.Height. They are deliberately
+	// one past the deployment log's "activated at block" values (1,508,211 /
+	// 1,529,200 / 1,529,442), which name the seal block itself.
+	testnetSfcV2Patch7ActiveFromEpoch = idx.Epoch(6017)
+	testnetSfcV2Patch7ActiveFromBlock = idx.Block(1508212)
+	testnetSfcV2Patch8ActiveFromEpoch = idx.Epoch(6118)
+	testnetSfcV2Patch8ActiveFromBlock = idx.Block(1529201)
+	testnetSfcV2Patch9ActiveFromEpoch = idx.Epoch(6119)
+	testnetSfcV2Patch9ActiveFromBlock = idx.Block(1529443)
 )
 
 var (
@@ -88,7 +114,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xbfe43b2d77e7d672c4b0130d0a43f0710704f53ebb2c39a379c93076a43bddce"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x7c3476d667f7912172df77a5e5804428380541bf98282442689e6b442d16da34"),
 			},
-			SupersededBy: "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g",
+			SupersededBy: testnetGenesis20260711URL,
 		},
 
 		// VinuChain testnet with history through epoch 5637 / block 1,423,701 (2026-04-19)
@@ -110,7 +136,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xf11619ff578754ce5680982eecc805387dd7dde02fd1d59d43ff4d7ead231fa7"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x459360bfa1fce292e3f9e7c9ea204f91ca89040258126a6aa07c6c0c1e345624"),
 			},
-			SupersededBy: "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g",
+			SupersededBy: testnetGenesis20260711URL,
 		},
 
 		// VinuChain testnet with history through epoch 6119 / block 1,529,442 (2026-07-11)
@@ -142,6 +168,59 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xf51e8759171b4109bbd5d592d62a93d9d882cc0d2846323d20df0ef7b7cd27db"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0xe5f319e1c7c064c3f8f2a8226e1481b0102447478089e0602d40eda08055f893"),
 			},
+		},
+	}
+
+	// StoredStateRequirements pins, per public-network genesis lineage, the
+	// upgrade activation history a datadir must agree with for this binary
+	// to run it (see StoredStateRequirement + checkStoredChainState).
+	// Matching is on GenesisID, which every published genesis file of a
+	// network shares — including the stale ones — so the check holds for
+	// restarts without --genesis and for stale datadirs pointed at the
+	// current genesis file, and never matches a generated private network or
+	// fakenet (content-derived GenesisID).
+	//
+	// Testnet: this binary hardcodes SfcV2Patch7/8/9, which the live chain
+	// activated at epochs 6017/6118/6119. A datadir that disagrees with that
+	// history activated them at a local seal the live chain never performed
+	// — this is how testnet validators 17 and 18 forked on 2026-06-21 — and
+	// a datadir stopped below epoch 6118 would activate several at once at
+	// its next seal and fork the same way. Both must restore a snapshot or
+	// bootstrap from the current genesis. A node stopped inside epoch 6118
+	// is still resumable: only SfcV2Patch9 is left to stage and it activates
+	// at the canonical 6118→6119 seal.
+	//
+	// Mainnet and staging carry no requirement: their ELEMONT-era
+	// activations have not rolled out yet, so a pre-activation datadir is
+	// legitimately below every seal. Add an entry for those lineages as part
+	// of the mainnet upgrade rollout, once the activation epochs are
+	// historical fact — never at the release that first stages them, which
+	// would refuse the whole pre-seal fleet.
+	StoredStateRequirements = []StoredStateRequirement{
+		{
+			GenesisID:   vinuChainTestnetHeader.GenesisID,
+			NetworkName: vinuChainTestnetNetworkName,
+			Activations: []UpgradeActivation{
+				{
+					Name:            "SfcV2Patch7",
+					ActiveFromEpoch: testnetSfcV2Patch7ActiveFromEpoch,
+					ActiveFromBlock: testnetSfcV2Patch7ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.SfcV2Patch7 },
+				},
+				{
+					Name:            "SfcV2Patch8",
+					ActiveFromEpoch: testnetSfcV2Patch8ActiveFromEpoch,
+					ActiveFromBlock: testnetSfcV2Patch8ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.SfcV2Patch8 },
+				},
+				{
+					Name:            "SfcV2Patch9",
+					ActiveFromEpoch: testnetSfcV2Patch9ActiveFromEpoch,
+					ActiveFromBlock: testnetSfcV2Patch9ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.SfcV2Patch9 },
+				},
+			},
+			Bootstrap: testnetGenesis20260711URL,
 		},
 	}
 )
