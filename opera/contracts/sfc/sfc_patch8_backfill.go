@@ -84,7 +84,11 @@ func BackfillReactivationHealRecords(statedb *state.StateDB) ReactivationBackfil
 	// the storage-slot derivation (step 2 of the TODO) is implemented and
 	// verified against live state. Fail loud rather than silently write to
 	// unverified slots.
+	first := reactivationBackfillPairs[0]
 	log.Crit("SfcV2Patch8 reactivation backfill has pairs but no verified storage-slot writer - refusing to write to unverified SFC slots",
-		"pairs", len(reactivationBackfillPairs))
+		"pairs", len(reactivationBackfillPairs),
+		"first_validator_id", first.validatorID,
+		"first_heal_floor", first.healFloor,
+		"first_heal_from", first.healFrom)
 	return stats
 }
