@@ -40,10 +40,15 @@ import (
 
 // patch9BackfillPair is a single pre-upgrade heal record to install: the
 // pre-gap flat rate R (healFloor) and the first gap epoch (healFrom).
+// The fields are read by the storage-slot writer from step 3 of the TODO
+// above, which is deliberately unwritten: with patch9BackfillPairs empty
+// there is nothing to write, and inventing a writer against underived slots
+// is the failure this skeleton exists to prevent. Keep them — the shape of a
+// heal record is the reviewed part of this design.
 type patch9BackfillPair struct {
-	validatorID uint64
-	healFloor   uint64
-	healFrom    uint64
+	validatorID uint64 //nolint:unused // consumed by the step-3 writer; see note above
+	healFloor   uint64 //nolint:unused // consumed by the step-3 writer; see note above
+	healFrom    uint64 //nolint:unused // consumed by the step-3 writer; see note above
 }
 
 // patch9BackfillPairs is intentionally empty — see the SKELETON note and the

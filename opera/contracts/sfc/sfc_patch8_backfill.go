@@ -46,10 +46,15 @@ import (
 // (healFrom = deactivatedEpoch + 1). Delegators are healed per-validator, so no
 // delegator address is needed here — the two SFC mappings are keyed by
 // validatorID only.
+// The fields are read by the storage-slot writer from step 3 of the TODO
+// above, which is deliberately unwritten: with reactivationBackfillPairs
+// empty there is nothing to write, and inventing a writer against underived
+// slots is the failure this skeleton exists to prevent. Keep them — the shape
+// of a heal record is the reviewed part of this design.
 type reactivationBackfillPair struct {
-	validatorID uint64
-	healFloor   uint64
-	healFrom    uint64
+	validatorID uint64 //nolint:unused // consumed by the step-3 writer; see note above
+	healFloor   uint64 //nolint:unused // consumed by the step-3 writer; see note above
+	healFrom    uint64 //nolint:unused // consumed by the step-3 writer; see note above
 }
 
 // reactivationBackfillPairs is intentionally empty — see the SKELETON note and
