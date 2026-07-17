@@ -188,7 +188,7 @@ func newVinuChainNetwork(ctx *cli.Context) error {
 		}
 
 		log.Debug("creating node", "validator", val.ID)
-		node, _, nodeCloser := makeNode(ctx, tmpCfg, genesisStore)
+		node, _, nodeCloser := makeNodeForGeneratedNetwork(ctx, tmpCfg, genesisStore)
 
 		defer nodeCloser()
 		fmt.Printf("Node %s created (validator %d)\n", node.Config().P2P.ListenAddr, val.ID)

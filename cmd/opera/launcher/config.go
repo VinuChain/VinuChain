@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Fantom-foundation/lachesis-base/abft"
+	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/utils/cachescale"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +27,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
 	"github.com/Fantom-foundation/go-opera/integration"
 	"github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
+	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
 	futils "github.com/Fantom-foundation/go-opera/utils"
@@ -185,6 +187,35 @@ func checkGenesisPresetFreshness(preset GenesisTemplate, firstLaunchPending bool
 		preset.Name, preset.SupersededBy)
 }
 
+// checkStoredTestnetUpgradeSeals proves that a loaded VinuChain testnet store
+// already crossed the Patch7/8/9 seals represented by the current genesis.
+// This runs for every startup path, including ordinary restarts without a
+// --genesis argument, before NewService can stage missing hardcoded upgrades
+// at a new local epoch seal.
+func checkStoredTestnetUpgradeSeals(rules opera.Rules, epoch idx.Epoch, generatedNetwork bool) error {
+	if generatedNetwork || rules.NetworkID != opera.VinuChainTestNetworkID {
+		return nil
+	}
+	const minimumEpoch idx.Epoch = 6119
+	missing := make([]string, 0, 3)
+	if !rules.Upgrades.SfcV2Patch7 {
+		missing = append(missing, "SfcV2Patch7")
+	}
+	if !rules.Upgrades.SfcV2Patch8 {
+		missing = append(missing, "SfcV2Patch8")
+	}
+	if !rules.Upgrades.SfcV2Patch9 {
+		missing = append(missing, "SfcV2Patch9")
+	}
+	if epoch < minimumEpoch || len(missing) != 0 {
+		return fmt.Errorf("VinuChain testnet chaindata has not crossed the required replacement-genesis upgrade seals: "+
+			"stored epoch %d must be at least epoch %d and missing activated upgrades are [%s]; "+
+			"restore a current chaindata snapshot before starting this binary",
+			epoch, minimumEpoch, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 const (
 	// DefaultCacheSize is calculated as memory consumption in a worst case scenario with default configuration
 	// Average memory consumption might be 3-5 times lower than the maximum
@@ -301,7 +332,7 @@ func mayGetGenesisStore(ctx *cli.Context, dataDir string) *genesisstore.Store {
 				if err := checkGenesisPresetFreshness(*matched, firstLaunchPending); err != nil {
 					utils.Fatalf("%v", err)
 				}
-				log.Warn("Genesis preset is superseded — accepted only because this datadir already carries chain state; fresh installs must use the replacement",
+				log.Warn("Genesis preset is superseded — candidate datadir is initialized; stored epoch upgrade seals will be validated before services start",
 					"name", matched.Name, "replacement", matched.SupersededBy)
 			case matched != nil:
 				// current trusted preset

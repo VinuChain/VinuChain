@@ -318,6 +318,18 @@ func vinuChainMain(ctx *cli.Context) error {
 }
 
 func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
+	return makeNodeWithOrigin(ctx, cfg, genesisStore, false)
+}
+
+// makeNodeForGeneratedNetwork is reserved for `opera network new`. Its store
+// was generated in this process and intentionally begins before the public
+// testnet Patch7/8/9 seals, so it must not be classified as stale public
+// testnet chaindata.
+func makeNodeForGeneratedNetwork(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
+	return makeNodeWithOrigin(ctx, cfg, genesisStore, true)
+}
+
+func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store, generatedNetwork bool) (*node.Node, *gossip.Service, func()) {
 	// check errlock file
 	errlock.SetDefaultDatadir(cfg.Node.DataDir)
 	errlock.Check()
@@ -329,6 +341,9 @@ func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (
 	}
 
 	engine, dagIndex, gdb, cdb, blockProc, closeDBs := integration.MakeEngine(path.Join(cfg.Node.DataDir, "chaindata"), g, cfg.AppConfigs())
+	if err := checkStoredTestnetUpgradeSeals(gdb.GetRules(), gdb.GetEpoch(), generatedNetwork); err != nil {
+		utils.Fatalf("%v", err)
+	}
 	if genesisStore != nil {
 		_ = genesisStore.Close()
 	}
