@@ -175,7 +175,7 @@ func TestGeneratedNetworkGenesisIDIsNotPublicTestnet(t *testing.T) {
 
 	gs := makefakegenesis.FakeGenesisStoreWithRulesAndStart(
 		1, futils.ToVC(1000), futils.ToVC(10), rules, idx.Epoch(2), idx.Block(1))
-	defer gs.Close()
+	defer func() { _ = gs.Close() }()
 	generatedID := gs.Genesis().GenesisID
 
 	require.NotEqual(vinuChainTestnetHeader.GenesisID, generatedID,
