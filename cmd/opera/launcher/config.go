@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Fantom-foundation/lachesis-base/abft"
+	"github.com/Fantom-foundation/lachesis-base/hash"
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
 	"github.com/Fantom-foundation/lachesis-base/utils/cachescale"
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -27,6 +28,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/gossip/emitter"
 	"github.com/Fantom-foundation/go-opera/integration"
 	"github.com/Fantom-foundation/go-opera/integration/makefakegenesis"
+	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/genesis"
 	"github.com/Fantom-foundation/go-opera/opera/genesisstore"
@@ -187,16 +189,28 @@ func checkGenesisPresetFreshness(preset GenesisTemplate, firstLaunchPending bool
 		preset.Name, preset.SupersededBy)
 }
 
-// checkStoredTestnetUpgradeSeals proves that a loaded VinuChain testnet store
-// already crossed the Patch7/8/9 seals represented by the current genesis.
-// This runs for every startup path, including ordinary restarts without a
-// --genesis argument, before NewService can stage missing hardcoded upgrades
-// at a new local epoch seal.
-func checkStoredTestnetUpgradeSeals(rules opera.Rules, epoch idx.Epoch, generatedNetwork bool) error {
-	if generatedNetwork || rules.NetworkID != opera.VinuChainTestNetworkID {
+type testnetUpgradeSealStore interface {
+	GetRules() opera.Rules
+	GetEpoch() idx.Epoch
+	GetGenesisID() *hash.Hash
+	GetHistoryBlockEpochState(idx.Epoch) (*iblockproc.BlockState, *iblockproc.EpochState)
+	GetUpgradeHeights() []opera.UpgradeHeight
+}
+
+// checkStoredTestnetUpgradeSeals proves that loaded public VinuChain testnet
+// chaindata activated Patch7/8/9 at the canonical historical seals. NetworkID
+// alone is insufficient because `opera network new` historically reused 206;
+// the public genesis ID durably distinguishes those generated private stores
+// across restarts.
+func checkStoredTestnetUpgradeSeals(store testnetUpgradeSealStore) error {
+	rules := store.GetRules()
+	genesisID := store.GetGenesisID()
+	if rules.NetworkID != opera.VinuChainTestNetworkID ||
+		genesisID == nil || *genesisID != vinuChainTestnetHeader.GenesisID {
 		return nil
 	}
 	const minimumEpoch idx.Epoch = 6119
+	epoch := store.GetEpoch()
 	missing := make([]string, 0, 3)
 	if !rules.Upgrades.SfcV2Patch7 {
 		missing = append(missing, "SfcV2Patch7")
@@ -213,7 +227,55 @@ func checkStoredTestnetUpgradeSeals(rules opera.Rules, epoch idx.Epoch, generate
 			"restore a current chaindata snapshot before starting this binary",
 			epoch, minimumEpoch, strings.Join(missing, ", "))
 	}
+
+	canonicalSeals := []struct {
+		sealedEpoch idx.Epoch
+		height      idx.Block
+		name        string
+		active      func(opera.Upgrades) bool
+	}{
+		{6016, 1508212, "SfcV2Patch7", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch7 }},
+		{6117, 1529201, "SfcV2Patch8", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch8 }},
+		{6118, 1529443, "SfcV2Patch9", func(upgrades opera.Upgrades) bool { return upgrades.SfcV2Patch9 }},
+	}
+	heights := store.GetUpgradeHeights()
+	for _, seal := range canonicalSeals {
+		if height, found := firstUpgradeTransitionHeight(heights, seal.active); found {
+			if height != seal.height {
+				return fmt.Errorf("VinuChain testnet chaindata has non-canonical upgrade history: "+
+					"%s activates at persisted block %d, expected block %d; "+
+					"restore a current chaindata snapshot before starting this binary",
+					seal.name, height, seal.height)
+			}
+			continue
+		}
+		_, before := store.GetHistoryBlockEpochState(seal.sealedEpoch)
+		afterBlock, after := store.GetHistoryBlockEpochState(seal.sealedEpoch + 1)
+		if before == nil || after == nil ||
+			afterBlock == nil || afterBlock.LastBlock.Idx+1 != seal.height ||
+			seal.active(before.Rules.Upgrades) || !seal.active(after.Rules.Upgrades) {
+			return fmt.Errorf("VinuChain testnet chaindata does not prove canonical upgrade history: "+
+				"%s must activate at block %d and transition from inactive at stored epoch %d to active at epoch %d; "+
+				"restore a current chaindata snapshot before starting this binary",
+				seal.name, seal.height, seal.sealedEpoch, seal.sealedEpoch+1)
+		}
+	}
 	return nil
+}
+
+func firstUpgradeTransitionHeight(
+	heights []opera.UpgradeHeight,
+	active func(opera.Upgrades) bool,
+) (idx.Block, bool) {
+	wasActive := false
+	for _, height := range heights {
+		isActive := active(height.Upgrades)
+		if !wasActive && isActive {
+			return height.Height, true
+		}
+		wasActive = isActive
+	}
+	return 0, false
 }
 
 const (

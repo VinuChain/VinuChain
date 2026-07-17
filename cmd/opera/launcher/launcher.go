@@ -318,18 +318,18 @@ func vinuChainMain(ctx *cli.Context) error {
 }
 
 func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
-	return makeNodeWithOrigin(ctx, cfg, genesisStore, false)
+	return makeNodeWithOrigin(ctx, cfg, genesisStore)
 }
 
-// makeNodeForGeneratedNetwork is reserved for `opera network new`. Its store
-// was generated in this process and intentionally begins before the public
-// testnet Patch7/8/9 seals, so it must not be classified as stale public
-// testnet chaindata.
+// makeNodeForGeneratedNetwork preserves the dedicated creation call site while
+// startup classification relies on the persisted genesis ID, not an
+// in-process-only bypass. Generated private networks therefore remain
+// restartable through ordinary makeNode calls.
 func makeNodeForGeneratedNetwork(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
-	return makeNodeWithOrigin(ctx, cfg, genesisStore, true)
+	return makeNodeWithOrigin(ctx, cfg, genesisStore)
 }
 
-func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store, generatedNetwork bool) (*node.Node, *gossip.Service, func()) {
+func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
 	// check errlock file
 	errlock.SetDefaultDatadir(cfg.Node.DataDir)
 	errlock.Check()
@@ -341,7 +341,7 @@ func makeNodeWithOrigin(ctx *cli.Context, cfg *config, genesisStore *genesisstor
 	}
 
 	engine, dagIndex, gdb, cdb, blockProc, closeDBs := integration.MakeEngine(path.Join(cfg.Node.DataDir, "chaindata"), g, cfg.AppConfigs())
-	if err := checkStoredTestnetUpgradeSeals(gdb.GetRules(), gdb.GetEpoch(), generatedNetwork); err != nil {
+	if err := checkStoredTestnetUpgradeSeals(gdb); err != nil {
 		utils.Fatalf("%v", err)
 	}
 	if genesisStore != nil {
