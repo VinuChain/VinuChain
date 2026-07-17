@@ -332,6 +332,18 @@ func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (
 	if genesisStore != nil {
 		_ = genesisStore.Close()
 	}
+	// Refuse a datadir of a known public network that has not genuinely
+	// crossed this binary's hardcoded upgrade activation seals — it would
+	// re-stage them at a wrong local seal and fork. Keyed on the persisted
+	// GenesisID, so it holds for restarts without --genesis too; the
+	// fresh-install half of this guard lives in mayGetGenesisStore, which
+	// runs before the chaindata store is open.
+	if gdb.HasBlockEpochState() {
+		if err := checkStoredChainState(gdb.GetGenesisID(), gdb.GetEpoch(), gdb.GetRules().Upgrades,
+			gdb.GetUpgradeHeights()); err != nil {
+			utils.Fatalf("%v", err)
+		}
+	}
 	metrics.SetDataDir(cfg.Node.DataDir)
 
 	// substitute default bootnodes if requested
