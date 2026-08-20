@@ -485,10 +485,6 @@ func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	// sha256 is code-enforced at startup via sfc.patch10ExpectedSHA256),
 	// superseding the Cycle-164 blob that testnet reached after nine patches;
 	// testnet gets the same bytes via SfcV2Patch10).
-	// PaybackV2/Patch are a
-	// separate, later mainnet release blocked on deploying QuotaContractV2 and
-	// baking paybackV2MainnetAddress (EnforcePaybackV2StartupCheck panics if the
-	// flag is set while the address is the zero sentinel).
 	require.False(up.SfcV2Patch, "SfcV2Patch must stay false on mainnet")
 	require.False(up.SfcV2Patch2, "SfcV2Patch2 must stay false on mainnet")
 	require.False(up.SfcV2Patch3, "SfcV2Patch3 must stay false on mainnet")
@@ -501,13 +497,13 @@ func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	require.False(up.SfcV2Patch10, "SfcV2Patch10 must stay false on mainnet — its Cycle-165 lockup-preservation bytecode arrives via GetLatestContractBin at the first SfcV2 activation")
 	require.False(up.PaybackV2Patch, "PaybackV2Patch must stay false on mainnet — it repairs a chain that crossed the PaybackV2 edge with a wrong address; mainnet crosses it once with the correct one")
 
-	// PaybackV2 is IN SCOPE for the 2026-08-29 full-parity release but cannot be
-	// flipped until QuotaContractV2 is deployed on mainnet and both
+	// PaybackV2 is IN SCOPE for the 2026-08-29 full-parity release and is now
+	// enabled: QuotaContractV2 was deployed on mainnet 2026-08-21 at
+	// 0x5D989A2d65d049e2198D91d8ddc31C918f2544AB, and both
 	// paybackV2MainnetAddress and paybackV2StagingAddress are baked into
-	// opera/payback_v2_address.go — EnforcePaybackV2StartupCheck() panics at
-	// process init otherwise, on every network. Flip this assertion to True in
-	// the same commit that bakes the addresses.
-	require.False(up.PaybackV2, "PaybackV2 stays false until the mainnet QuotaContractV2 address is baked in")
+	// opera/payback_v2_address.go, so EnforcePaybackV2StartupCheck() is
+	// satisfied on every network this binary can run.
+	require.True(up.PaybackV2, "PaybackV2 must be enabled for the 2026-08-29 full-parity release")
 }
 
 func TestRulesSfcV2Patch3RLP(t *testing.T) {

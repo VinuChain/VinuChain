@@ -711,6 +711,7 @@ func VinuChainMainNetRules() Rules {
 			SfcV2:                   true,
 			Elemont:                 true,
 			ElemontPubkeyValidation: true,
+			PaybackV2:               true,
 		},
 	}
 	// Point at the live mainnet Quota TransparentUpgradeableProxy, not the

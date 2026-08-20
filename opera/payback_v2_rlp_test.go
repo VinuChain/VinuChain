@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 )
@@ -143,31 +144,58 @@ func TestVinuLatestEVMBitKnownRLP(t *testing.T) {
 	require.False(t, decoded.VinuBLS12381, "VinuBLS12381 must not decode from the VinuLatestEVM bit")
 }
 
-// TestPaybackV2_MainnetAndLegacyConstructorsStayFalse defends against an
-// accidental flip on networks that have NOT yet completed the PaybackV2
-// rollout. Testnet is intentionally activated (see
-// TestPaybackV2_TestnetActivatedWithNonSentinelAddress), so it's no
-// longer in scope here.
-func TestPaybackV2_MainnetAndLegacyConstructorsStayFalse(t *testing.T) {
+// TestPaybackV2_LegacyConstructorsStayFalse defends against an accidental flip
+// on networks that have NOT completed the PaybackV2 rollout. Both VinuChain
+// testnet (2026-05-16) and VinuChain mainnet (2026-08-21) are intentionally
+// activated and are covered by TestPaybackV2_TestnetActivatedWithNonSentinelAddress
+// and TestPaybackV2_MainnetActivatedWithNonSentinelAddress respectively. What is
+// left here are the legacy Fantom-inherited constructors, which have no deployed
+// QuotaContractV2 and must never gain one by accident.
+func TestPaybackV2_LegacyConstructorsStayFalse(t *testing.T) {
 	cases := []struct {
 		name string
 		fn   func() Rules
 	}{
 		{"MainNetRules", MainNetRules},
 		{"TestNetRules", TestNetRules},
-		{"VinuChainMainNetRules", VinuChainMainNetRules},
 	}
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			require.False(t, c.fn().Upgrades.PaybackV2,
-				"%s.Upgrades.PaybackV2 must be false until the PaybackV2 rollout completes on this network", c.name)
+				"%s.Upgrades.PaybackV2 must be false — this legacy constructor has no deployed QuotaContractV2", c.name)
 			require.False(t, c.fn().Upgrades.PaybackV2Patch,
 				"%s.Upgrades.PaybackV2Patch must be false unless that network needs a corrected-contract rebind", c.name)
 		})
 	}
 	// Fakenet may have PaybackV2 enabled for in-process activation tests.
 	// No assertion on FakeNetRules / LegacyFakeNetRules.
+}
+
+// TestPaybackV2_MainnetActivatedWithNonSentinelAddress pins the 2026-08-21
+// mainnet rollout: QuotaContractV2 was deployed at
+// 0x5D989A2d65d049e2198D91d8ddc31C918f2544AB (deployer nonce 0, owner
+// 0xf9c82B1117e8BeA97843042521B8FBC93044f347) and both the mainnet and the
+// staging address slots were baked, so VinuChainMainNetRules() may enable
+// PaybackV2. The pair is asserted together deliberately: the flag without a
+// real address is precisely the shape EnforcePaybackV2StartupCheck() panics on,
+// and staging inherits the flag from mainnet.
+func TestPaybackV2_MainnetActivatedWithNonSentinelAddress(t *testing.T) {
+	require.True(t, VinuChainMainNetRules().Upgrades.PaybackV2,
+		"mainnet rules enable PaybackV2 for the 2026-08-29 full-parity release")
+	require.False(t, VinuChainMainNetRules().Upgrades.PaybackV2Patch,
+		"mainnet crosses the PaybackV2 edge once with the correct address, so it never needs the rebind patch")
+
+	mainnetAddr, err := PaybackV2ContractAddress(VinuChainMainNetworkID)
+	require.NoError(t, err)
+	require.Equal(t,
+		common.HexToAddress("0x5D989A2d65d049e2198D91d8ddc31C918f2544AB"), mainnetAddr,
+		"mainnet V2 address must be the deployed QuotaContractV2, not a predicted or edited value")
+
+	stagingAddr, err := PaybackV2ContractAddress(VinuChainStagingNetworkID)
+	require.NoError(t, err)
+	require.False(t, PaybackV2AddressIsSentinel(stagingAddr),
+		"staging inherits PaybackV2 from mainnet rules, so its slot must also be non-sentinel")
 }
 
 // TestPaybackV2_TestnetActivatedWithCorrectedPatch pins the source state after

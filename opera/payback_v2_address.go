@@ -33,13 +33,17 @@ var (
 	// withdrawal semantics for stakeFor(receiver).
 	paybackV2TestnetAddress = common.HexToAddress("0x89D1cBD9DEAaB4dFf6f800a336FBDd9A5c6829e4")
 
-	// paybackV2MainnetAddress is the QuotaContractV2 address on VinuChain
-	// mainnet (chain 207). Stays sentinel until the mainnet rollout. See
-	// .claude/rules/deployment-log.md -> "PaybackV2 Rollout (Quota Proxy
-	// Replacement)" for the mainnet-only prerequisite checklist that must
-	// complete before this constant is filled in and PaybackV2 is enabled
-	// on VinuChainMainNetRules().
-	paybackV2MainnetAddress = common.Address{}
+	// paybackV2MainnetAddress is the QuotaContractV2 deployed on VinuChain
+	// mainnet (chain 207) on 2026-08-21 at block 14,616,227, deploy tx
+	// 0x0456aab6fe358da173bf8fa93ec5772de18937008fd201d828adee9dd678b506,
+	// owner 0xf9c82B1117e8BeA97843042521B8FBC93044f347 (nonce 0, so the
+	// address matched the CREATE prediction exactly). Constructor params
+	// mirror the live V1 proxy, re-verified on-chain immediately before
+	// broadcast: feeRefundBlockCount=75, minStake=10 VC, quotaFactor=21000,
+	// holdTime=86400. Deployed runtime is 7,003 bytes and byte-identical to
+	// the compiled artifact; its executable code matches testnet's audited
+	// V2 exactly, differing only in the 32-byte metadata source hash.
+	paybackV2MainnetAddress = common.HexToAddress("0x5D989A2d65d049e2198D91d8ddc31C918f2544AB")
 
 	// paybackV2StagingAddress mirrors mainnet for the staging network
 	// (chain 205). Kept separate so a staging rehearsal can deploy its
@@ -51,7 +55,17 @@ var (
 	// non-sentinel) but log.Crits at the first epoch seal — exactly the
 	// "log.Crit at the worst possible moment" mode the startup check was
 	// designed to prevent. EnforcePaybackV2StartupCheck() catches this.
-	paybackV2StagingAddress = common.Address{}
+	//
+	// DECISION (2026-08-21): set to the same address as mainnet. There is no
+	// separate staging cluster and no staging rehearsal for the 2026-08-29
+	// release — the rehearsal was explicitly descoped in favour of the
+	// testnet soak, so staging is only ever brought up by restoring mainnet
+	// chaindata. In that state the contract genuinely exists at this address
+	// in staging's copied state, which is the first of the two acceptable
+	// values in ops/paybackv2-mainnet-deploy-runbook.md step 4. If a staging
+	// cluster is ever given its own genesis, deploy a QuotaContractV2 on
+	// chain 205 and replace this with that address — do not leave it aliased.
+	paybackV2StagingAddress = common.HexToAddress("0x5D989A2d65d049e2198D91d8ddc31C918f2544AB")
 
 	// paybackV2FakenetAddress is the QuotaContractV2 address used by
 	// FakeNetRules (chain 27) and the legacy MainNetworkID / TestNetworkID

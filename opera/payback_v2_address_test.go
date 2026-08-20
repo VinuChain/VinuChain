@@ -20,16 +20,20 @@ func TestPaybackV2ContractAddress_UnknownNetwork(t *testing.T) {
 
 // TestPaybackV2ContractAddress_KnownNetworks pins the per-network address
 // slot for each rollout phase. Testnet points at the corrected 2026-05-16
-// deployment. Mainnet + staging stay sentinel until their rollouts complete.
+// deployment; mainnet at the 2026-08-21 deployment. Staging deliberately
+// aliases mainnet — there is no separate staging cluster, so staging only
+// exists as restored mainnet chaindata in which the contract is genuinely
+// present at that address. See the DECISION note in payback_v2_address.go.
 func TestPaybackV2ContractAddress_KnownNetworks(t *testing.T) {
+	mainnetV2 := common.HexToAddress("0x5D989A2d65d049e2198D91d8ddc31C918f2544AB")
 	cases := []struct {
 		name      string
 		networkID uint64
 		expected  common.Address
 	}{
 		{"testnet", VinuChainTestNetworkID, common.HexToAddress("0x89D1cBD9DEAaB4dFf6f800a336FBDd9A5c6829e4")},
-		{"mainnet", VinuChainMainNetworkID, common.Address{}},
-		{"staging", VinuChainStagingNetworkID, common.Address{}},
+		{"mainnet", VinuChainMainNetworkID, mainnetV2},
+		{"staging", VinuChainStagingNetworkID, mainnetV2},
 	}
 	for _, c := range cases {
 		c := c
@@ -91,10 +95,10 @@ func TestEnforcePaybackV2StartupCheck_AllowsCorrectedTestnetRedeploy(t *testing.
 	require.NoError(t, err)
 	require.False(t, PaybackV2AddressIsSentinel(testnetAddr),
 		"testnet V2 address must be the corrected non-sentinel deployment")
-	require.False(t, VinuChainMainNetRules().Upgrades.PaybackV2,
-		"mainnet must NOT have PaybackV2 enabled until its mainnet rollout prerequisites complete")
+	require.True(t, VinuChainMainNetRules().Upgrades.PaybackV2,
+		"mainnet activated PaybackV2 in the 2026-08-29 full-parity release; see TestPaybackV2_MainnetActivatedWithNonSentinelAddress")
 	require.NotPanics(t, func() { EnforcePaybackV2StartupCheck() },
-		"startup check must allow corrected testnet PaybackV2 deployment")
+		"startup check must allow the shipped testnet + mainnet + staging PaybackV2 deployment")
 }
 
 // TestEnforcePaybackV2StartupCheck_StagingCoverage pins the staging-aware
@@ -117,13 +121,30 @@ func TestEnforcePaybackV2StartupCheck_StagingCoverage(t *testing.T) {
 	defer restoreMainnet()
 	// Don't touch staging — leave it at the zero sentinel.
 
-	// Synthesize the failure shape by sneaking PaybackV2=true into the live
-	// VinuChainMainNetRules. We can't easily mutate that function, so verify
-	// the check inspects staging by reading the check's source file. (Live
-	// activation of the check requires a binary that ships with mainnet's
-	// rule constructor flipping PaybackV2=true — out of test scope.)
-	require.False(t, VinuChainMainNetRules().Upgrades.PaybackV2,
-		"scaffold-state mainnet has PaybackV2=false; this test verifies the staging-coverage code path exists, not a live failure")
+	// This used to be a scaffold: mainnet shipped PaybackV2=false, so the
+	// dangerous shape could not be constructed and the test could only assert
+	// that the staging entry existed. Since the 2026-08-21 mainnet bake,
+	// VinuChainMainNetRules() really does set PaybackV2=true, so the failure
+	// this test was written to catch is now directly reachable — a sentinel
+	// staging slot must make the check panic, naming staging.
+	require.True(t, VinuChainMainNetRules().Upgrades.PaybackV2,
+		"mainnet ships PaybackV2=true, so staging inherits it and its address slot must be non-sentinel")
+
+	restoreStaging := SetPaybackV2ContractAddressForTesting(
+		VinuChainStagingNetworkID,
+		common.Address{},
+	)
+	defer restoreStaging()
+
+	require.PanicsWithError(t,
+		"PaybackV2 startup check failed: VinuChain Staging Mainnet rule constructor has "+
+			"PaybackV2 or PaybackV2Patch true but the V2 contract address is still the zero sentinel. "+
+			"Deploy QuotaContractV2 via scripts/deploy-quotacontract-v2.ts and record its address in "+
+			"opera/payback_v2_address.go before shipping this binary.",
+		func() { EnforcePaybackV2StartupCheck() },
+		"a sentinel staging slot must abort startup and name staging — mainnet is non-sentinel, "+
+			"so a check that only inspected testnet+mainnet would pass and let the staging cluster "+
+			"log.Crit at its first epoch seal instead")
 
 	// Structural assertion: the check must enumerate the staging rules,
 	// not just testnet + mainnet. If a future refactor drops the staging
