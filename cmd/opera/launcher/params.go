@@ -222,6 +222,17 @@ var (
 	// of the mainnet upgrade rollout, once the activation epochs are
 	// historical fact — never at the release that first stages them, which
 	// would refuse the whole pre-seal fleet.
+	//
+	// PaybackV2 is in that same bucket and is worth naming, because unlike
+	// the SfcV2 patches it is not only a bytecode reflash: activation
+	// rewrites Economy.QuotaCacheAddress into the sealed epoch state
+	// (gossip/block_processor.go rebindPaybackV2), so a datadir that crosses
+	// the edge locally at the wrong epoch diverges in persisted rules, not
+	// just in contract code. The 2026-08-29 release is the one that first
+	// stages it on mainnet, so it gets NO entry here. The follow-up release
+	// pins all five mainnet activations — SfcV2, Elemont,
+	// ElemontPubkeyValidation, PaybackV2 and the EVM forks — at the epochs
+	// they actually sealed at, alongside testnet's SfcV2Patch10 pin.
 	StoredStateRequirements = []StoredStateRequirement{
 		{
 			GenesisID:   vinuChainTestnetHeader.GenesisID,
