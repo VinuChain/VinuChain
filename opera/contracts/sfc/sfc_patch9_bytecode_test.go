@@ -93,8 +93,6 @@ func TestPatch9DiffersFromPatch7AndPatch8(t *testing.T) {
 	}
 }
 
-func TestLatestContractBinMatchesPatch9(t *testing.T) {
-	if !bytes.Equal(GetLatestContractBin(), GetPatch9ContractBin()) {
-		t.Fatal("GetLatestContractBin must return the Patch9 two-reward-fix bytecode for fresh SfcV2 activations")
-	}
-}
+// GetLatestContractBin moved to the Patch10 Cycle-165 lockup-preservation
+// bytecode on 2026-08-20; the equivalent pin now lives in
+// sfc_patch10_bytecode_test.go (TestLatestContractBinMatchesPatch10).

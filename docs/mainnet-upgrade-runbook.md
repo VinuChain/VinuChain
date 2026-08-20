@@ -15,11 +15,19 @@ procedure; the internal log is required only for the operator running the boxes.
 - **Mainnet (chain 207)** still runs `v2.0.0-rc.1`, which pre-dates the
   Podgorica / SfcV2 / Elemont era. The flags are already **staged in code** --
   `VinuChainMainNetRules()` (`opera/rules.go`) carries the full upgrade flag set
-  (`Berlin`, `London`, `Shanghai`, `Cancun`, `Prague`, `Llr`, `Podgorica`,
-  `SfcV2`, `Elemont`, `ElemontPubkeyValidation`) and pins
-  `Economy.QuotaCacheAddress` to the live mainnet Quota proxy
-  `0x1c4269fbbd4a8254f69383eef6af720bcd0acda6`. The gap to activation is **not
-  code -- it is the operational sequence in this runbook.**
+  (`Berlin`, `London`, `Shanghai`, `Cancun`, `Prague`, `VinuBLS12381`,
+  `VinuLatestEVM`, `Llr`, `Podgorica`, `SfcV2`, `Elemont`,
+  `ElemontPubkeyValidation`).
+- **Scope decision 2026-08-19: FULL PARITY.** The 2026-08-29 10:00 UTC release
+  activates the entire testnet feature set in one window, including `PaybackV2`.
+  This supersedes the two-release sequencing previously recommended below.
+- **The one remaining code gap is `PaybackV2`.** It cannot be flipped until
+  `QuotaContractV2` is deployed on mainnet and both `paybackV2MainnetAddress` and
+  `paybackV2StagingAddress` are baked into `opera/payback_v2_address.go` --
+  `EnforcePaybackV2StartupCheck()` panics at process init otherwise, on every
+  network. See `vinuchain-ops-docs/ops/paybackv2-mainnet-deploy-runbook.md`.
+  Until then `Economy.QuotaCacheAddress` stays pinned to the live V1 Quota proxy
+  `0x1c4269fbbd4a8254f69383eef6af720bcd0acda6`.
 - **Testnet (chain 206)** has already activated the full flag set plus PaybackV2
   and serves as the dress rehearsal for every step below. Treat a clean testnet
   rollout as the precondition for starting the mainnet window.
@@ -59,10 +67,19 @@ announcement (3) must be published **before** the window opens, while the snapsh
 or mis-ordering any one re-opens the stale-genesis divergence described above.
 
 1. **Post-upgrade chaindata snapshot.** Take the snapshot **only after the RPC
-   node has sealed *every* staged flag** -- wait until the *last* EVM fork
-   (**Prague**) has sealed, not merely the first post-boot seal. (This is the
-   single detail most likely to be gotten wrong: snapshot **after Prague seals**,
-   not after the first seal.) When tarring the datadir, **exclude**
+   node has sealed *every* staged flag** -- not merely the first post-boot seal.
+   (This is the single detail most likely to be gotten wrong.)
+
+   **Under full parity the last fork is `VinuLatestEVM`, not Prague.** The EVM
+   forks stage sequentially (`gossip/service.go`: Cancun waits for Shanghai to be
+   active, Prague for Cancun, VinuBLS12381 for Prague, VinuLatestEVM for
+   VinuBLS12381), so the activation crosses **five consecutive epoch seals**.
+   Mainnet epochs seal at the 4h `MaxEpochDuration` cap -- measured median 240.3
+   min over the twelve seals before 2026-08-19 -- so the sequence takes roughly
+   20 hours from the first seal. Snapshotting after Prague (seal 3) would publish
+   an artifact missing two activations and re-open exactly the divergence these
+   prerequisites exist to close. Confirm from `vc_getRules` that
+   `VinuLatestEVM = true` before snapshotting. When tarring the datadir, **exclude**
    `nodekey`, the keystore, the IPC socket, and the static-/trusted-nodes files,
    so the snapshot is identity-free and safe to distribute.
 2. **Regenerated distributed genesis + `AllowedOperaGenesis` update.** Export a
@@ -81,8 +98,21 @@ or mis-ordering any one re-opens the stale-genesis divergence described above.
 
 ## Release sequencing
 
-Do **not** combine the consensus-flag rollout with PaybackV2 -- combining them
-compounds the blast radius.
+> **SUPERSEDED 2026-08-19.** The guidance below (two releases, PaybackV2 >= 2
+> weeks after the consensus flags) was the prior recommendation. The operator has
+> decided to ship **full parity in a single 2026-08-29 window**, PaybackV2
+> included. Keep reading for *what PaybackV2 requires* -- every prerequisite it
+> lists still applies, they just apply to the same activation day as the
+> consensus flags rather than a later one. Because PaybackV2 is a
+> persisted-state change, the snapshot / regenerated-genesis / no-fresh-installs
+> prerequisites cover it too.
+>
+> Consequence worth stating plainly: combining them does compound the blast
+> radius, and mainnet is jumping from `v2.0.0-rc.1` with no intermediate release,
+> so **after the first seal there is no binary to roll back to** -- recovery is
+> snapshot-based only.
+
+The original two-release recommendation follows.
 
 - **Release 1 -- consensus flags.** Ship Podgorica + SfcV2 + Elemont + the EVM
   forks (Berlin/London/Shanghai/Cancun/Prague) as one release. This is the set
@@ -124,6 +154,41 @@ are not reproduced here.
    Prague (see prerequisite 1), then take the post-upgrade snapshot and regenerate
    the distributed genesis (prerequisites 1 and 2). The fresh-install freeze from
    step 1 stays in effect until at least 24 h after the final seal.
+
+## Post-activation follow-up: the stale-datadir guard (do NOT do this before the seals)
+
+`checkStoredChainState` (`cmd/opera/launcher/config.go`) refuses to boot a datadir of a known
+public-network genesis lineage whose persisted activation history disagrees with the live chain's.
+Testnet has an entry pinning `SfcV2Patch7/8/9` at epochs 6017/6118/6119 — the guard that would
+have prevented testnet validators 17 and 18 forking on 2026-06-21.
+
+**Mainnet deliberately has no entry, and must not get one before the activation.**
+`StoredStateRequirements` in `cmd/opera/launcher/params.go` says why:
+
+> Mainnet and staging carry no requirement: their ELEMONT-era activations have not rolled out
+> yet, so a pre-activation datadir is legitimately below every seal. Add an entry for those
+> lineages as part of the mainnet upgrade rollout, once the activation epochs are historical
+> fact -- **never at the release that first stages them, which would refuse the whole pre-seal
+> fleet.**
+
+Adding it to the 2026-08-29 release would brick every mainnet node on boot. So this is a
+**follow-up release** task, after the fifth seal:
+
+1. Record the actual activation epoch and block for each flag as it seals -- `SfcV2`, `Elemont`,
+   `ElemontPubkeyValidation`, `Shanghai`, `PaybackV2` (seal 1), then `Cancun`, `Prague`,
+   `VinuBLS12381`, `VinuLatestEVM` (seals 2-5). Read them from `vc_getRules` and the seal-time
+   logs, not from projections.
+2. Add a `StoredStateRequirement` for `vinuChainMainnetHeader.GenesisID` with those activations,
+   and set `Bootstrap` to the regenerated post-activation mainnet genesis URL.
+3. Add the matching entry for the staging lineage (`vinuChainTestMainnetHeader.GenesisID`) if
+   staging is run against the same activations.
+4. Set `SupersededBy` on the two existing mainnet presets ("VinuChain mainnet without history",
+   "VinuChain mainnet with deployed contracts") to the regenerated genesis URL, so fresh installs
+   are pushed off the pre-activation genesis instead of replaying it and diverging.
+
+Until that follow-up ships, mainnet has **no** automatic protection against a stale-datadir or
+stale-genesis boot -- which is exactly why the fresh-install freeze (prerequisite 3) is an
+operational rule for this window rather than a code guard.
 
 ## Post-activation verification checklist
 

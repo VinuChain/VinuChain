@@ -392,6 +392,9 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 	if bp.es.Rules.Upgrades.SfcV2Patch9 && !prevUpg.SfcV2Patch9 {
 		patchActivations++
 	}
+	if bp.es.Rules.Upgrades.SfcV2Patch10 && !prevUpg.SfcV2Patch10 {
+		patchActivations++
+	}
 	if patchActivations > 1 {
 		log.Warn("Multiple SfcV2Patch* flags activating in the same epoch seal — likely fresh-genesis replay; local state WILL diverge from live chain. Stop the node and restore from the latest post-seal chaindata snapshot instead of replaying from genesis.",
 			"block", bp.blockCtx.Idx, "patches", patchActivations)
@@ -572,6 +575,21 @@ func (bp *BlockProcessor) sealEpochIfNeeded() {
 				log.Info("Backfilled SFC Patch9 testnet reactivation heal records", "block", bp.blockCtx.Idx, "installed", stats.Installed)
 			}
 		}
+	}
+	// SfcV2Patch10 installs the Cycle-165 lockup-preservation bytecode sourced
+	// from VinuChain/vinuchain-lists. The Solidity delta defers the deletion of
+	// an expired lockup record until the reward cursor has fully settled every
+	// payable epoch, so chunked settlement pays the lockup-scaled rate for the
+	// whole locked window exactly as a single V1-style sweep would (Cycle-164
+	// deleted the record at the first partial claim, repricing the remainder at
+	// the unlocked rate), and gates _lockStake/restakeRewards mutations of an
+	// existing record on the same full-settlement condition. No storage
+	// backfill: records already destroyed by Cycle-164's early delete cannot be
+	// reconstructed deterministically on-chain because the delete erased its
+	// own inputs.
+	if bp.es.Rules.Upgrades.SfcV2Patch10 && !prevUpg.SfcV2Patch10 {
+		log.Info("Re-applying SFC V2 bytecode upgrade (patch 10)", "block", bp.blockCtx.Idx)
+		bp.statedb.SetCode(sfc.ContractAddress, sfc.GetPatch10ContractBin())
 	}
 	// FeeRefundActive gates whether receipt encoding emits a non-zero
 	// FeeRefund field. service.go initializes the atomic from the *stored*

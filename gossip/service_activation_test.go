@@ -823,3 +823,83 @@ func TestSfcV2Patch9StagesAndActivatesOnTestnet(t *testing.T) {
 	require.True(t, postSealEs.Rules.Upgrades.SfcV2Patch9,
 		"stored epoch state SfcV2Patch9 must be true after the seal")
 }
+
+// newPreSfcV2Patch10TestEnv builds a testEnv on the testnet NetworkID (206)
+// whose stored epoch state has every prior flag sealed INCLUDING SfcV2Patch9,
+// but SfcV2Patch10 OFF — the live testnet fleet's state on the SfcV2Patch10
+// binary upgrade. The hardcoded testnet rules carry SfcV2Patch10=true, so
+// service.go staging must surface it as a DirtyRule and the next seal must
+// activate it (reflash the Cycle-165 lockup-preservation bytecode; no
+// backfill — deliberately, see the activation branch comment).
+func newPreSfcV2Patch10TestEnv(firstEpoch idx.Epoch, validatorsNum idx.Validator) *testEnv {
+	rules := opera.VinuChainTestNetRules()
+	rules.Epochs.MaxEpochDuration = inter.Timestamp(maxEpochDuration)
+	rules.Blocks.MaxEmptyBlockSkipPeriod = 0
+	// Pre-Patch10 stored state: every prior flag already sealed (Patch9 stays
+	// true, so only Patch10 transitions at the seal).
+	rules.Upgrades.SfcV2Patch10 = false
+
+	return newRuntimeActivationTestEnv(firstEpoch, validatorsNum, rules)
+}
+
+// TestSfcV2Patch10StagesAndActivatesOnTestnet proves the SfcV2Patch10
+// end-to-end path: with every prior flag (including Patch9) already sealed,
+// the service.go staging branch surfaces SfcV2Patch10 into DirtyRules, and
+// the next epoch seal fires the activation guard in block_processor.go —
+// emitting the "Re-applying SFC V2 bytecode upgrade (patch 10)" reflash log
+// exactly once, installing the Cycle-165 lockup-preservation bytecode — then
+// flipping the stored flag. Mirrors TestSfcV2Patch9StagesAndActivatesOnTestnet.
+func TestSfcV2Patch10StagesAndActivatesOnTestnet(t *testing.T) {
+	logger.SetTestMode(t)
+
+	var reflashLogCount int64
+	prevHandler := log.Root().GetHandler()
+	defer log.Root().SetHandler(prevHandler)
+	log.Root().SetHandler(log.FuncHandler(func(r *log.Record) error {
+		if r.Msg == "Re-applying SFC V2 bytecode upgrade (patch 10)" {
+			atomic.AddInt64(&reflashLogCount, 1)
+		}
+		return prevHandler.Log(r)
+	}))
+
+	env := newPreSfcV2Patch10TestEnv(2, 3)
+	defer env.Close()
+
+	// Staging in newService must have written DirtyRules with SfcV2Patch10
+	// true, surfaced from the hardcoded testnet binary rules.
+	bs := env.store.GetBlockState()
+	require.NotNil(t, bs.DirtyRules,
+		"newService must stage DirtyRules from hardcoded testnet binary rules")
+	require.True(t, bs.DirtyRules.Upgrades.SfcV2Patch10,
+		"SfcV2Patch10 must be staged into DirtyRules at startup on testnet")
+
+	// Patch10 reflashes the Cycle-165 lockup-preservation bytecode. Confirm
+	// the live SFC holds the Patch10 bytecode only AFTER the seal, not before.
+	patch10Bin := sfc.GetPatch10ContractBin()
+	gotAtStart, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.False(t, bytes.Equal(gotAtStart, patch10Bin),
+		"test precondition: SFC must not already hold Patch10 bytecode before the seal")
+
+	// Drive blocks across the epoch boundary so the sealer fires.
+	admin := idx.ValidatorID(1)
+	other := idx.ValidatorID(2)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+	_, err = env.ApplyTxs(nextEpoch, env.Transfer(admin, other, utils.ToVC(1)))
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), atomic.LoadInt64(&reflashLogCount),
+		"the SfcV2Patch10 reflash log must fire exactly once at the activation seal")
+
+	gotAfterSeal, err := env.CodeAt(context.TODO(), sfc.ContractAddress, nil)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(gotAfterSeal, patch10Bin),
+		"expected Patch10 SFC bytecode (%d bytes) after epoch seal but got %d bytes; "+
+			"the SfcV2Patch10 reflash in block_processor.go did not fire",
+		len(patch10Bin), len(gotAfterSeal))
+
+	postSealEs := env.store.GetEpochState()
+	require.True(t, postSealEs.Rules.Upgrades.SfcV2Patch10,
+		"stored epoch state SfcV2Patch10 must be true after the seal")
+}

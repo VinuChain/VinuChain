@@ -245,11 +245,25 @@ type StoredStateRequirement struct {
 	// Bootstrap names the current genesis (URL) a refused operator should
 	// bootstrap a fresh datadir from.
 	Bootstrap string
+
+	// StagesUnpinned marks a binary whose hardcoded rules stage at least one
+	// upgrade that is NOT yet in Activations (its live activation epoch is
+	// not historical fact yet). In that state the usual "one below the newest
+	// pin" floor is unsafe: a datadir sitting one epoch below the newest pin
+	// would co-stage the newest pinned upgrade AND the unpinned one at a
+	// single local seal the live chain never performed, and fork with
+	// "wrong event epoch hash". While set, the floor is the newest pin
+	// itself. Clear it in the follow-up release that pins the new upgrade's
+	// activation epoch.
+	StagesUnpinned bool
 }
 
 // minStoredEpoch is the oldest epoch a datadir may sit at and still activate
 // every pending upgrade at the seal the live chain used: one epoch below the
-// newest activation, so only that newest upgrade is left to stage.
+// newest activation, so only that newest upgrade is left to stage — unless
+// the binary also stages an upgrade with no pinned activation yet
+// (StagesUnpinned), in which case the datadir must already be at or past the
+// newest pin, so the unpinned upgrade is the ONLY thing left to stage.
 func (req *StoredStateRequirement) minStoredEpoch() idx.Epoch {
 	var newest idx.Epoch
 	for _, a := range req.Activations {
@@ -259,6 +273,9 @@ func (req *StoredStateRequirement) minStoredEpoch() idx.Epoch {
 	}
 	if newest == 0 {
 		return 0
+	}
+	if req.StagesUnpinned {
+		return newest
 	}
 	return newest - 1
 }

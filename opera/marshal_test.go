@@ -244,7 +244,7 @@ func TestRulesEthereumForkDefaultsRLP(t *testing.T) {
 	}{
 		{MainNetRules, false, false, false, false, false, "MainNetRules"},
 		{TestNetRules, false, false, false, false, false, "TestNetRules"},
-		{VinuChainMainNetRules, true, true, true, false, false, "VinuChainMainNetRules"},
+		{VinuChainMainNetRules, true, true, true, true, true, "VinuChainMainNetRules"},
 		{VinuChainTestNetRules, true, true, true, true, true, "VinuChainTestNetRules"},
 		{FakeNetRules, true, true, true, true, true, "FakeNetRules"},
 		{LegacyFakeNetRules, true, true, true, true, true, "LegacyFakeNetRules"},
@@ -376,10 +376,16 @@ func TestEvmChainConfigVinuLatestEVMCanActivateAfterBLS(t *testing.T) {
 }
 
 func TestEvmChainConfigVinuChainMainNetForksActive(t *testing.T) {
-	// VinuChainMainNetRules() stages Shanghai/Cancun/Prague active for the
-	// full-parity mainnet upgrade (2026-05-29). With a single UpgradeHeight at
-	// block 0 carrying those flags, EvmChainConfig must resolve all three fork
-	// blocks to 0 (active from genesis-of-this-rules-window) rather than nil.
+	// VinuChainMainNetRules() stages Shanghai/Cancun/Prague/VinuBLS12381/
+	// VinuLatestEVM active for the full-parity mainnet upgrade scheduled
+	// 2026-08-29 10:00 UTC. With a single UpgradeHeight at block 0 carrying those
+	// flags, EvmChainConfig must resolve every fork block to 0 (active from
+	// genesis-of-this-rules-window) rather than nil.
+	//
+	// NOTE: on the live chain these do NOT all activate at one seal — the forks
+	// stage sequentially in gossip/service.go (each waits for its predecessor to
+	// be active), so mainnet crosses five consecutive epoch seals. This test
+	// covers the rules->chainconfig mapping, not the activation schedule.
 	rules := VinuChainMainNetRules()
 	cfg := rules.EvmChainConfig([]UpgradeHeight{{Upgrades: rules.Upgrades, Height: 0}})
 
@@ -389,10 +395,10 @@ func TestEvmChainConfigVinuChainMainNetForksActive(t *testing.T) {
 		"mainnet rules now stage Cancun active")
 	require.Equal(t, big.NewInt(0), cfg.PragueBlock,
 		"mainnet rules now stage Prague/EIP-7702 active")
-	require.Nil(t, cfg.VinuBLSBlock,
-		"mainnet must not stage VinuBLS12381 until a separate activation")
-	require.Nil(t, cfg.VinuLatestEVMBlock,
-		"mainnet must not stage VinuLatestEVM until a separate activation")
+	require.Equal(t, big.NewInt(0), cfg.VinuBLSBlock,
+		"mainnet rules now stage VinuBLS12381 active (2026-08-29 full-parity release)")
+	require.Equal(t, big.NewInt(0), cfg.VinuLatestEVMBlock,
+		"mainnet rules now stage VinuLatestEVM active (2026-08-29 full-parity release)")
 }
 
 func TestEvmChainConfigEthereumForksDisabledNil(t *testing.T) {
@@ -449,10 +455,11 @@ func TestVinuChainMainNetRulesQuotaCacheAddress(t *testing.T) {
 }
 
 // TestVinuChainMainNetRulesUpgradeFlags pins the staged mainnet full-parity
-// upgrade set (decided 2026-05-29). It is the single guardrail that documents
-// exactly which flags the next mainnet binary will carry. Update it
-// deliberately when the mainnet upgrade scope changes — never to make a build
-// pass by accident.
+// upgrade set for the release scheduled 2026-08-29 10:00 UTC. It is the single
+// guardrail that documents exactly which flags the next mainnet binary will
+// carry, and it covers all 24 fields of opera.Upgrades. Update it deliberately
+// when the mainnet upgrade scope changes — never to make a build pass by
+// accident.
 func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	require := require.New(t)
 	up := VinuChainMainNetRules().Upgrades
@@ -468,10 +475,17 @@ func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	require.True(up.SfcV2, "SfcV2")
 	require.True(up.Elemont, "Elemont")
 	require.True(up.ElemontPubkeyValidation, "ElemontPubkeyValidation")
+	require.True(up.VinuBLS12381, "VinuBLS12381")
+	require.True(up.VinuLatestEVM, "VinuLatestEVM")
 
-	// Intentionally NOT set on mainnet: SfcV2Patch* are testnet-only re-flash
+	// Intentionally NOT set on mainnet: SfcV2Patch1-9 are testnet-only re-flash
 	// flags (mainnet's first SfcV2 activation installs GetLatestContractBin,
-	// which already contains every later bytecode fix). PaybackV2/Patch are a
+	// which already contains every later bytecode fix — as of 2026-08-20 it
+	// returns the Cycle-165 lockup-preservation blob (48,757 bytes; its exact
+	// sha256 is code-enforced at startup via sfc.patch10ExpectedSHA256),
+	// superseding the Cycle-164 blob that testnet reached after nine patches;
+	// testnet gets the same bytes via SfcV2Patch10).
+	// PaybackV2/Patch are a
 	// separate, later mainnet release blocked on deploying QuotaContractV2 and
 	// baking paybackV2MainnetAddress (EnforcePaybackV2StartupCheck panics if the
 	// flag is set while the address is the zero sentinel).
@@ -481,10 +495,19 @@ func TestVinuChainMainNetRulesUpgradeFlags(t *testing.T) {
 	require.False(up.SfcV2Patch4, "SfcV2Patch4 must stay false on mainnet")
 	require.False(up.SfcV2Patch5, "SfcV2Patch5 must stay false on mainnet")
 	require.False(up.SfcV2Patch6, "SfcV2Patch6 must stay false on mainnet")
-	require.False(up.VinuBLS12381, "VinuBLS12381 must stay false on mainnet until its separate testnet-first rollout")
-	require.False(up.VinuLatestEVM, "VinuLatestEVM must stay false on mainnet until its separate testnet-first rollout")
-	require.False(up.PaybackV2, "PaybackV2 must stay false on mainnet until its separate release")
-	require.False(up.PaybackV2Patch, "PaybackV2Patch must stay false on mainnet until its separate release")
+	require.False(up.SfcV2Patch7, "SfcV2Patch7 must stay false on mainnet")
+	require.False(up.SfcV2Patch8, "SfcV2Patch8 must stay false on mainnet")
+	require.False(up.SfcV2Patch9, "SfcV2Patch9 must stay false on mainnet")
+	require.False(up.SfcV2Patch10, "SfcV2Patch10 must stay false on mainnet — its Cycle-165 lockup-preservation bytecode arrives via GetLatestContractBin at the first SfcV2 activation")
+	require.False(up.PaybackV2Patch, "PaybackV2Patch must stay false on mainnet — it repairs a chain that crossed the PaybackV2 edge with a wrong address; mainnet crosses it once with the correct one")
+
+	// PaybackV2 is IN SCOPE for the 2026-08-29 full-parity release but cannot be
+	// flipped until QuotaContractV2 is deployed on mainnet and both
+	// paybackV2MainnetAddress and paybackV2StagingAddress are baked into
+	// opera/payback_v2_address.go — EnforcePaybackV2StartupCheck() panics at
+	// process init otherwise, on every network. Flip this assertion to True in
+	// the same commit that bakes the addresses.
+	require.False(up.PaybackV2, "PaybackV2 stays false until the mainnet QuotaContractV2 address is baked in")
 }
 
 func TestRulesSfcV2Patch3RLP(t *testing.T) {

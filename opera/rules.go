@@ -45,6 +45,7 @@ const (
 	sfcV2Patch7Bit                    = 1 << 20
 	sfcV2Patch8Bit                    = 1 << 21
 	sfcV2Patch9Bit                    = 1 << 22
+	sfcV2Patch10Bit                   = 1 << 23
 )
 
 var DefaultVMConfig = vm.Config{
@@ -409,6 +410,37 @@ type Upgrades struct {
 	// the asset is the sentinel placeholder, under-size, all-zero, or
 	// byte-identical to Patch7/Patch8.
 	SfcV2Patch9 bool
+	// SfcV2Patch10 re-flashes the SFC V2 bytecode a tenth time to install the
+	// Cycle-165 lockup-preservation bytecode sourced from
+	// VinuChain/vinuchain-lists. The Solidity delta fixes chunked-settlement
+	// lockup destruction: Cycle-164's _stashRewards deleted the lockup record
+	// on a wall-clock-only condition, so the first partial claim after a
+	// lockup expired deleted it and every later 100-epoch chunk was paid at
+	// the unlocked rate instead of the lockup rate. Cycle-165 defers the
+	// delete until the reward cursor has fully settled (safeCursor >=
+	// payableEpoch), and gates _lockStake / restakeRewards mutations of an
+	// existing lockup record on the same condition so unswept history cannot
+	// be repriced. undelegate is deliberately not gated (fund-escape path).
+	// No storage-layout change (verified slot-identical to Cycle-164). This
+	// is the permanent forward fix that ships in the bytecode for every
+	// network.
+	//
+	// Testnet-only at activation time: mainnet has not yet activated any
+	// SfcV2* flag and consumes the latest bytecode directly on its first
+	// SfcV2 activation via GetLatestContractBin(), which points at the
+	// Cycle-165 lockup-preservation bytecode — so mainnet's 2026-08-29 first
+	// SfcV2 activation ships the fix without needing this re-flash flag.
+	//
+	// No storage backfill: pre-upgrade Cycle-164 lockup deletions on testnet
+	// are compensated off-chain if warranted; the record cannot be
+	// reconstructed deterministically on-chain because the delete destroyed
+	// its inputs.
+	//
+	// The patch10 bytecode is re-flashed via sfc.GetPatch10ContractBin(); a
+	// validation guard in sfc_patch10_bytecode.go log.Crits at binary startup
+	// if the asset is the sentinel placeholder, under-size, all-zero, or
+	// byte-identical to Patch8/Patch9.
+	SfcV2Patch10 bool
 }
 
 type UpgradeHeight struct {
@@ -607,6 +639,7 @@ func VinuChainTestNetRules() Rules {
 			SfcV2Patch7:             true,
 			SfcV2Patch8:             true,
 			SfcV2Patch9:             true,
+			SfcV2Patch10:            true,
 			ElemontPubkeyValidation: true,
 			PaybackV2:               true,
 			PaybackV2Patch:          true,
@@ -635,6 +668,25 @@ func VinuChainTestNetRules() Rules {
 // corrected bytecode, and no re-flash is needed. Leave patch flags unset here;
 // adding them would obscure the invariant that mainnet's first SfcV2 activation
 // already picks up every subsequent correctness fix to the V2 bytecode.
+//
+// This is provable, not assumed: sfc.GetLatestContractBin() and
+// sfc.GetPatch9ContractBin() are byte-identical (both 48,336 bytes, sha256
+// b25a749fe4fa4191bafc2f48d62f046176e1c9ba8fb914fa4a6f81651c4344af — the
+// Cycle-164 blob live on testnet after all nine patches). The activation
+// branches in gossip/block_processor.go run in declaration order, so setting
+// SfcV2Patch1-9 here would issue nine redundant SetCode calls ending at exactly
+// the bytes SfcV2 alone installs, while tripping the "Multiple SfcV2Patch* flags
+// activating in the same epoch seal" divergence warning. Same end state, worse
+// signal. PaybackV2Patch is unset for the same reason: it repairs a chain that
+// crossed the PaybackV2 edge with a wrong address, and mainnet crosses it once
+// with the correct one.
+//
+// VinuBLS12381 and VinuLatestEVM ARE set: the 2026-08-29 mainnet release brings
+// mainnet to full feature parity with testnet. Note the EVM forks stage
+// sequentially in gossip/service.go — Cancun waits for Shanghai to be active,
+// Prague for Cancun, VinuBLS12381 for Prague, VinuLatestEVM for VinuBLS12381 —
+// so these activate across five consecutive epoch seals, not one. At mainnet's
+// 4h MaxEpochDuration that is roughly 20 hours from the first seal.
 func VinuChainMainNetRules() Rules {
 	rules := Rules{
 		Name:      "VinuChain Mainnet",
@@ -652,6 +704,8 @@ func VinuChainMainNetRules() Rules {
 			Shanghai:                true,
 			Cancun:                  true,
 			Prague:                  true,
+			VinuBLS12381:            true,
+			VinuLatestEVM:           true,
 			Llr:                     true,
 			Podgorica:               true,
 			SfcV2:                   true,

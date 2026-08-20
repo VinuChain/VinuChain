@@ -57,7 +57,13 @@ func TestAllowedOperaGenesisTestnet20260711Preset(t *testing.T) {
 		preset.Hashes[genesisstore.BlocksSection(0)])
 	require.Equal(hash.HexToHash("0xeb82e4cf63b20c0655cc9514c3f5d87774d796c0b09afc01179f899bbdf4168b"),
 		preset.Hashes[genesisstore.EvmSection(0)])
-	require.Empty(preset.SupersededBy, "the current testnet genesis must not be marked superseded")
+	// Superseded under THIS binary: it stages the not-yet-sealed SfcV2Patch10,
+	// so a fresh replay of the 2026-07-11 history would stage Patch10 at the
+	// wrong local seal and diverge. Fresh installs are pointed at the
+	// post-Patch10 snapshot until the follow-up release ships a regenerated
+	// genesis (which becomes the new un-superseded current preset).
+	require.Equal(testnetPostPatch10BootstrapPointer, preset.SupersededBy,
+		"the 2026-07-11 genesis must be fresh-install-refused while SfcV2Patch10 is staged but unsealed")
 }
 
 // TestStaleTestnetGenesisPresetsAreSuperseded pins that every testnet genesis
@@ -71,6 +77,11 @@ func TestStaleTestnetGenesisPresetsAreSuperseded(t *testing.T) {
 	stale := map[string]bool{
 		"VinuChain testnet without history":           false,
 		"VinuChain testnet with history (2026-04-19)": false,
+		// Superseded as of the SfcV2Patch10 release: its history pre-dates
+		// Patch10, so a fresh replay stages Patch10 at the wrong local seal.
+		// Un-supersede in the follow-up release that ships a regenerated
+		// post-Patch10 genesis.
+		"VinuChain testnet with history (2026-07-11)": false,
 	}
 	for i := range AllowedOperaGenesis {
 		preset := &AllowedOperaGenesis[i]
@@ -136,7 +147,12 @@ func TestStoredStateRequirementsTestnet(t *testing.T) {
 	// Only the newest activation may be pending, so a node inside epoch 6118
 	// (SfcV2Patch9 staged, activating at the canonical 6118→6119 seal) is
 	// still resumable.
-	require.Equal(idx.Epoch(6118), testnetReq.minStoredEpoch())
+	// 6119, not 6118: this binary stages SfcV2Patch10, whose live activation
+	// is not pinned yet (StagesUnpinned), so the floor is the newest pin
+	// itself — a datadir inside epoch 6118 would co-stage Patch9+Patch10 at
+	// one local seal and fork. Reverts to newest-1 semantics when the
+	// follow-up release pins Patch10 and clears StagesUnpinned.
+	require.Equal(idx.Epoch(6119), testnetReq.minStoredEpoch())
 
 	// Every activation the requirement tracks must be one this binary
 	// actually hardcodes — otherwise the guard demands state the binary
@@ -222,18 +238,22 @@ func TestCheckStoredChainState(t *testing.T) {
 	require.NoError(checkStoredChainState(&testnetID, 6119, allActive, liveHeights))
 	require.NoError(checkStoredChainState(&testnetID, 6200, allActive, liveHeights))
 
-	// Resumable boundary: a node stopped inside epoch 6118 has Patch7/8
-	// sealed and only Patch9 left to stage, which activates at the canonical
-	// 6118→6119 seal. It must NOT be forced into a needless bootstrap.
-	require.NoError(checkStoredChainState(&testnetID, 6118, preSealPatch9, preSealHeights),
-		"a node at the Patch9 activation boundary activates it at the canonical seal and must be resumable")
+	// Patch9 activation boundary: on v2.0.44-46 a node stopped inside epoch
+	// 6118 was resumable (only Patch9 remained). THIS binary also stages the
+	// unpinned SfcV2Patch10, so the same datadir would co-stage Patch9+Patch10
+	// at one local seal the live chain never performed — it must now be
+	// refused (StagesUnpinned floors the datadir at the newest pin, 6119).
+	err6118 := checkStoredChainState(&testnetID, 6118, preSealPatch9, preSealHeights)
+	require.Error(err6118,
+		"a datadir inside epoch 6118 would co-stage Patch9+Patch10 at one local seal under this binary and must be refused")
+	require.Contains(err6118.Error(), "6119")
 
 	// Same epoch, but Patch9 already active: the live chain did not have it
 	// at 6118, so this datadir sealed it early and is forked.
 	err := checkStoredChainState(&testnetID, 6118, allActive, liveHeights)
 	require.Error(err, "Patch9 active at epoch 6118 contradicts the live chain's history")
 	require.Contains(err.Error(), "SfcV2Patch9")
-	require.Contains(err.Error(), "vitainu-genesis-testnet-20260711.g")
+	require.Contains(err.Error(), "post-SfcV2Patch10 chaindata snapshot")
 
 	// Stopped one epoch too early: Patch8 AND Patch9 would both activate at
 	// the 6117→6118 seal, but the live chain activated only Patch8 there.
@@ -245,7 +265,9 @@ func TestCheckStoredChainState(t *testing.T) {
 	err = checkStoredChainState(&testnetID, 5700, opera.Upgrades{}, liveHeights[:1])
 	require.Error(err)
 	require.Contains(err.Error(), "VinuChain Testnet")
-	require.Contains(err.Error(), "6118")
+	// Floor is 6119 under this binary (StagesUnpinned: Patch10 staged but
+	// unpinned), not the newest-1 = 6118 of v2.0.44-46.
+	require.Contains(err.Error(), "6119")
 
 	// Wrong-seal-bricked datadir: a stale-genesis replay under a
 	// v2.0.41..v2.0.44 binary re-staged Patch7/8/9 at its first local seal,

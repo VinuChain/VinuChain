@@ -16,10 +16,24 @@ const (
 	vinuChainStagingMainnetNetworkName = "VinuChain Staging Mainnet"
 	vinuChainMainnetNetworkName        = "VinuChain Mainnet"
 
-	// testnetGenesis20260711URL is the current published testnet genesis:
-	// regenerated post-SfcV2Patch9, its history covers every activation this
-	// binary hardcodes, so a fresh replay stages nothing and stays on the
-	// live chain's epoch-state hashes.
+	// testnetPostPatch10BootstrapPointer is what refused operators and
+	// superseded presets are pointed at while this binary stages the not-yet-
+	// sealed SfcV2Patch10: a fresh replay of ANY published genesis would
+	// stage Patch10 at the wrong local seal, so the only safe bootstrap is a
+	// post-Patch10 chaindata snapshot. The follow-up release (which pins
+	// Patch10 and ships a regenerated genesis) replaces this with the new
+	// genesis URL.
+	testnetPostPatch10BootstrapPointer = "the current post-SfcV2Patch10 chaindata snapshot at https://vinu-blockchain-genesis.s3.amazonaws.com/chaindata-snapshots/"
+
+	// testnetGenesis20260711URL is the published post-SfcV2Patch9 testnet
+	// genesis. UNDER THIS BINARY it is no longer fresh-install-safe: the
+	// binary hardcodes SfcV2Patch10, which the 2026-07-11 history does not
+	// cover, so a fresh replay stages Patch10 locally and activates it at
+	// ~epoch 6120 — epochs where the live chain ran Cycle-164 — and diverges
+	// with "wrong event epoch hash". Its preset therefore carries
+	// SupersededBy (fresh installs refused with a pointer to the current
+	// snapshot); existing datadirs are unaffected. Replace this constant with
+	// the regenerated post-Patch10 genesis in the follow-up release.
 	testnetGenesis20260711URL = "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g"
 
 	// Epoch and block at which the live testnet activated each SFC patch this
@@ -114,7 +128,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xbfe43b2d77e7d672c4b0130d0a43f0710704f53ebb2c39a379c93076a43bddce"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x7c3476d667f7912172df77a5e5804428380541bf98282442689e6b442d16da34"),
 			},
-			SupersededBy: testnetGenesis20260711URL,
+			SupersededBy: testnetPostPatch10BootstrapPointer,
 		},
 
 		// VinuChain testnet with history through epoch 5637 / block 1,423,701 (2026-04-19)
@@ -136,7 +150,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0xf11619ff578754ce5680982eecc805387dd7dde02fd1d59d43ff4d7ead231fa7"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x459360bfa1fce292e3f9e7c9ea204f91ca89040258126a6aa07c6c0c1e345624"),
 			},
-			SupersededBy: testnetGenesis20260711URL,
+			SupersededBy: testnetPostPatch10BootstrapPointer,
 		},
 
 		// VinuChain testnet with history through epoch 6119 / block 1,529,442 (2026-07-11)
@@ -157,6 +171,9 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0x21b5b18943bb2d7ccfc8fa6a09781146d8322a2dab5280db2d5ab87860f9ff0f"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0xeb82e4cf63b20c0655cc9514c3f5d87774d796c0b09afc01179f899bbdf4168b"),
 			},
+			// Fresh installs refused under this binary: the 2026-07-11 history
+			// pre-dates SfcV2Patch10 (see testnetGenesis20260711URL comment).
+			SupersededBy: testnetPostPatch10BootstrapPointer,
 		},
 
 		// VinuChain test mainnet
@@ -180,15 +197,24 @@ var (
 	// current genesis file, and never matches a generated private network or
 	// fakenet (content-derived GenesisID).
 	//
-	// Testnet: this binary hardcodes SfcV2Patch7/8/9, which the live chain
-	// activated at epochs 6017/6118/6119. A datadir that disagrees with that
-	// history activated them at a local seal the live chain never performed
-	// — this is how testnet validators 17 and 18 forked on 2026-06-21 — and
-	// a datadir stopped below epoch 6118 would activate several at once at
-	// its next seal and fork the same way. Both must restore a snapshot or
-	// bootstrap from the current genesis. A node stopped inside epoch 6118
-	// is still resumable: only SfcV2Patch9 is left to stage and it activates
-	// at the canonical 6118→6119 seal.
+	// Testnet: this binary hardcodes SfcV2Patch7/8/9 (live activations at
+	// epochs 6017/6118/6119) AND SfcV2Patch10, which has NOT yet activated on
+	// the live chain. A datadir that disagrees with the pinned history
+	// activated flags at a local seal the live chain never performed — this
+	// is how testnet validators 17 and 18 forked on 2026-06-21 — and a
+	// datadir stopped below epoch 6118 would activate several at once at its
+	// next seal and fork the same way. Both must restore a snapshot or
+	// bootstrap from the current genesis.
+	//
+	// NOTE (SfcV2Patch10 rollout window): a node stopped inside epoch 6118
+	// was resumable on the v2.0.44-46 binaries (only Patch9 remained). On
+	// THIS binary it is NOT: it would co-stage Patch9+Patch10 at its local
+	// 6118→6119 seal while the live chain sealed only Patch9 there, and fork
+	// with "wrong event epoch hash". Such long-stopped datadirs must restore
+	// the current post-Patch10 snapshot instead. Once Patch10's live
+	// activation epoch is historical fact, add its UpgradeActivation entry
+	// below (follow-up release, same rule as Patch7/8/9 — never in the
+	// release that first stages it, which would refuse the pre-seal fleet).
 	//
 	// Mainnet and staging carry no requirement: their ELEMONT-era
 	// activations have not rolled out yet, so a pre-activation datadir is
@@ -220,7 +246,14 @@ var (
 					Active:          func(u opera.Upgrades) bool { return u.SfcV2Patch9 },
 				},
 			},
-			Bootstrap: testnetGenesis20260711URL,
+			Bootstrap: testnetPostPatch10BootstrapPointer,
+			// This binary stages SfcV2Patch10, whose live activation epoch is
+			// not historical fact yet. Floor the datadir at the newest pin
+			// (6119, Patch9) so Patch10 is the only locally-staged upgrade —
+			// a datadir inside epoch 6118 would co-stage Patch9+Patch10 at
+			// one local seal and fork. Clear in the follow-up release that
+			// pins Patch10's activation.
+			StagesUnpinned: true,
 		},
 	}
 )

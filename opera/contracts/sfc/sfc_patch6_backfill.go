@@ -39,10 +39,64 @@ var patch6TestnetDelegationBackfill = []patch6DelegationBackfill{
 	patch6Backfill("0x35bc53bfd049051724dc3199e09c7bd790dbc4e3", 1),
 }
 
-// Snapshot from live mainnet on 2026-05-17: non-zero getStake pairs present in
-// staking GraphQL but missing from the SFC stakes[] enumeration. Refresh this
-// list immediately before any mainnet SfcV2 activation release.
+// Non-zero getStake pairs missing from the SFC stakes[] enumeration on live
+// mainnet. Applied once, at mainnet's SfcV2 false->true activation seal.
+//
+// Re-derived exhaustively from chain state on 2026-08-19 (the original list was
+// a 2026-05-17 snapshot and had drifted). Method: replay every Delegated log to
+// collect candidate (delegator, validatorID) pairs, keep those with non-zero
+// getStake, and subtract the pairs actually present in stakes[]. Exhaustiveness
+// proof: the sum of getStake over the surviving live pairs equals
+// SFC.totalStake() exactly, so no pair with stake escapes the scan.
+//
+// The 2026-08-19 re-derivation added the 13 entries marked below. The stake
+// sitting behind them is 55,251,965.15 VC == 30.0% of totalStake(). They were
+// absent from the 2026-05-17 snapshot, and all 13 are genuinely missing from
+// stakes[] (verified by enumerating all 139 entries), so this backfill APPENDS
+// them.
+//
+// SCOPE OF THE HARM — this is an enumeration defect, NOT fund loss. getStake is
+// authoritative for balances, rewards and withdrawals; stakes[] only backs the
+// getStakes() enumeration. All 13 are already broken today under V1, and the
+// activation repairs 75 of 88 orphans while regressing nothing. What makes the
+// omission expensive is that it cannot be repaired afterwards (see below), so
+// missing it converts a one-line list edit into a future coordinated consensus
+// flag.
+//
+// There is also an active corruption path worth knowing about: a stale non-zero
+// stakePosition does NOT make undelegate-to-zero revert. _rawUndelegate only
+// skips _removeStake when stakePosition == 0, so an orphan undelegating calls
+// _removeStake(stalePos), which succeeds and swap-pops an UNRELATED delegator
+// out of stakes[] (SFC.sol:1685-1704). Orphans therefore corrupt other entries
+// over time, which is a further reason to repair them at the seal.
+//
+// WHY THIS LIST IS THE ONLY CHANCE TO FIX THEM. All 13 carry a NON-ZERO but
+// wrong stakePosition (e.g. 88 appears 4x, 71 appears 3x - aliased pointers).
+// Both on-chain remedies are gated on stakePosition == 0:
+// SFC.sol registerStake() reverts "stake already registered", and
+// backfillStakes() silently skips them. Only this node-side path repairs a
+// non-zero stakePosition, and it runs exactly once, at the SfcV2 activation
+// seal. If a pair is missing from this list at that seal, there is no
+// post-activation fix.
+//
+// Re-derive and re-verify this list immediately before any mainnet SfcV2
+// activation release. Do not trust a prior snapshot.
 var mainnetSfcV2DelegationBackfill = []patch6DelegationBackfill{
+	// --- added 2026-08-19 re-derivation (55,251,965.15 VC) ---
+	patch6Backfill("0x92a5e5e1d49Ee352F6f22854C29976599de7b21a", 13),
+	patch6Backfill("0xDD63524c42732701b1C94ea8e9ECb021730Ac3c1", 16),
+	patch6Backfill("0x30Fb270F806A6fB577494BDed4A0e7EdF013A462", 18),
+	patch6Backfill("0x07722460E3d28E29432EDe52b1A3973E75Bc5438", 20),
+	patch6Backfill("0x92a5e5e1d49Ee352F6f22854C29976599de7b21a", 26),
+	patch6Backfill("0x07722460E3d28E29432EDe52b1A3973E75Bc5438", 26),
+	patch6Backfill("0x92a5e5e1d49Ee352F6f22854C29976599de7b21a", 27),
+	patch6Backfill("0x30d730300810CAAEE0F557288c49293d4EEB8fDA", 27),
+	patch6Backfill("0x30d730300810CAAEE0F557288c49293d4EEB8fDA", 29),
+	patch6Backfill("0x07722460E3d28E29432EDe52b1A3973E75Bc5438", 29),
+	patch6Backfill("0x98922a5994CaA49A90E245DfC94fE7230428256c", 32),
+	patch6Backfill("0x92a5e5e1d49Ee352F6f22854C29976599de7b21a", 34),
+	patch6Backfill("0xa0593a5Cf5BD8E3307E4F8AFf5E10D6be26c81B1", 34),
+	// --- 2026-05-17 snapshot ---
 	patch6Backfill("0x397a403C884CF71fCBd6a78e881cc00743d33472", 1),
 	patch6Backfill("0xbF6042Fe73190b7A70c18ca589D040C8472C5d93", 1),
 	patch6Backfill("0xD42c232373f306dD177354804A46Bf4e8A9FFcb5", 1),

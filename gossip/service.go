@@ -353,6 +353,11 @@ func stageHardcodedUpgrades(store *Store) bool {
 		changed = true
 		log.Info("Staged SfcV2Patch9 upgrade from binary rules; will activate at next epoch seal")
 	}
+	if hardcoded.Upgrades.SfcV2Patch10 && !pending.Upgrades.SfcV2Patch10 {
+		pending.Upgrades.SfcV2Patch10 = true
+		changed = true
+		log.Info("Staged SfcV2Patch10 upgrade from binary rules; will activate at next epoch seal")
+	}
 	if hardcoded.Upgrades.PaybackV2 && !pending.Upgrades.PaybackV2 {
 		pending.Upgrades.PaybackV2 = true
 		changed = true

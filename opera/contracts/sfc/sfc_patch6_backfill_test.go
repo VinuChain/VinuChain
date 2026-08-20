@@ -94,8 +94,19 @@ func TestPatch6TestnetDelegationBackfillListPinned(t *testing.T) {
 	assertPatch6BackfillList(t, "testnet", patch6TestnetDelegationBackfill, 3)
 }
 
+// TestMainnetSfcV2DelegationBackfillListPinned pins the mainnet orphan-delegation
+// list. 82 -> 95 on 2026-08-19: the list was a 2026-05-17 snapshot and had drifted,
+// missing 13 pairs holding 55,251,965.15 VC (30.0% of totalStake()). Those 13 were
+// re-derived exhaustively from chain state and added ahead of the 2026-08-29 mainnet
+// SfcV2 activation.
+//
+// Changing this number is a consensus-affecting decision, not a test fix. The list is
+// applied once, at the SfcV2 false->true seal, and the on-chain remedies
+// (registerStake / backfillStakes) cannot repair a pair with a non-zero stakePosition
+// afterwards. Re-derive against live chain state before editing; never adjust the
+// count to make a build pass.
 func TestMainnetSfcV2DelegationBackfillListPinned(t *testing.T) {
-	assertPatch6BackfillList(t, "mainnet", mainnetSfcV2DelegationBackfill, 82)
+	assertPatch6BackfillList(t, "mainnet", mainnetSfcV2DelegationBackfill, 95)
 }
 
 func assertPatch6BackfillList(t *testing.T, name string, pairs []patch6DelegationBackfill, want int) {

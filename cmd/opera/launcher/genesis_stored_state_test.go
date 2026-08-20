@@ -123,8 +123,8 @@ func TestCurrentTestnetGenesisSatisfiesStoredStateRequirement(t *testing.T) {
 
 	storedEpoch := topEr.EpochState.Epoch
 	storedUpgrades := topEr.EpochState.Rules.Upgrades
-	t.Logf("fresh install from %s would store epoch=%d SfcV2Patch7=%t SfcV2Patch8=%t SfcV2Patch9=%t",
-		path, storedEpoch, storedUpgrades.SfcV2Patch7, storedUpgrades.SfcV2Patch8, storedUpgrades.SfcV2Patch9)
+	t.Logf("fresh install from %s would store epoch=%d SfcV2Patch7=%t SfcV2Patch8=%t SfcV2Patch9=%t SfcV2Patch10=%t",
+		path, storedEpoch, storedUpgrades.SfcV2Patch7, storedUpgrades.SfcV2Patch8, storedUpgrades.SfcV2Patch9, storedUpgrades.SfcV2Patch10)
 	require.Greater(storedEpoch, idx.Epoch(0))
 
 	require.NoError(checkStoredChainState(&g.GenesisID, storedEpoch, storedUpgrades, freshHeights),

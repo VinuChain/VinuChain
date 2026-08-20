@@ -99,9 +99,9 @@ func TestSealEpochCalledBeforeDispatchBlockInEndBlock(t *testing.T) {
 // This test pins the structural presence of:
 //  1. a counter incremented once per SfcV2Patch* activation edge,
 //  2. a log.Warn gated on count > 1,
-//  3. counter increments for all six Patch flags, so future Patch7+
-//     additions are a compile-noticeable omission rather than a silent
-//     regression.
+//  3. counter increments for every Patch flag through Patch10, so future
+//     Patch11+ additions are a test-noticeable omission rather than a
+//     silent regression.
 func TestMultipleSfcV2PatchActivationsLogWarn(t *testing.T) {
 	src, err := os.ReadFile("block_processor.go")
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestMultipleSfcV2PatchActivationsLogWarn(t *testing.T) {
 	require.Contains(t, s, "Multiple SfcV2Patch",
 		"sealEpochIfNeeded must emit a log.Warn tagged 'Multiple SfcV2Patch…' when >1 patch flags activate in the same seal")
 
-	for _, flag := range []string{"SfcV2Patch", "SfcV2Patch2", "SfcV2Patch3", "SfcV2Patch4", "SfcV2Patch5", "SfcV2Patch6", "SfcV2Patch7"} {
+	for _, flag := range []string{"SfcV2Patch", "SfcV2Patch2", "SfcV2Patch3", "SfcV2Patch4", "SfcV2Patch5", "SfcV2Patch6", "SfcV2Patch7", "SfcV2Patch8", "SfcV2Patch9", "SfcV2Patch10"} {
 		marker := "!prevUpg." + flag
 		count := strings.Count(s, marker)
 		require.GreaterOrEqual(t, count, 2,
