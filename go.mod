@@ -36,8 +36,8 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
-	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.6 // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5 // indirect
 	github.com/certifi/gocertifi v0.0.0-20191021191039-0944d244cd40 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -108,6 +108,9 @@ replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.26
 replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.6-elemont
 
 replace github.com/dvyukov/go-fuzz => github.com/guzenok/go-fuzz v0.0.0-20210103140116-f9104dfb626f
+
+// btcd is transitive-only and absent from the opera binary; pin its advisory metadata to a fixed release.
+replace github.com/btcsuite/btcd v0.20.1-beta => github.com/btcsuite/btcd v0.24.2
 
 // CVE mitigation: logrus v1.2.0 carries GHSA-4f99-4q7p-p3gh (Entry.Writer DoS).
 // Nothing in the compiled binary imports logrus — it is only in the module graph
