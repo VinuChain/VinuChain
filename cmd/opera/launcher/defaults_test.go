@@ -61,6 +61,16 @@ func mkInterrupted(t *testing.T, dir string) string {
 	return dir
 }
 
+func mkDBSkeleton(t *testing.T, dir string) string {
+	t.Helper()
+	for _, sub := range []string{"leveldb-fsh", "leveldb-flg", "leveldb-drc", "pebble-fsh", "pebble-flg", "pebble-drc"} {
+		if err := os.MkdirAll(filepath.Join(dir, "chaindata", sub), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
 func TestResolveDataDirLinux(t *testing.T) {
 	const (
 		wantLegacy = ".opera"
@@ -76,6 +86,16 @@ func TestResolveDataDirLinux(t *testing.T) {
 			name:  "fresh home uses the new directory",
 			setup: func(t *testing.T, home string) {},
 			want:  wantNew,
+		},
+		{
+			name: "legacy inspection errors fail closed on legacy",
+			setup: func(t *testing.T, home string) {
+				legacy := filepath.Join(home, wantLegacy)
+				if err := os.Symlink(wantLegacy, legacy); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: wantLegacy, wantNote: "Using legacy data directory",
 		},
 		{
 			name:  "populated legacy with no new directory stays on legacy",
@@ -119,6 +139,14 @@ func TestResolveDataDirLinux(t *testing.T) {
 			setup: func(t *testing.T, home string) {
 				mkChainState(t, filepath.Join(home, wantLegacy))
 				mkInterrupted(t, filepath.Join(home, wantNew))
+			},
+			want: wantLegacy, wantNote: "Using legacy data directory",
+		},
+		{
+			name: "database-directory skeleton does not strand legacy",
+			setup: func(t *testing.T, home string) {
+				mkChainState(t, filepath.Join(home, wantLegacy))
+				mkDBSkeleton(t, filepath.Join(home, wantNew))
 			},
 			want: wantLegacy, wantNote: "Using legacy data directory",
 		},
@@ -241,6 +269,9 @@ func TestIsUnusedDataDir(t *testing.T) {
 	}
 	if dir := mkInterrupted(t, t.TempDir()); !isUnusedDataDir(dir) {
 		t.Error("an interrupted genesis is dropped by MakeEngine, so it is not openable state")
+	}
+	if dir := mkDBSkeleton(t, t.TempDir()); !isUnusedDataDir(dir) {
+		t.Error("an interrupted database-directory skeleton holds no chain state")
 	}
 	if dir := mkFakenet(t, t.TempDir(), 3); !isUnusedDataDir(dir) {
 		t.Error("a fakenet subdirectory is not top-level chain state")

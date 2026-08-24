@@ -111,7 +111,7 @@ func resolveDataDir(home, goos, winAppData string) (dir string, note string) {
 	default:
 		legacyDir := filepath.Join(home, ".opera")
 		newDir := filepath.Join(home, ".vinuchain")
-		if _, err := os.Stat(legacyDir); err != nil {
+		if _, err := os.Stat(legacyDir); os.IsNotExist(err) {
 			return newDir, ""
 		}
 		// The legacy directory keeps winning until .vinuchain independently
