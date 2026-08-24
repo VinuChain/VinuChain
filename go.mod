@@ -7,7 +7,7 @@ require (
 	github.com/cespare/cp v1.1.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/ethereum/go-ethereum v1.13.8
+	github.com/ethereum/go-ethereum v1.17.0
 	github.com/getsentry/raven-go v0.2.0
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
@@ -102,7 +102,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.25-quota
+// The left-hand v1.17.0 records the audited advisory floor; builds use this fork.
+replace github.com/ethereum/go-ethereum => github.com/VinuChain/go-vinu v1.20.26-quota
 
 replace github.com/Fantom-foundation/lachesis-base => github.com/VinuChain/lachesis-base v0.1.6-elemont
 

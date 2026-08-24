@@ -5,6 +5,26 @@
 > Generated from the `vX.Y.Z-elemont` git tag history. Each entry lists the
 > user- and operator-facing changes shipped in that release.
 
+### v2.0.49-elemont — 2026-08-24
+
+- fix(deps): raise the audited go-ethereum advisory floor to v1.17.0 and use
+  go-vinu v1.20.26-quota, which backports the applicable fixes without rebasing
+  VinuChain onto a different EVM or consensus implementation.
+- fix(p2p): bound unauthenticated snap response lists, nested trie-node request
+  paths, and compact path sizes before typed decoding or trie expansion; retain
+  the protocol's valid response slack and two-segment request shape.
+- fix(crypto): reject short ECIES ciphertexts and invalid, non-canonical, or
+  truncation-alias secp256k1 coordinates before decryption or scalar
+  multiplication. Disconnect decoding and ping handling also use the bounded
+  upstream security forms.
+- test(txpool): make the pricing and eviction tests wait for the
+  documented synchronous reorganization/event path, removing a full-suite
+  timeout caused by asserting an explicitly asynchronous API.
+- release: supersede v2.0.48-elemont for the 29 August mainnet upgrade so
+  operators install this final binary once. There are no EVM, state-transition,
+  receipt-encoding, chain-rule, activation-height, or protocol-capability
+  changes relative to v2.0.48-elemont.
+
 ### v2.0.48-elemont — 2026-08-24
 
 - fix(launcher): keep a populated legacy `.opera` data directory in use until
