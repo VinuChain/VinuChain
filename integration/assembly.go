@@ -285,7 +285,7 @@ func MakeEngine(chaindataDir string, g *genesis.Genesis, cfg Configs) (*abft.Lac
 	}
 
 	dropAllDBsIfInterrupted(chaindataDir)
-	firstLaunch := isEmpty(chaindataDir)
+	firstLaunch := FirstLaunchPending(chaindataDir)
 	MakeDBDirs(chaindataDir)
 
 	engine, vecClock, gdb, cdb, blockProc, closeDBs, err := makeEngine(chaindataDir, g, firstLaunch, cfg)

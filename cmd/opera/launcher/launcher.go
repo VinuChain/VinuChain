@@ -318,6 +318,10 @@ func vinuChainMain(ctx *cli.Context) error {
 }
 
 func makeNode(ctx *cli.Context, cfg *config, genesisStore *genesisstore.Store) (*node.Node, *gossip.Service, func()) {
+	// This is the first point at which the data directory is settled and about
+	// to be opened, so it is where its provenance is worth reporting.
+	LogDefaultDataDirNote(cfg.Node.DataDir)
+
 	// check errlock file
 	errlock.SetDefaultDatadir(cfg.Node.DataDir)
 	errlock.Check()

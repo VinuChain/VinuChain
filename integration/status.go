@@ -14,7 +14,28 @@ func isInterrupted(chaindataDir string) bool {
 // genesis to chaindataDir: the directory is empty, or holds only the remains
 // of an interrupted genesis processing (which get dropped and re-applied).
 func FirstLaunchPending(chaindataDir string) bool {
-	return isInterrupted(chaindataDir) || isEmpty(chaindataDir)
+	return isInterrupted(chaindataDir) || isEmpty(chaindataDir) || isEmptyDBSkeleton(chaindataDir)
+}
+
+// isEmptyDBSkeleton recognizes a MakeEngine crash between creating its database
+// directories and writing the unfinished marker.
+func isEmptyDBSkeleton(chaindataDir string) bool {
+	entries, err := os.ReadDir(chaindataDir)
+	if err != nil || len(entries) == 0 {
+		return false
+	}
+	for _, entry := range entries {
+		switch entry.Name() {
+		case "leveldb-fsh", "leveldb-flg", "leveldb-drc", "pebble-fsh", "pebble-flg", "pebble-drc":
+		default:
+			return false
+		}
+		contents, err := os.ReadDir(path.Join(chaindataDir, entry.Name()))
+		if err != nil || !entry.IsDir() || len(contents) != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func setGenesisProcessing(chaindataDir string) {

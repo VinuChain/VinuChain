@@ -25,17 +25,6 @@ const (
 	// genesis URL.
 	testnetPostPatch10BootstrapPointer = "the current post-SfcV2Patch10 chaindata snapshot at https://vinu-blockchain-genesis.s3.amazonaws.com/chaindata-snapshots/"
 
-	// testnetGenesis20260711URL is the published post-SfcV2Patch9 testnet
-	// genesis. UNDER THIS BINARY it is no longer fresh-install-safe: the
-	// binary hardcodes SfcV2Patch10, which the 2026-07-11 history does not
-	// cover, so a fresh replay stages Patch10 locally and activates it at
-	// ~epoch 6120 — epochs where the live chain ran Cycle-164 — and diverges
-	// with "wrong event epoch hash". Its preset therefore carries
-	// SupersededBy (fresh installs refused with a pointer to the current
-	// snapshot); existing datadirs are unaffected. Replace this constant with
-	// the regenerated post-Patch10 genesis in the follow-up release.
-	testnetGenesis20260711URL = "https://vinu-blockchain-genesis.s3.amazonaws.com/vitainu-genesis-testnet-20260711.g"
-
 	// Epoch and block at which the live testnet activated each SFC patch this
 	// binary hardcodes. These are historical facts read back from the
 	// published 2026-07-11 genesis' epoch history (sha256
@@ -172,7 +161,7 @@ var (
 				genesisstore.EvmSection(0):    hash.HexToHash("0xeb82e4cf63b20c0655cc9514c3f5d87774d796c0b09afc01179f899bbdf4168b"),
 			},
 			// Fresh installs refused under this binary: the 2026-07-11 history
-			// pre-dates SfcV2Patch10 (see testnetGenesis20260711URL comment).
+			// pre-dates SfcV2Patch10, so replay would stage it at the wrong seal.
 			SupersededBy: testnetPostPatch10BootstrapPointer,
 		},
 
