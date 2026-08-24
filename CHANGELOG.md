@@ -10,9 +10,10 @@
 - fix(launcher): keep a populated legacy `.opera` data directory in use until
   `.vinuchain` independently carries chain state. Previously the mere existence
   of `.vinuchain` ended the fallback, so an empty directory left behind by a
-  failed flagless start — or the `go-opera/`+`keystore/` shell that
+  failed or interrupted start — or the `go-opera/`+`keystore/` shell that
   `opera account list` creates — silently moved the node onto empty state and
-  resynced it from genesis.
+  resynced it from genesis. An interrupted empty database-directory skeleton
+  is now also recovered as a first launch.
 - fix(launcher): emit the legacy-data-directory notice through the node logger,
   once, and only when the default data directory is actually in use. It
   previously printed twice per invocation via the standard library logger, on
@@ -20,6 +21,10 @@
   somewhere else entirely.
 - test(launcher): cover `DefaultDataDir` resolution across platforms and across
   the legacy-migration states, including the two regressions above.
+- fix(ci): remove a superseded testnet-genesis constant that failed the lint
+  gate.
+- fix(deps): update to Go 1.25.13 and patched `x/net`/`x/text` releases for the
+  current Go vulnerability gate.
 
 ### v2.0.47-elemont — 2026-08-21
 
