@@ -5,7 +5,7 @@
 > Generated from the `vX.Y.Z-elemont` git tag history. Each entry lists the
 > user- and operator-facing changes shipped in that release.
 
-### Unreleased
+### v2.0.48-elemont — 2026-08-24
 
 - fix(launcher): keep a populated legacy `.opera` data directory in use until
   `.vinuchain` independently carries chain state. Previously the mere existence
@@ -20,6 +20,57 @@
   somewhere else entirely.
 - test(launcher): cover `DefaultDataDir` resolution across platforms and across
   the legacy-migration states, including the two regressions above.
+
+### v2.0.47-elemont — 2026-08-21
+
+- feat(payback): bake mainnet QuotaContractV2 and enable PaybackV2
+- feat(sfc,rules): v2.0.47-elemont — SfcV2Patch10 (Cycle-165 lockup preservation) + mainnet full-parity staging
+- fix(sfc): satisfy backfill scaffold lint
+- fix(config): prove canonical testnet upgrade history
+- fix(config): verify historical testnet upgrade seals
+- fix(ci): repair Go and backfill lint gates
+- fix(ops): persisted opera-swap script with trace-node safety guard (#10)
+
+### v2.0.46-elemont — 2026-07-17
+
+- chore(deps): pin Go 1.25.12 for GO-2026-5856
+
+### v2.0.45-elemont — 2026-07-17
+
+- fix(config): refuse datadirs that disagree with the testnet upgrade history
+- feat(config): trusted preset for 2026-07-11 testnet genesis; refuse stale presets on fresh installs
+
+### v2.0.44-elemont — 2026-07-09
+
+- feat(sfc): SfcV2Patch9 — reward-cursor over-mint + repeated-reactivation fixes (Cycle-164)
+
+### v2.0.43-elemont — 2026-07-08
+
+- fix(sfc): SfcV2Patch8 heal floor honors owner-corrected deactivation epoch; v2.0.43-elemont
+
+### v2.0.42-elemont — 2026-07-08
+
+- feat(sfc): SfcV2Patch8 — full self-service reactivateValidator (Cycle-163)
+
+### v2.0.41-elemont — 2026-06-21
+
+- feat(sfc): SfcV2Patch7 — init reward cursor on delegate + testnet one-shot backfill
+
+### v2.0.40-elemont — 2026-06-19
+
+- chore(release): v2.0.40-elemont — bump go-vinu to v1.20.25-quota
+- fix(lint,docs): canonical nolint directive; update FUZZING.md for native fuzzing
+- fix(fuzz): anchor -fuzz regex; add block-records deep fuzz target (review)
+- ci(changelog): add generator + release-tag CHANGELOG check
+- ci(coverage): add a coverage regression gate (floor 34.5%)
+- ci(lint): make golangci-lint a full-tree blocking gate
+- fix(deps,ci): bump go to 1.25.11 (clears called stdlib CVEs), modernize actions
+- fix(ci,gossip): grant lint PR-read, reclaim fuzz peer rate-limit buckets
+- fix(docs): publish the fresh-install freeze before the upgrade window
+- fix(ci,gossip): harden native fuzz harness, pin govulncheck, gate lint to PRs
+- ci: add non-blocking coverage report
+- ci: add golangci-lint (new-issues only)
+- ci: add govulncheck supply-chain gate
 
 ### v2.0.39-elemont — 2026-06-11
 
