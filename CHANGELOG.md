@@ -5,6 +5,22 @@
 > Generated from the `vX.Y.Z-elemont` git tag history. Each entry lists the
 > user- and operator-facing changes shipped in that release.
 
+### Unreleased
+
+- fix(launcher): keep a populated legacy `.opera` data directory in use until
+  `.vinuchain` independently carries chain state. Previously the mere existence
+  of `.vinuchain` ended the fallback, so an empty directory left behind by a
+  failed flagless start — or the `go-opera/`+`keystore/` shell that
+  `opera account list` creates — silently moved the node onto empty state and
+  resynced it from genesis.
+- fix(launcher): emit the legacy-data-directory notice through the node logger,
+  once, and only when the default data directory is actually in use. It
+  previously printed twice per invocation via the standard library logger, on
+  every command including `opera version`, even when `--datadir` pointed
+  somewhere else entirely.
+- test(launcher): cover `DefaultDataDir` resolution across platforms and across
+  the legacy-migration states, including the two regressions above.
+
 ### v2.0.39-elemont — 2026-06-11
 
 - chore(release): v2.0.39-elemont — PaybackCache restart warm-up
