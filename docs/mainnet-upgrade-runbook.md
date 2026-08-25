@@ -1,269 +1,244 @@
-# Mainnet Hard-Fork Release Runbook
+# Mainnet ELEMONT Protocol Runbook
 
-This is the protocol-level, publishable procedure for activating a staged
-hard-fork on VinuChain mainnet (chain 207). It captures the order-dependent
-prerequisites and verification steps so the upgrade is repeatable and external
-validators know what to expect.
+**Upgrade window:** 2026-08-29 10:00 UTC
 
-Box-specific execution detail (instance access, snapshot storage paths, key
-custody) deliberately lives in the internal deployment-log and is **not**
-reproduced here. This document is self-sufficient for the protocol-level
-procedure; the internal log is required only for the operator running the boxes.
+**Network:** VinuChain mainnet, chain ID `207`
 
-## Scope & current state
+**Status checked:** 2026-08-25
 
-- **Mainnet (chain 207)** still runs `v2.0.0-rc.1`, which pre-dates the
-  Podgorica / SfcV2 / Elemont era. The flags are already **staged in code** --
-  `VinuChainMainNetRules()` (`opera/rules.go`) carries the full upgrade flag set
-  (`Berlin`, `London`, `Shanghai`, `Cancun`, `Prague`, `VinuBLS12381`,
-  `VinuLatestEVM`, `Llr`, `Podgorica`, `SfcV2`, `Elemont`,
-  `ElemontPubkeyValidation`).
-- **Scope decision 2026-08-19: FULL PARITY.** The 2026-08-29 10:00 UTC release
-  activates the entire testnet feature set in one window, including `PaybackV2`.
-  This supersedes the two-release sequencing previously recommended below.
-- **The one remaining code gap is `PaybackV2`.** It cannot be flipped until
-  `QuotaContractV2` is deployed on mainnet and both `paybackV2MainnetAddress` and
-  `paybackV2StagingAddress` are baked into `opera/payback_v2_address.go` --
-  `EnforcePaybackV2StartupCheck()` panics at process init otherwise, on every
-  network. See `vinuchain-ops-docs/ops/paybackv2-mainnet-deploy-runbook.md`.
-  Until then `Economy.QuotaCacheAddress` stays pinned to the live V1 Quota proxy
-  `0x1c4269fbbd4a8254f69383eef6af720bcd0acda6`.
-- **Testnet (chain 206)** has already activated the full flag set plus PaybackV2
-  and serves as the dress rehearsal for every step below. Treat a clean testnet
-  rollout as the precondition for starting the mainnet window.
-- **PaybackV2 is intentionally NOT yet enabled on mainnet rules** -- it ships as a
-  separate, later release (see [Release sequencing](#release-sequencing)).
+This is the protocol-coordination runbook for the ELEMONT mainnet activation.
+Host-specific commands belong in the public `VinuChain-Docs` Mainnet Upgrade
+Guide; instance access, snapshot storage, alarms, and key custody remain in the
+private operations runbook.
 
-## The core hazard: stale-genesis replay divergence
+## Outcome
 
-The distributed mainnet genesis (May 2024) pre-dates every Elemont-era flag.
-When a new mainnet binary first boots, **all staged flags fire at the first epoch
-seal after boot**. This is safe for a node continuing from existing chaindata,
-but it is a **chain-splitting trap for any node replaying from the 2024
-genesis**:
+Existing validators and RPC nodes make one in-place binary swap from
+`v2.0.0-rc.1` to `v2.0.49-elemont`. The upgrade is complete when:
 
-- A fresh-install node replaying from the 2024 genesis seals each flag at a
-  *different* first-replay block than the live chain did.
-- Because `receipt.FeeRefund` (introduced by Podgorica) is a **persisted receipt
-  field**, this difference produces a receipts-root mismatch. That is a full
-  consensus split, surfacing on the diverging node as a
-  `wrong event epoch hash` error -- the exact failure that bit testnet operators
-  before.
-- The multi-fork staging is **sequential, not simultaneous**: Cancun only stages
-  after Shanghai is *active*, and Prague only after Cancun. The EVM forks
-  therefore activate across **consecutive epoch seals**, not all in one seal.
-  Plan for several seals to elapse before the chain has settled into the final
-  rule set.
+- all five activation seals have completed through `VinuLatestEVM`;
+- the SFC runs the expected Cycle-165 bytecode and reports version `305`;
+- `Economy.QuotaCacheAddress` is the mainnet QuotaContractV2 address;
+- upgraded nodes agree with the public RPC at the same block height; and
+- an identity-free post-activation snapshot and its verified manifest are
+  published for recovery and new nodes.
 
-The mitigation is the three prerequisites in the next section: produce a
-post-upgrade snapshot and a regenerated genesis so that fresh installs never have
-to replay the pre-fork history, and forbid fresh installs during the window.
+This release includes Payback V2. There is no second Payback activation release.
+The five seals are stages of this one upgrade, not five operator restarts.
 
-## Prerequisites -- all three, same day as the binary (none optional)
+## Fixed release values
 
-All three belong to the **same upgrade**, but their timing differs: the operator
-announcement (3) must be published **before** the window opens, while the snapshot
-(1) and the regenerated genesis (2) are produced **after** the final seal. Skipping
-or mis-ordering any one re-opens the stale-genesis divergence described above.
+| Item | Required value |
+| --- | --- |
+| Release | `v2.0.49-elemont` |
+| Tag commit | `8b88cc49d11e56635385413fe8f9eaec1969c1ac` |
+| linux/amd64 binary | `opera-v2.0.49-elemont-linux-amd64` |
+| Published SHA256 | `678040e9f88a98331a8cc32b7bf5b9e0ae4acdf84919390465eeee584b7f56c1` |
+| Minimum glibc | `2.34` |
+| SFC address | `0xFC00FACE00000000000000000000000000000000` |
+| SFC version after seal 1 | `305` |
+| SFC runtime length after seal 1 | `48,757` bytes |
+| SFC runtime keccak after seal 1 | `0x29b88152209fe22bef409376aa7f137d0e0f571f46afa1385f32320765e49e50` |
+| QuotaContractV2 after seal 1 | `0x5D989A2d65d049e2198D91d8ddc31C918f2544AB` |
 
-1. **Post-upgrade chaindata snapshot.** Take the snapshot **only after the RPC
-   node has sealed *every* staged flag** -- not merely the first post-boot seal.
-   (This is the single detail most likely to be gotten wrong.)
+## Before the window
 
-   **Under full parity the last fork is `VinuLatestEVM`, not Prague.** The EVM
-   forks stage sequentially (`gossip/service.go`: Cancun waits for Shanghai to be
-   active, Prague for Cancun, VinuBLS12381 for Prague, VinuLatestEVM for
-   VinuBLS12381), so the activation crosses **five consecutive epoch seals**.
-   Mainnet epochs seal at the 4h `MaxEpochDuration` cap -- measured median 240.3
-   min over the twelve seals before 2026-08-19 -- so the sequence takes roughly
-   20 hours from the first seal. Snapshotting after Prague (seal 3) would publish
-   an artifact missing two activations and re-open exactly the divergence these
-   prerequisites exist to close. Confirm from `vc_getRules` that
-   `VinuLatestEVM = true` before snapshotting. When tarring the datadir, **exclude**
-   `nodekey`, the keystore, the IPC socket, and the static-/trusted-nodes files,
-   so the snapshot is identity-free and safe to distribute.
-2. **Regenerated distributed genesis + `AllowedOperaGenesis` update.** Export a
-   fresh distributed genesis from a node that has **already sealed the flags**,
-   then update `cmd/opera/launcher/params.go` `AllowedOperaGenesis` with the new
-   section hashes. This lets fresh installs adopt the new genesis **without**
-   needing `--genesis.allowExperimental`.
-3. **Operator announcement.** Publish an explicit rule: **no fresh validator
-   installs during, or within 24 h of, the upgrade window.** In-place binary
-   swaps on existing datadirs are safe. A fresh install booted from the *stale*
-   genesis during the window will diverge and require a chaindata wipe plus a
-   snapshot restore to recover. **Publish this announcement BEFORE the swap
-   window opens** (see the Execution outline) -- not after the seal: a freeze
-   announced once the window has already begun cannot stop a fresh install that
-   has already started diverging.
+Complete every gate. An unchecked gate is a no-go, not an item to improvise
+during the cutover.
 
-## Release sequencing
+1. **Prove the release artifact.** Download it from the tagged GitHub release on
+   each target host. Verify the published SHA256, `opera version`, tag
+   commit, architecture, and glibc compatibility before stopping a node.
+2. **Finish the code and state gates.** Confirm the QuotaContractV2 address is
+   baked for mainnet and staging, the startup guard passes, testnet has completed
+   the same feature path, and the SFC delegation backfill list has been re-derived
+   against a block near activation. Record the compiled pair count separately
+   from the state-dependent expected `Appended` and `Repaired` results; never
+   equate list length with either seal-log field.
+3. **Prove every node's effective configuration.** Following the public guide,
+   record the live process user, `HOME`, executable, working directory, arguments,
+   service, effective `DataDir`, `IPCPath`, P2P configuration, and peer baseline.
+   Run both binaries' `dumpconfig` with the same user, `HOME`, and recorded
+   configuration, datadir, IPC, HTTP, and WebSocket flags. The effective datadir
+   and RPC configuration must match.
+4. **Prove historical indexing.** Require `TxIndex = true` and confirm transaction
+   `0xfa3cbe1ec4220bee33a30d7f922ff4274489503f6c48729abce40e71589988f0`
+   resolves at block `14,551,915`. Enabling indexing now does not restore missing
+   historical receipts; a failing node needs a coordinator-approved indexed
+   snapshot before the upgrade.
+5. **Prepare recovery.** Preserve the old binary and its checksum. Verify that
+   every validator's keystore and P2P `nodekey` have protected offline backups.
+   Name the recovery owner and the destination for stage-matched snapshot
+   manifests, checksums, and restore commands.
+6. **Publish the fresh-node policy.** Freeze every fresh node start during
+   activation. After seal 5, permit snapshot-based onboarding only when the
+   post-activation artifact is verified and the coordinator opens it.
+   Original-genesis replay under `v2.0.49-elemont` remains prohibited until a
+   compatible maintenance binary and regenerated genesis are published.
 
-> **SUPERSEDED 2026-08-19.** The guidance below (two releases, PaybackV2 >= 2
-> weeks after the consensus flags) was the prior recommendation. The operator has
-> decided to ship **full parity in a single 2026-08-29 window**, PaybackV2
-> included. Keep reading for *what PaybackV2 requires* -- every prerequisite it
-> lists still applies, they just apply to the same activation day as the
-> consensus flags rather than a later one. Because PaybackV2 is a
-> persisted-state change, the snapshot / regenerated-genesis / no-fresh-installs
-> prerequisites cover it too.
->
-> Consequence worth stating plainly: combining them does compound the blast
-> radius, and mainnet is jumping from `v2.0.0-rc.1` with no intermediate release,
-> so **after the first seal there is no binary to roll back to** -- recovery is
-> snapshot-based only.
+## Why fresh replay is frozen
 
-The original two-release recommendation follows.
+The distributed 2024 genesis predates the ELEMONT-era activations. A new binary
+replaying it can stage persisted rule changes at different epochs from the live
+chain and fail with `wrong event epoch hash`. Existing nodes continuing from
+canonical chaindata do not have this replay problem.
 
-- **Release 1 -- consensus flags.** Ship Podgorica + SfcV2 + Elemont + the EVM
-  forks (Berlin/London/Shanghai/Cancun/Prague) as one release. This is the set
-  currently staged in `VinuChainMainNetRules()`.
-- **Release 2 -- PaybackV2 (separate, later).** Stage PaybackV2 as its own
-  release, **>= 2 weeks after** Release 1 has been live without surprises.
-  PaybackV2 is itself a **persisted-state change**: at its activation seal it
-  swaps `Economy.QuotaCacheAddress` to the freshly-deployed QuotaContractV2 (see
-  `opera/payback_v2_address.go`). Because that is a persisted-state change, **all
-  three prerequisites (snapshot-after-final-seal, regenerated genesis,
-  no-fresh-installs announcement) apply again on PaybackV2's own activation day.**
-  A startup check (`EnforcePaybackV2StartupCheck`) refuses to boot a binary that
-  enables PaybackV2 while the matching network's V2 address is still the zero
-  sentinel, so the address must be deployed and recorded before that release
-  ships.
+The safe route is therefore:
 
-## Execution outline
+- upgrade existing nodes in place on their verified current datadir;
+- forbid original-genesis replay during and after activation; and
+- onboard or recover nodes from a verified post-activation snapshot.
 
-Protocol-level steps. Box-specific steps -- instance access, snapshot upload/
-download paths, and operator key custody -- are in the internal deployment-log and
-are not reproduced here.
+## Upgrade-day procedure
 
-1. **Publish the fresh-install freeze first (prerequisite 3).** BEFORE any binary
-   swap, announce and put into effect the **no fresh validator installs during, or
-   within 24 h of, the upgrade window** rule. This must lead the window: a fresh
-   install that boots from the stale 2024 genesis during the swap/sealing window
-   diverges *before* any later-published warning could reach operators, so a freeze
-   announced after the seal is too late to prevent the divergence it exists to stop.
-2. **Pre-build off-box.** Build the new binary on a dedicated build host, never on
-   a production validator/RPC box during the window.
-3. **Cross-verify the binary.** Compute the `sha256` of the binary on **more than
-   one build host** and confirm the hashes match before trusting it. Distribute
-   only a hash-verified binary.
-4. **Swap and restart in place.** On each box, replace the binary on the existing
-   datadir and restart. In-place swaps on existing chaindata are the safe path.
-5. **Never SIGKILL a validator.** A hard kill risks LevelDB corruption. Stop nodes
-   only with a clean `SIGINT` / `systemctl restart`.
-6. **Wait for the final seal, then snapshot.** Let the RPC node seal through to
-   Prague (see prerequisite 1), then take the post-upgrade snapshot and regenerate
-   the distributed genesis (prerequisites 1 and 2). The fresh-install freeze from
-   step 1 stays in effect until at least 24 h after the final seal.
+### 1. Obtain the final GO
 
-## Post-activation follow-up: the stale-datadir guard (do NOT do this before the seals)
+Immediately before the first validator stop, the named coordinator must publish
+a timestamped **GO** that records:
 
-`checkStoredChainState` (`cmd/opera/launcher/config.go`) refuses to boot a datadir of a known
-public-network genesis lineage whose persisted activation history disagrees with the live chain's.
-Testnet has an entry pinning `SfcV2Patch7/8/9` at epochs 6017/6118/6119 — the guard that would
-have prevented testnet validators 17 and 18 forking on 2026-06-21.
+- ready and online validator IDs representing more than two-thirds of active
+  stake;
+- the release tag, commit, and binary checksum;
+- the recovery owner and manifest destination; and
+- confirmation that the fresh-node freeze and original-genesis prohibition are
+  public.
 
-**Mainnet deliberately has no entry, and must not get one before the activation.**
-`StoredStateRequirements` in `cmd/opera/launcher/params.go` says why:
+Save the message link. If quorum or any release identity check fails, stop.
 
-> Mainnet and staging carry no requirement: their ELEMONT-era activations have not rolled out
-> yet, so a pre-activation datadir is legitimately below every seal. Add an entry for those
-> lineages as part of the mainnet upgrade rollout, once the activation epochs are historical
-> fact -- **never at the release that first stages them, which would refuse the whole pre-seal
-> fleet.**
+### 2. Swap existing nodes in place
 
-Adding it to the 2026-08-29 release would brick every mainnet node on boot. So this is a
-**follow-up release** task, after the fifth seal:
+Stagger validators one at a time. For each node:
 
-1. Record the actual activation epoch and block for each flag as it seals -- `SfcV2`, `Elemont`,
-   `ElemontPubkeyValidation`, `Shanghai`, `PaybackV2` (seal 1), then `Cancun`, `Prague`,
-   `VinuBLS12381`, `VinuLatestEVM` (seals 2-5). Read them from `vc_getRules` and the seal-time
-   logs, not from projections.
-2. Add a `StoredStateRequirement` for `vinuChainMainnetHeader.GenesisID` with those activations,
-   and set `Bootstrap` to the regenerated post-activation mainnet genesis URL.
-3. Add the matching entry for the staging lineage (`vinuChainTestMainnetHeader.GenesisID`) if
-   staging is run against the same activations.
-4. Set `SupersededBy` on the two existing mainnet presets ("VinuChain mainnet without history",
-   "VinuChain mainnet with deployed contracts") to the regenerated genesis URL, so fresh installs
-   are pushed off the pre-activation genesis instead of replaying it and diverging.
+1. Stop it cleanly and prove the process exited. Never use `SIGKILL`.
+2. Replace the executable atomically with the verified binary.
+3. Start it through the recorded service or script with the recorded working
+   directory and configuration. The only permitted launch change is an explicit
+   `--datadir` pin already proven necessary in preflight.
+4. Confirm `v2.0.49-elemont`, chain ID `207`, advancing height, normal peers,
+   unchanged P2P configuration, and the same block hash as the public RPC at a
+   fixed height.
 
-Until that follow-up ships, mainnet has **no** automatic protection against a stale-datadir or
-stale-genesis boot -- which is exactly why the fresh-install freeze (prerequisite 3) is an
-operational rule for this window rather than a code guard.
+Do not start the next validator until the current validator passes its immediate
+canonical-chain checkpoint.
 
-## Post-activation verification checklist
+### 3. Verify all five seals
 
-After the seal, confirm the upgrade took using only the **public RPC**. These are
-copy-pasteable so anyone can independently verify.
+Activation follows epoch seals, not a fixed clock. Under normal progress the
+complete sequence can take up to roughly 20 hours after the swap.
 
-1. **Rules reflect the staged flags and address.** Query `vc_getRules` and confirm
-   the expected `Upgrades.*` flags are `true` and `Economy.QuotaCacheAddress`
-   matches the intended value.
+| Seal | Newly active flags | Required checkpoint |
+| --- | --- | --- |
+| 1 | `SfcV2`, `Elemont`, `ElemontPubkeyValidation`, `Shanghai`, `PaybackV2` | SFC version/runtime and QuotaContractV2 address match the fixed values |
+| 2 | `Cancun` | `vc_getRules` reports `Cancun = true` |
+| 3 | `Prague` | `vc_getRules` reports `Prague = true` |
+| 4 | `VinuBLS12381` | `vc_getRules` reports `VinuBLS12381 = true` |
+| 5 | `VinuLatestEVM` | `vc_getRules` reports `VinuLatestEVM = true` |
 
-   ```sh
-   curl -s -X POST https://rpc.vinuchain.org \
-     -H 'Content-Type: application/json' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"vc_getRules","params":["latest"]}' | jq .result.Upgrades
-   ```
+Keep the new process running between seals. In particular, validators must not
+restart between seal 1 and seal 3. If a validator fails in that interval, keep
+it from emitting and use coordinator-approved, stage-matched recovery.
 
-   Expected (Release 1): `Podgorica`, `SfcV2`, `Elemont`, `Shanghai`, `Cancun`,
-   and `Prague` all `true`. Then confirm the address:
+Record the actual activation epoch and block for every flag from live rules and
+seal logs. Do not turn projected times into historical facts.
 
-   ```sh
-   curl -s -X POST https://rpc.vinuchain.org \
-     -H 'Content-Type: application/json' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"vc_getRules","params":["latest"]}' \
-     | jq -r .result.Economy.QuotaCacheAddress
-   ```
+### 4. Publish the final recovery snapshot
 
-   Expected: `0x1c4269fbbd4a8254f69383eef6af720bcd0acda6` (the live mainnet Quota
-   proxy pinned in `VinuChainMainNetRules()`). After Release 2 this value changes
-   to the recorded QuotaContractV2 address.
+Only after seal 5 and the final canonical-chain check:
 
-2. **SFC bytecode matches the intended V2 cycle.** Fetch the deployed SFC bytecode
-   via the public RPC and confirm it matches the intended V2 cycle build.
+1. Cleanly stop the non-validator source node and prove the process exited. A
+   file-level copy of a live LevelDB datadir is not valid. A tested storage-level
+   snapshot is acceptable only while the node is stopped.
+2. Build the snapshot without `keystore/`, `nodekey`, `opera.ipc`,
+   `static-nodes.json`, or `trusted-nodes.json`. Fail closed if the finished
+   archive contains any excluded path.
+3. Publish a manifest containing the activation stage, capture block and epoch,
+   client version, download URL, size, SHA256, datadir root layout, expected
+   ownership, extraction commands, and post-restore verification.
+4. Independently download and verify the checksum and archive layout before
+   announcing it.
+5. Open snapshot-based onboarding only after the verified artifact and recovery
+   instructions are public. Keep the original-genesis prohibition in force.
 
-   ```sh
-   curl -s -X POST https://rpc.vinuchain.org \
-     -H 'Content-Type: application/json' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"eth_getCode","params":["0xFC00FACE00000000000000000000000000000000","latest"]}' | jq -r .result
-   ```
+## Final verification
 
-3. **(Release 2 / PaybackV2 only) `feeRefundBlockCount()` returns the expected
-   value.** `eth_call` `feeRefundBlockCount()` on the new contract and confirm the
-   returned value matches the intended configuration.
+Query `vc_getRules("latest")` locally and through
+`https://rpc.vinuchain.org`. All of these must be `true`:
 
-   ```sh
-   # 0x<selector> = keccak256("feeRefundBlockCount()")[:4]; to = QuotaContractV2 address
-   curl -s -X POST https://rpc.vinuchain.org \
-     -H 'Content-Type: application/json' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x<QuotaContractV2>","data":"0x<selector>"},"latest"]}' | jq -r .result
-   ```
+```text
+Berlin London Shanghai Cancun Prague VinuBLS12381 VinuLatestEVM
+Llr Podgorica SfcV2 Elemont ElemontPubkeyValidation PaybackV2
+```
 
-All three (1 and 2 for Release 1; add 3 for Release 2) must pass before declaring
-the upgrade complete.
+All `SfcV2Patch*` flags and `PaybackV2Patch` must remain absent or `false` on
+mainnet. They are repair flags, not missing features.
 
-## Rollback / divergence response
+After seal 1, verify:
 
-- **An existing-datadir node fails to keep up.** In-place binary swaps on existing
-  chaindata are unaffected by the stale-genesis hazard. If such a node misbehaves,
-  treat it as an ordinary node-health incident (clean restart, resync from a
-  healthy peer); it is not a genesis-divergence case.
-- **A fresh-install node shows `wrong event epoch hash`.** This is the
-  stale-genesis divergence. Recover by **wiping its chaindata and restoring from
-  the post-seal snapshot** (the one taken after Prague sealed). Do **not** attempt
-  to replay it forward from the 2024 genesis -- that is what caused the divergence.
-- **Prevention beats rollback.** The no-fresh-installs-in-the-window announcement
-  (prerequisite 3) exists precisely to avoid this state. Honor it.
+- the SFC `version()` result is bytes32 `305`;
+- the SFC runtime keccak is
+  `0x29b88152209fe22bef409376aa7f137d0e0f571f46afa1385f32320765e49e50`;
+- `Economy.QuotaCacheAddress` is
+  `0x5D989A2d65d049e2198D91d8ddc31C918f2544AB`; and
+- `feeRefundBlockCount()` on that contract returns `75`.
+
+After seal 5, compare the same non-null block hash locally and publicly, and
+confirm the node continues advancing with its normal peer count. Do not declare
+completion from flags alone.
+
+## Rollback and recovery
+
+### Before seal 1
+
+Prove from the public chain that `SfcV2` is still `false`. A coordinated rollback
+may then restore the checksummed `v2.0.0-rc.1` binary and restart on the same
+current datadir. Re-run the version, height, peers, and same-height block-hash
+checks. Validators must not restore an older datadir copy.
+
+### After seal 1
+
+There is no binary downgrade or pre-seal-datadir rollback. Stop the affected
+node and recover with `v2.0.49-elemont` plus a coordinator-approved snapshot
+whose manifest matches the node's activation stage. Never replay the original
+genesis. Keep a recovered validator from emitting until chain ID, version,
+height, peers, and a same-height canonical hash all verify and the coordinator
+authorizes it.
+
+## Post-activation hardening
+
+After seal 5, record the historical activation epochs and blocks, regenerate the
+distributed mainnet genesis, and prepare the matching `AllowedOperaGenesis` and
+`StoredStateRequirements` entries. These facts cannot be pinned safely in the
+activation binary before they exist: doing so would reject the pre-seal fleet.
+
+This is defense-in-depth for future stale-genesis and stale-datadir starts, not
+another consensus activation. Existing operators complete the August window
+with the single `v2.0.49-elemont` swap; the supported fresh-node route remains
+the verified post-activation snapshot until a maintenance binary carries the
+historical pins.
+
+## Failure paths
+
+- **`wrong event epoch hash` -> stale genesis or wrong-stage data ->** stop the
+  node, restore a stage-matched snapshot on `v2.0.49-elemont`, then compare a
+  fixed-height hash before enabling validation.
+- **Payback cache or transaction-index startup failure -> missing historical
+  receipts ->** stop retrying, restore an indexed stage-matched snapshot, then
+  recheck the known transaction and startup warm-up.
+- **New version but stale height -> wrong datadir or lost P2P configuration ->**
+  stop the node, restore the recorded launch values, then verify advancing height,
+  peers, and a canonical hash.
+- **A seal does not complete -> insufficient upgraded stake or unhealthy
+  validators ->** freeze further restarts and escalate to the named coordinator;
+  do not restart validators speculatively.
 
 ## References
 
-- `opera/rules.go` -- `VinuChainMainNetRules()`: the staged mainnet flag set and
-  the pinned `Economy.QuotaCacheAddress`.
-- `opera/payback_v2_address.go` -- per-network PaybackV2 / QuotaContractV2 address
-  slots, the zero-sentinel convention, and the `EnforcePaybackV2StartupCheck`
-  boot guard.
-- `cmd/opera/launcher/params.go` -- `AllowedOperaGenesis`, updated with the
-  regenerated genesis section hashes (prerequisite 2).
-- Internal deployment-log -- box-specific execution detail (instance access,
-  snapshot storage, key custody). Not part of this repository's public tree;
-  available to the operator only.
+- `opera/rules.go` — staged mainnet rules and the original Quota proxy.
+- `opera/payback_v2_address.go` — baked QuotaContractV2 addresses and startup
+  guard.
+- `gossip/service.go` — five-seal staging dependencies.
+- `cmd/opera/launcher/params.go` — allowed genesis and stored-state guards.
+- `VinuChain-Docs/technical-docs/vinuchain-mainnet/chain-upgrade-guide.md` —
+  public operator commands.
+- `vinuchain-ops-docs/ops/mainnet-upgrade-day-runbook-20260829.md` — controlled
+  host execution and monitoring.
