@@ -68,8 +68,14 @@ during the cutover.
    snapshot before the upgrade.
 5. **Prepare recovery.** Preserve the old binary and its checksum. Verify that
    every validator's keystore and P2P `nodekey` have protected offline backups.
-   Name the recovery owner and the destination for stage-matched snapshot
-   manifests, checksums, and restore commands.
+   Record the fixed destination
+   `s3://vinu-blockchain-mainnet-genesis/chaindata-snapshots/elemont-20260829/`,
+   using a required `seal-<N>/` child for each activation stage. No
+   post-activation artifact exists until that stage has sealed and its snapshot
+   has been produced. Upload any resulting snapshot, manifest, checksum, and
+   restore commands from an authorized workstation with AWS profile
+   `vinuchain-admin`. The human recovery owner must still be named in the
+   timestamped GO.
 6. **Publish the fresh-node policy.** Freeze every fresh node start during
    activation. After seal 5, permit snapshot-based onboarding only when the
    post-activation artifact is verified and the coordinator opens it.
@@ -99,7 +105,8 @@ a timestamped **GO** that records:
 - ready and online validator IDs representing more than two-thirds of active
   stake;
 - the release tag, commit, and binary checksum;
-- the recovery owner and manifest destination; and
+- the human recovery owner; the fixed manifest root is
+  `s3://vinu-blockchain-mainnet-genesis/chaindata-snapshots/elemont-20260829/`;
 - confirmation that the fresh-node freeze and original-genesis prohibition are
   public.
 
@@ -151,9 +158,13 @@ Only after seal 5 and the final canonical-chain check:
 2. Build the snapshot without `keystore/`, `nodekey`, `opera.ipc`,
    `static-nodes.json`, or `trusted-nodes.json`. Fail closed if the finished
    archive contains any excluded path.
-3. Publish a manifest containing the activation stage, capture block and epoch,
-   client version, download URL, size, SHA256, datadir root layout, expected
-   ownership, extraction commands, and post-restore verification.
+3. Publish the snapshot and a manifest containing the activation stage, capture
+   block and epoch, client version, download URL, size, SHA256, datadir root
+   layout, expected ownership, extraction commands, and post-restore
+   verification under the fixed root
+   `s3://vinu-blockchain-mainnet-genesis/chaindata-snapshots/elemont-20260829/`
+   in the required `seal-<N>/` child for that stage. Upload from an authorized
+   workstation with AWS profile `vinuchain-admin`.
 4. Independently download and verify the checksum and archive layout before
    announcing it.
 5. Open snapshot-based onboarding only after the verified artifact and recovery
