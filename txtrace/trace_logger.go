@@ -19,15 +19,20 @@ import (
 
 // TraceStructLogger is a transaction trace creator.
 type TraceStructLogger struct {
-	store       *txtrace.Store
-	from        *common.Address
-	to          *common.Address
-	newAddress  *common.Address
-	blockHash   common.Hash
-	tx          common.Hash
-	txIndex     uint
-	blockNumber big.Int
-	value       big.Int
+	store      *txtrace.Store
+	from       *common.Address
+	to         *common.Address
+	newAddress *common.Address
+	blockHash  common.Hash
+	tx         common.Hash
+	txIndex    uint
+	// txIndexOffset is the number of transactions already executed in earlier
+	// Execute() batches of the same block. statedb restarts its tx index at 0
+	// in every batch, so without this every batch after the first would record
+	// positions that overlap the ones before it.
+	txIndexOffset uint
+	blockNumber   big.Int
+	value         big.Int
 
 	gasUsed      uint64
 	feeRefund    *big.Int
@@ -342,8 +347,15 @@ func (tr *TraceStructLogger) SetBlockHash(blockHash common.Hash) { tr.blockHash 
 // SetBlockNumber sets the block number.
 func (tr *TraceStructLogger) SetBlockNumber(blockNumber *big.Int) { tr.blockNumber = *blockNumber }
 
-// SetTxIndex sets the transaction index within the block.
-func (tr *TraceStructLogger) SetTxIndex(txIndex uint) { tr.txIndex = txIndex }
+// SetTxIndex sets the transaction index within the block. The caller passes the
+// index statedb reports, which is relative to the current Execute() batch, so
+// the batch offset is added here to make it relative to the block.
+func (tr *TraceStructLogger) SetTxIndex(txIndex uint) { tr.txIndex = txIndex + tr.txIndexOffset }
+
+// SetTxIndexOffset records how many transactions of this block were executed in
+// earlier Execute() batches. Logs, receipts and skipped indices are shifted by
+// the same amount in OperaEVMProcessor.Execute.
+func (tr *TraceStructLogger) SetTxIndexOffset(offset uint) { tr.txIndexOffset = offset }
 
 // SetNewAddress sets the created contract address.
 func (tr *TraceStructLogger) SetNewAddress(newAddress common.Address) {

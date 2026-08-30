@@ -2,12 +2,14 @@ package evmmodule
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"math"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/Fantom-foundation/lachesis-base/inter/idx"
+	"github.com/Fantom-foundation/lachesis-base/kvdb/memorydb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -18,10 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Fantom-foundation/go-opera/evmcore"
+	gossiptxtrace "github.com/Fantom-foundation/go-opera/gossip/txtrace"
 	"github.com/Fantom-foundation/go-opera/inter"
 	"github.com/Fantom-foundation/go-opera/inter/iblockproc"
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 )
 
 // stubChain implements evmcore.DummyChain for tests that don't need a
@@ -388,4 +392,68 @@ func TestExecuteCancunSelfdestructThroughProcessor(t *testing.T) {
 		"Cancun SELFDESTRUCT must credit the beneficiary")
 	require.NotZero(t, sdb.GetCodeSize(contract),
 		"Cancun SELFDESTRUCT must preserve existing contract code")
+}
+
+// --- Trace transaction position across Execute() batches ------------------
+
+// A block's transactions do not all arrive in one Execute() call: pre-internal
+// txs, event txs and post-internal txs are separate batches, and statedb
+// restarts its transaction index at 0 in each one. Execute() shifts logs,
+// receipts and skipped indices by the batch offset; traces were left behind, so
+// every batch after the first recorded positions that collided with the batch
+// before it. Two single-tx batches reported position 0 twice, which is what
+// testnet `trace_block` returns for a two-transaction block.
+func TestExecuteShiftsTraceTransactionPositionAcrossBatches(t *testing.T) {
+	traceDB := memorydb.New()
+	traceStore := gossiptxtrace.NewStore(traceDB)
+
+	rules := forkTestRules(true, true)
+	chain := newStubChain()
+	sdb := newMemStateDB(t)
+
+	vmCfg := opera.DefaultVMConfig
+	vmCfg.Debug = true
+	vmCfg.Tracer = txtrace.NewTraceStructLogger(traceStore)
+
+	upgradeHeights := []opera.UpgradeHeight{{Upgrades: rules.Upgrades, Height: 0}}
+	mod := New()
+	proc := mod.Start(
+		// block 0 takes the min-gas-price base fee path, so no parent header is needed
+		iblockproc.BlockCtx{Idx: 0, Time: inter.Timestamp(2_000_000_000)},
+		sdb,
+		chain,
+		func(*types.Log) {},
+		rules,
+		vmCfg,
+		rules.EvmChainConfig(upgradeHeights),
+		newPaybackCache(),
+		idx.Epoch(10),
+	)
+	p, ok := proc.(*OperaEVMProcessor)
+	require.True(t, ok)
+
+	key, _ := fundedSender(t, sdb)
+	recipient := common.HexToAddress("0x00000000000000000000000000000000000000ff")
+	first := signCallTx(t, p, key, 0, recipient)
+	second := signCallTx(t, p, key, 1, recipient)
+
+	// two separate batches, exactly as a block with pre-internal and event txs
+	require.Len(t, p.Execute(types.Transactions{first}), 1)
+	require.Len(t, p.Execute(types.Transactions{second}), 1)
+	_, skipped, _ := p.Finalize()
+	require.Empty(t, skipped)
+
+	positionOf := func(tx *types.Transaction) uint64 {
+		raw, err := traceStore.GetTx(tx.Hash())
+		require.NoError(t, err)
+		require.NotNil(t, raw, "expected a stored trace for %s", tx.Hash())
+		var traces []txtrace.ActionTrace
+		require.NoError(t, json.Unmarshal(raw, &traces))
+		require.NotEmpty(t, traces)
+		return traces[0].TransactionPosition
+	}
+
+	require.Equal(t, uint64(0), positionOf(first), "first batch keeps position 0")
+	require.Equal(t, uint64(1), positionOf(second),
+		"second batch must be shifted by the batch offset, not restart at 0")
 }
