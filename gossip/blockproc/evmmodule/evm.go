@@ -21,6 +21,7 @@ import (
 	"github.com/Fantom-foundation/go-opera/opera"
 	"github.com/Fantom-foundation/go-opera/opera/contracts/evmwriter"
 	"github.com/Fantom-foundation/go-opera/payback"
+	"github.com/Fantom-foundation/go-opera/txtrace"
 	"github.com/Fantom-foundation/go-opera/utils"
 )
 
@@ -141,6 +142,16 @@ func (p *OperaEVMProcessor) Execute(txs types.Transactions) types.Receipts {
 	if pc, ok := opera.DefaultVMConfig.StatePrecompiles[evmwriter.ContractAddress].(*evmwriter.PreCompiledContract); ok {
 		pc.SetPaybackProxyAddr(p.net.Economy.QuotaCacheAddress)
 		pc.SetElemont(p.net.Upgrades.Elemont)
+	}
+
+	// Traces record the transaction index statedb reports, which restarts at 0 in
+	// every Execute() batch, and unlike the logs, receipts and skipped indices
+	// below nothing shifted them afterwards. A block whose transactions arrive in
+	// separate batches therefore reported every one of them at position 0, which
+	// is what testnet `trace_block` returns today. Tell the tracer the offset so
+	// the positions are right when they are written rather than patched later.
+	if traceLogger, ok := p.vmConfig.Tracer.(*txtrace.TraceStructLogger); ok {
+		traceLogger.SetTxIndexOffset(txsOffset)
 	}
 
 	// Process txs
