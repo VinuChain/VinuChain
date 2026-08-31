@@ -77,6 +77,12 @@ func TestStaleTestnetGenesisPresetsAreSuperseded(t *testing.T) {
 	stale := map[string]bool{
 		"VinuChain testnet without history":           false,
 		"VinuChain testnet with history (2026-04-19)": false,
+		// Superseded by the 2026-08-29 ELEMONT activation: both distributed
+		// mainnet genesis files pre-date SfcV2/Elemont/Shanghai/Cancun/
+		// Prague/VinuBLS12381/VinuLatestEVM/PaybackV2, so a fresh replay
+		// stages all of them at the wrong local seals and diverges.
+		"VinuChain mainnet without history":         false,
+		"VinuChain mainnet with deployed contracts": false,
 		// Superseded as of the SfcV2Patch10 release: its history pre-dates
 		// Patch10, so a fresh replay stages Patch10 at the wrong local seal.
 		// Un-supersede in the follow-up release that ships a regenerated
@@ -104,16 +110,15 @@ func TestStaleTestnetGenesisPresetsAreSuperseded(t *testing.T) {
 // genesis AND the first epoch at which all of them are live (6119). The
 // requirement is keyed on GenesisID — not NetworkID — so generated private
 // networks (`opera network new`, content-derived GenesisID) and fakenets are
-// unaffected. Mainnet and staging lineages must have no requirement until
-// their own activation rollouts ship one.
+// unaffected. The staging lineage must have no requirement until its own
+// activation rollout ships one; mainnet's shipped with the 2026-08-29
+// ELEMONT activation and is pinned by TestStoredStateRequirementsMainnet.
 func TestStoredStateRequirementsTestnet(t *testing.T) {
 	require := require.New(t)
 
 	var testnetReq *StoredStateRequirement
 	for i := range StoredStateRequirements {
 		req := &StoredStateRequirements[i]
-		require.NotEqual(vinuChainMainnetHeader.GenesisID, req.GenesisID,
-			"mainnet lineage must not carry a stored-state requirement yet")
 		require.NotEqual(vinuChainTestMainnetHeader.GenesisID, req.GenesisID,
 			"staging lineage must not carry a stored-state requirement yet")
 		if req.GenesisID == vinuChainTestnetHeader.GenesisID {
@@ -163,14 +168,79 @@ func TestStoredStateRequirementsTestnet(t *testing.T) {
 			"requirement tracks %q but the binary's testnet rules do not activate it", a.Name)
 	}
 
-	// Every superseded testnet preset must point fresh installs at the same
-	// replacement genesis the stored-state requirement names.
+	// Every superseded preset must point fresh installs at the same
+	// replacement genesis its OWN lineage's stored-state requirement names.
+	// Matching on GenesisID matters now that both mainnet and testnet have
+	// superseded presets with different bootstrap pointers — comparing every
+	// preset against the testnet requirement would demand mainnet operators
+	// bootstrap from a testnet snapshot.
 	for i := range AllowedOperaGenesis {
 		preset := &AllowedOperaGenesis[i]
-		if preset.SupersededBy != "" {
-			require.Equal(testnetReq.Bootstrap, preset.SupersededBy,
-				"superseded preset %q must name the requirement's bootstrap genesis", preset.Name)
+		if preset.SupersededBy == "" {
+			continue
 		}
+		var req *StoredStateRequirement
+		for j := range StoredStateRequirements {
+			if StoredStateRequirements[j].GenesisID == preset.Header.GenesisID {
+				req = &StoredStateRequirements[j]
+				break
+			}
+		}
+		require.NotNil(req,
+			"superseded preset %q has no stored-state requirement for its lineage", preset.Name)
+		require.Equal(req.Bootstrap, preset.SupersededBy,
+			"superseded preset %q must name its own requirement's bootstrap genesis", preset.Name)
+	}
+}
+
+// TestStoredStateRequirementsMainnet pins the mainnet half of the stale-state
+// guard, shipped with the 2026-08-29/30 ELEMONT activation. The epochs are
+// observed fact (vc_getRules across the five seals) and each block is the
+// FIRST executed under the new rule set, derived by binary search on the epoch
+// prefix in every block id and corroborated for 7892 by eth_config's
+// activationBlock. If a future release changes these, it is rewriting history.
+func TestStoredStateRequirementsMainnet(t *testing.T) {
+	require := require.New(t)
+
+	var req *StoredStateRequirement
+	for i := range StoredStateRequirements {
+		if StoredStateRequirements[i].GenesisID == vinuChainMainnetHeader.GenesisID {
+			req = &StoredStateRequirements[i]
+			break
+		}
+	}
+	require.NotNil(req, "mainnet lineage must carry a stored-state requirement after ELEMONT")
+
+	epochs := map[string]idx.Epoch{}
+	blocks := map[string]idx.Block{}
+	for _, a := range req.Activations {
+		epochs[a.Name] = a.ActiveFromEpoch
+		blocks[a.Name] = a.ActiveFromBlock
+	}
+	require.Equal(map[string]idx.Epoch{
+		"SfcV2": 7889, "Elemont": 7889, "ElemontPubkeyValidation": 7889,
+		"Shanghai": 7889, "PaybackV2": 7889,
+		"Cancun": 7890, "Prague": 7891,
+		"VinuBLS12381": 7892, "VinuLatestEVM": 7893,
+	}, epochs)
+	require.Equal(map[string]idx.Block{
+		"SfcV2": 14701168, "Elemont": 14701168, "ElemontPubkeyValidation": 14701168,
+		"Shanghai": 14701168, "PaybackV2": 14701168,
+		"Cancun": 14702730, "Prague": 14704227,
+		"VinuBLS12381": 14705762, "VinuLatestEVM": 14707397,
+	}, blocks)
+
+	// Nothing is staged-but-unpinned on mainnet any more, so the floor is the
+	// usual newest-1: a datadir inside 7892 still has only VinuLatestEVM left
+	// to stage, at the canonical 7892->7893 seal.
+	require.False(req.StagesUnpinned, "no mainnet upgrade is staged-but-unpinned after seal 5")
+	require.Equal(idx.Epoch(7892), req.minStoredEpoch())
+
+	// Every activation tracked must be one this binary actually hardcodes.
+	hardcoded := opera.VinuChainMainNetRules().Upgrades
+	for _, a := range req.Activations {
+		require.True(a.Active(hardcoded),
+			"requirement tracks %q but the binary's mainnet rules do not activate it", a.Name)
 	}
 }
 
@@ -293,10 +363,47 @@ func TestCheckStoredChainState(t *testing.T) {
 	require.Error(checkStoredChainState(&testnetID, 6200, allActive, nil),
 		"missing activation history must not pass as proof of a canonical seal")
 
-	// Mainnet lineage carries no requirement yet: a pre-activation mainnet
-	// datadir must keep booting under this binary.
+	// Mainnet carries a requirement since the 2026-08-29 ELEMONT activation.
+	// A pre-activation mainnet datadir must now be REFUSED: resuming it would
+	// co-stage SfcV2/Elemont/Shanghai/Cancun/Prague/BLS12381/LatestEVM/
+	// PaybackV2 at local seals the live chain never performed.
 	mainnetID := vinuChainMainnetHeader.GenesisID
-	require.NoError(checkStoredChainState(&mainnetID, 100, opera.Upgrades{}, nil))
+	err = checkStoredChainState(&mainnetID, 100, opera.Upgrades{}, nil)
+	require.Error(err, "a pre-ELEMONT mainnet datadir must not resume under this binary")
+	require.Contains(err.Error(), "7892")
+
+	// A mainnet datadir one epoch below the newest pin (VinuLatestEVM at
+	// 7893) is still resumable: only that newest upgrade is left to stage.
+	// Its recorded history must be the real five-seal ladder — the guard
+	// compares each tracked upgrade's recorded block against the requirement.
+	mainnetFull := opera.VinuChainMainNetRules().Upgrades
+	mainnetSeal1 := mainnetFull
+	mainnetSeal1.Cancun, mainnetSeal1.Prague = false, false
+	mainnetSeal1.VinuBLS12381, mainnetSeal1.VinuLatestEVM = false, false
+	mainnetSeal2 := mainnetSeal1
+	mainnetSeal2.Cancun = true
+	mainnetSeal3 := mainnetSeal2
+	mainnetSeal3.Prague = true
+	mainnetSeal4 := mainnetSeal3
+	mainnetSeal4.VinuBLS12381 = true // == every ELEMONT flag but VinuLatestEVM
+
+	mainnetHeights := []opera.UpgradeHeight{
+		{Upgrades: mainnetSeal1, Height: mainnetElemontSeal1ActiveFromBlock},
+		{Upgrades: mainnetSeal2, Height: mainnetCancunActiveFromBlock},
+		{Upgrades: mainnetSeal3, Height: mainnetPragueActiveFromBlock},
+		{Upgrades: mainnetSeal4, Height: mainnetBLS12381ActiveFromBlock},
+	}
+	require.NoError(checkStoredChainState(&mainnetID, 7892, mainnetSeal4, mainnetHeights),
+		"a mainnet datadir at the newest-1 floor must still resume")
+
+	// A mainnet fork that re-staged every ELEMONT flag at one local seal must
+	// be refused on its recorded activation block, even once its epoch and
+	// flags look current.
+	mainnetForkHeights := []opera.UpgradeHeight{
+		{Upgrades: mainnetFull, Height: mainnetElemontSeal1ActiveFromBlock + 1},
+	}
+	err = checkStoredChainState(&mainnetID, 7900, mainnetFull, mainnetForkHeights)
+	require.Error(err, "a mainnet wrong-seal replay must be refused")
 }
 
 // TestCheckGenesisPresetFreshness pins the fresh-install guard: a superseded

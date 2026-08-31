@@ -25,6 +25,15 @@ const (
 	// genesis URL.
 	testnetPostPatch10BootstrapPointer = "the current post-SfcV2Patch10 chaindata snapshot at https://vinu-blockchain-genesis.s3.amazonaws.com/chaindata-snapshots/"
 
+	// mainnetPostElemontBootstrapPointer is what refused mainnet presets are
+	// pointed at after the 2026-08-29 ELEMONT activation. Both distributed
+	// mainnet genesis files pre-date SfcV2/Elemont/Shanghai/Cancun/Prague/
+	// VinuBLS12381/VinuLatestEVM/PaybackV2, so a fresh replay under current
+	// binary rules stages every one of them at the wrong local seal and
+	// diverges with "wrong event epoch hash". Existing datadirs are
+	// unaffected - SupersededBy only refuses FIRST launch.
+	mainnetPostElemontBootstrapPointer = "the post-activation chaindata snapshot at https://vinu-blockchain-mainnet-genesis.s3.amazonaws.com/chaindata-snapshots/elemont-20260829/seal-5/"
+
 	// Epoch and block at which the live testnet activated each SFC patch this
 	// binary hardcodes. These are historical facts read back from the
 	// published 2026-07-11 genesis' epoch history (sha256
@@ -37,6 +46,26 @@ const (
 	// what a store records as UpgradeHeight.Height. They are deliberately
 	// one past the deployment log's "activated at block" values (1,508,211 /
 	// 1,529,200 / 1,529,442), which name the seal block itself.
+	// Epoch and block at which live MAINNET activated each ELEMONT-era flag
+	// during the 2026-08-29/30 window. Historical fact, not policy: the epochs
+	// were observed from vc_getRules across the five seals, and each block is
+	// the FIRST block executed under the new rule set — derived by binary
+	// search on the epoch prefix encoded in every block id, and independently
+	// corroborated for epoch 7892 by eth_config's activationBlock
+	// (14,705,762). Note the seal-1 SetCode landed in block 14,701,167, which
+	// is still epoch 7888; 14,701,168 is the first block under the new rules,
+	// matching the "one past the deployment log" convention used above.
+	mainnetElemontSeal1ActiveFromEpoch = idx.Epoch(7889)
+	mainnetElemontSeal1ActiveFromBlock = idx.Block(14701168)
+	mainnetCancunActiveFromEpoch       = idx.Epoch(7890)
+	mainnetCancunActiveFromBlock       = idx.Block(14702730)
+	mainnetPragueActiveFromEpoch       = idx.Epoch(7891)
+	mainnetPragueActiveFromBlock       = idx.Block(14704227)
+	mainnetBLS12381ActiveFromEpoch     = idx.Epoch(7892)
+	mainnetBLS12381ActiveFromBlock     = idx.Block(14705762)
+	mainnetLatestEVMActiveFromEpoch    = idx.Epoch(7893)
+	mainnetLatestEVMActiveFromBlock    = idx.Block(14707397)
+
 	testnetSfcV2Patch7ActiveFromEpoch = idx.Epoch(6017)
 	testnetSfcV2Patch7ActiveFromBlock = idx.Block(1508212)
 	testnetSfcV2Patch8ActiveFromEpoch = idx.Epoch(6118)
@@ -95,6 +124,7 @@ var (
 				genesisstore.BlocksSection(0): hash.HexToHash("0x438be95bb65eee5e23d7f78d39773646f2f21a6b18266b4d73d1e723c55fb94e"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x765b90e4674d426b37d05a0e4a35addb3deec44a0cc948391b738e0e815682be"),
 			},
+			SupersededBy: mainnetPostElemontBootstrapPointer,
 		},
 
 		// Mainnet with deployed contracts
@@ -105,6 +135,24 @@ var (
 				genesisstore.EpochsSection(0): hash.HexToHash("0x482f104dc843b2f86265a3494b1047c65a8568b0578ef1c43ea9aa8c961e6a6f"),
 				genesisstore.BlocksSection(0): hash.HexToHash("0x9aab452d91d99fe26457feac40c2be7f2b31facf8edf66d815e2b0a184b871de"),
 				genesisstore.EvmSection(0):    hash.HexToHash("0x53f30bbcc37b7ba4d705aad4e79b1e1007673d64b6a1ab703e2319776a62bb3d"),
+			},
+			SupersededBy: mainnetPostElemontBootstrapPointer,
+		},
+
+		// Mainnet regenerated after the ELEMONT activation (2026-08-29/30).
+		// Exported from a canonical post-seal-5 node at epoch 7896 /
+		// block 14,711,847, so it already carries SfcV2, Elemont,
+		// ElemontPubkeyValidation, Shanghai, Cancun, Prague, VinuBLS12381,
+		// VinuLatestEVM and PaybackV2 as sealed history rather than staging
+		// them on replay. This is the only mainnet genesis a fresh install
+		// under v2.0.49-elemont+ can replay without diverging.
+		{
+			Name:   "VinuChain mainnet post-ELEMONT (2026-08-30)",
+			Header: vinuChainMainnetHeader,
+			Hashes: genesis.Hashes{
+				genesisstore.EpochsSection(0): hash.HexToHash("0x674f552ca94f2762b5c1a311580835eabc3f3882a042ad505fa98878eb332f51"),
+				genesisstore.BlocksSection(0): hash.HexToHash("0x86429387208911fa3348d486abfb02ed3f6f1fcb49402e0567989725385569bd"),
+				genesisstore.EvmSection(0):    hash.HexToHash("0x601c8d6fbdc8d7fdd1a0de63787098bfa5ce1cd9b2ff1edd8099f6b4f03b4473"),
 			},
 		},
 
@@ -223,6 +271,70 @@ var (
 	// ElemontPubkeyValidation, PaybackV2 and the EVM forks — at the epochs
 	// they actually sealed at, alongside testnet's SfcV2Patch10 pin.
 	StoredStateRequirements = []StoredStateRequirement{
+		{
+			GenesisID:   vinuChainMainnetHeader.GenesisID,
+			NetworkName: vinuChainMainnetNetworkName,
+			Activations: []UpgradeActivation{
+				{
+					Name:            "SfcV2",
+					ActiveFromEpoch: mainnetElemontSeal1ActiveFromEpoch,
+					ActiveFromBlock: mainnetElemontSeal1ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.SfcV2 },
+				},
+				{
+					Name:            "Elemont",
+					ActiveFromEpoch: mainnetElemontSeal1ActiveFromEpoch,
+					ActiveFromBlock: mainnetElemontSeal1ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.Elemont },
+				},
+				{
+					Name:            "ElemontPubkeyValidation",
+					ActiveFromEpoch: mainnetElemontSeal1ActiveFromEpoch,
+					ActiveFromBlock: mainnetElemontSeal1ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.ElemontPubkeyValidation },
+				},
+				{
+					Name:            "Shanghai",
+					ActiveFromEpoch: mainnetElemontSeal1ActiveFromEpoch,
+					ActiveFromBlock: mainnetElemontSeal1ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.Shanghai },
+				},
+				{
+					Name:            "PaybackV2",
+					ActiveFromEpoch: mainnetElemontSeal1ActiveFromEpoch,
+					ActiveFromBlock: mainnetElemontSeal1ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.PaybackV2 },
+				},
+				{
+					Name:            "Cancun",
+					ActiveFromEpoch: mainnetCancunActiveFromEpoch,
+					ActiveFromBlock: mainnetCancunActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.Cancun },
+				},
+				{
+					Name:            "Prague",
+					ActiveFromEpoch: mainnetPragueActiveFromEpoch,
+					ActiveFromBlock: mainnetPragueActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.Prague },
+				},
+				{
+					Name:            "VinuBLS12381",
+					ActiveFromEpoch: mainnetBLS12381ActiveFromEpoch,
+					ActiveFromBlock: mainnetBLS12381ActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.VinuBLS12381 },
+				},
+				{
+					Name:            "VinuLatestEVM",
+					ActiveFromEpoch: mainnetLatestEVMActiveFromEpoch,
+					ActiveFromBlock: mainnetLatestEVMActiveFromBlock,
+					Active:          func(u opera.Upgrades) bool { return u.VinuLatestEVM },
+				},
+			},
+			Bootstrap: mainnetPostElemontBootstrapPointer,
+			// Every ELEMONT-era flag this binary hardcodes for mainnet is now
+			// pinned historical fact — nothing is staged-but-unpinned — so the
+			// usual newest-1 floor applies.
+		},
 		{
 			GenesisID:   vinuChainTestnetHeader.GenesisID,
 			NetworkName: vinuChainTestnetNetworkName,
