@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RPC_URL="${RPC_URL:-https://vinufoundation-rpc.com}"
+RPC_URL="${RPC_URL:-https://testnet-rpc.vinuchain.org}"
 EXPECTED_CHAIN_ID="${EXPECTED_CHAIN_ID:-0xce}"
 EXPECTED_CLIENT_VERSION="${EXPECTED_CLIENT_VERSION:-v2.0.19-elemont}"
 EXPECTED_CLIENT_COMMIT="${EXPECTED_CLIENT_COMMIT:-}"
