@@ -105,7 +105,7 @@ authoritative, always-present source) and corrects the template/identity drift.
 - `sonar-project.properties`
 
 **Out of scope** (do NOT touch):
-- Any `.go` file, CI config, or the gitignored `.claude/rules/deployment-log.md`
+- Any `.go` file, CI config, or the gitignored `.claude/docs/deployment-log.md`
   (it may not exist in a clean checkout — do not depend on it; if it *is* present
   it can be used as a richer source for entry prose, but git is the source of truth).
 - Do NOT create a `MAINTAINERS` file (you do not know the maintainer list);
