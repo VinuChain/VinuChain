@@ -47,7 +47,7 @@ custody) deliberately stays out of the public doc.
 - There is no tracked upgrade runbook (`ls docs/*runbook* docs/*upgrade* 2>/dev/null`
   → only `docs/upgrade-guide-genesis-validators.md`, which is a validator setup
   guide, not the hard-fork rollout sequence).
-- An internal, **gitignored** `.claude/rules/deployment-log.md` holds the full
+- An internal, **gitignored** `.claude/docs/deployment-log.md` holds the full
   ops detail. The runbook should reference it for box-specific steps but must be
   self-sufficient for the protocol-level procedure.
 
@@ -119,7 +119,7 @@ SIGINT/`systemctl restart`.
 
 **Out of scope** (do NOT touch):
 - Any `.go` file, CI, or other docs.
-- The gitignored `.claude/rules/deployment-log.md` (read-reference only; do not
+- The gitignored `.claude/docs/deployment-log.md` (read-reference only; do not
   copy its infra/key specifics into the public doc).
 - Do NOT actually perform any upgrade step — this plan writes the runbook only.
 
